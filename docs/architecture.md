@@ -88,13 +88,18 @@ flowchart TB
 | 経路 | 保護 |
 | --- | --- |
 | ブラウザ → Next.js | HTTPS。管理画面はセッション Cookie |
-| Next.js → Spring Boot | HTTPS + **内部 API キー**（共有シークレット）をヘッダに付与 |
+| Next.js → Spring Boot | HTTPS + **内部 API キー**（公開用・管理用の 2 種類）をヘッダに付与 |
 | Spring Boot → Neon | TLS + 接続文字列 |
 | Spring Boot → X API | HTTPS + Bearer Token |
 
 **Spring Boot は実質インターネットに露出する。** Vercel の送信 IP は固定されないため
-IP 制限が使えない。代わりに全リクエストへ内部 API キーを要求し、
-一致しないものを拒否する。キーが漏れた場合に備え、公開 API は `GET` のみを提供する（NFR-03）。
+IP 制限が使えない。代わりに全リクエストへ内部 API キーを要求し、一致しないものを拒否する。
+
+**キーは公開用と管理用の 2 種類に分ける。** 公開データの取得キーは全ページの
+レンダリングで使われて露出機会が多く、1 種類だとそれが漏れただけで
+管理操作まで通ってしまう。Next.js は**管理者セッション Cookie の検証に成功した場合にのみ**
+管理キーを使い、公開ページのレンダリングでは読み込まない。
+加えて公開 API は `GET` のみを提供する（NFR-03）。詳細は [api.md](api.md) 第 2 章。
 
 ### 3.2 管理者の認証フロー
 
@@ -105,7 +110,7 @@ sequenceDiagram
     participant S as Spring Boot
 
     B->>N: POST /admin/login（パスワード）
-    N->>S: POST /internal/auth（内部 API キー + パスワード）
+    N->>S: POST /internal/auth（管理 API キー + パスワード）
     S->>S: BCrypt で環境変数のハッシュと照合
     S-->>N: 成功 / 失敗
     N->>N: セッションを署名・暗号化
@@ -265,7 +270,8 @@ FR-08 で最終更新日時を表示するため、この遅延は閲覧者に�
 | 変数 | 用途 |
 | --- | --- |
 | `BACKEND_BASE_URL` | Spring Boot のベース URL |
-| `BACKEND_INTERNAL_API_KEY` | 内部 API キー。**サーバ側でのみ使う** |
+| `BACKEND_API_KEY` | 公開 API 用の内部キー |
+| `BACKEND_ADMIN_API_KEY` | 管理 API 用の内部キー。**Cookie 検証に成功したときだけ使う** |
 | `SESSION_SECRET` | セッション Cookie の署名・暗号化鍵 |
 
 `NEXT_PUBLIC_` を付けるとブラウザに露出する。**上記のいずれにも付けない。**
@@ -278,7 +284,8 @@ FR-08 で最終更新日時を表示するため、この遅延は閲覧者に�
 | `X_BEARER_TOKEN` | X API の認証。**課金に直結する** |
 | `X_SOURCE_USERNAME` | 情報源アカウントのハンドル |
 | `ADMIN_PASSWORD_HASH` | 管理者パスワードの BCrypt ハッシュ |
-| `INTERNAL_API_KEY` | Next.js から受け取る共有シークレット |
+| `INTERNAL_API_KEY` | 公開 API 用の共有シークレット |
+| `INTERNAL_ADMIN_API_KEY` | 管理 API・内部 API 用の共有シークレット |
 
 `spring.jpa.hibernate.ddl-auto` は `validate` に固定する
 （[data-model.md](data-model.md) 第 8 章）。
