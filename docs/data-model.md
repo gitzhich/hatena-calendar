@@ -49,7 +49,8 @@ erDiagram
     appearance {
         bigserial   id PK
         date        appearance_date "JST の暦日"
-        text        event_name "日付との組で一意"
+        text        event_name "表示用。原文のまま"
+        text        event_key "照合用。正規化後。日付との組で一意"
         text        venue_name "都道府県・ステージ名を含む"
         time        performance_start_time "XINXIN の出演開始（任意）"
         time        performance_end_time "XINXIN の出演終了（任意）"
@@ -161,6 +162,7 @@ CREATE TABLE appearance (
     id                     BIGSERIAL   PRIMARY KEY,
     appearance_date        DATE        NOT NULL,
     event_name             TEXT        NOT NULL CHECK (length(event_name) BETWEEN 1 AND 200),
+    event_key              TEXT        NOT NULL CHECK (length(event_key) BETWEEN 1 AND 200),
     venue_name             TEXT        CHECK (venue_name IS NULL OR length(venue_name) <= 300),
     performance_start_time TIME,
     performance_end_time   TIME,
@@ -181,14 +183,15 @@ CREATE TABLE appearance (
             OR performance_start_time <= performance_end_time),
 
     CONSTRAINT appearance_unique_event
-        UNIQUE (appearance_date, event_name)
+        UNIQUE (appearance_date, event_key)
 );
 ```
 
 | 列 | 説明 |
 | --- | --- |
 | `appearance_date` | **JST の暦日**。カレンダーの配置に使う（第 6 章） |
-| `event_name` | イベント名。`appearance_date` との組で一意（第 4.3.2 節） |
+| `event_name` | **表示用のイベント名。告知の原文をそのまま保持する** |
+| `event_key` | **照合用の正規化済みイベント名。** 画面には出さない。`appearance_date` との組で一意（第 4.3.2 節） |
 | `venue_name` | 会場名。**都道府県とステージ名を含めた形**で保持する（下記） |
 | `performance_start_time` | **XINXIN の出演開始時刻**（JST）。告知の 🎤 行から抽出する |
 | `performance_end_time` | XINXIN の出演終了時刻（JST） |
@@ -229,9 +232,77 @@ CREATE TABLE appearance (
 チケット URL が `http://kusanoneidolfes.com/#ticket` であるため。
 一方 `source_url` は X の投稿 URL を組み立てるので `^https://` に固定する。
 
-#### 4.3.2 同一イベントの一意性
+#### 4.3.2 同一イベントの一意性と event_key
 
-`UNIQUE (appearance_date, event_name)` を張る。同じ日に同じイベント名の行を作らせない。
+**表示と照合で列を分ける。**
+
+| 列 | 用途 | 値 |
+| --- | --- | --- |
+| `event_name` | 画面に出す | 告知の原文（`『ORANGE CHEER』`） |
+| `event_key` | 同一判定にだけ使う | 正規化後（`orangecheer`） |
+
+画面には常に `event_name` を出す。正規化した文字列を表示に使うと、
+**元の告知と違う名前がカレンダーに並ぶ**ことになるため、両者を混同しない。
+
+`UNIQUE (appearance_date, event_key)` を張る。制約を `event_key` 側に置くことで、
+アプリケーションの照合ロジックと DB の制約が**同じキーで判定する**。
+`event_name` に制約を張ると、表記ゆれをアプリが吸収しても DB が別物として通してしまい、
+二重登録を防げない。
+
+##### 正規化ルール
+
+1. **NFKC 正規化**（半角カナ → 全角、全角英数 → 半角）
+2. 小文字化
+3. 英数字・日本語文字**以外**（記号・空白・括弧・句読点）をすべて除去
+
+実サンプルに適用した結果:
+
+| `event_name`（原文＝表示用） | `event_key`（照合用） |
+| --- | --- |
+| `#ﾆｷﾌﾟﾚ『カンシャサイ。-秋-』` | `ニキプレカンシャサイ秋` |
+| `『ORANGE CHEER』` | `orangecheer` |
+| `｢IGNITION-狂騒-｣` | `ignition狂騒` |
+| `lonlium pre.『LONELY KIDS』` | `lonliumprelonelykids` |
+| `「くさのねアイドルフェスティバル2026」` | `くさのねアイドルフェスティバル2026` |
+
+NFKC 正規化は必須。実サンプル 1.txt のイベント名には**半角カナ**（`ﾆｷﾌﾟﾚ`）が含まれ、
+同じイベントが全角で再告知された場合に別物と判定されてしまうため。
+
+表記ゆれの吸収例（すべて同じ `event_key` になる）:
+
+```
+『ORANGE CHEER』   →  orangecheer
+ORANGE CHEER      →  orangecheer
+「ORANGE　CHEER」  →  orangecheer   （全角空白・別の括弧）
+```
+
+##### 切り詰めをしない理由
+
+「先頭数文字だけをキーにする」案は**採用しない**。実データで破綻する。
+
+| 問題 | 例 |
+| --- | --- |
+| 日本語のみの名前で空になる | `#ﾆｷﾌﾟﾚ『カンシャサイ。-秋-』` → 英数字 5 文字では `''` |
+| 別イベントが衝突する | `LONELY KIDS` と `LONELY NIGHT` が両方 `lonel` |
+| 同上 | `ORANGE CHEER` と `ORANGE PARTY` が両方 `orang` |
+
+キーが衝突すると、同じ日に掛け持ち出演した**別のイベントを同一とみなして空欄補完し、
+片方がカレンダーから消える**。誤情報の公開に直結するため、全長を使う。
+
+##### 生成の責任
+
+`event_key` は**アプリケーション層で設定する**（生成列にしない）。
+NFKC 正規化を含むため PostgreSQL の生成列では表現が環境依存になりやすく、
+Java 側の `java.text.Normalizer` で確実に処理するほうが挙動を検証しやすい。
+
+`event_name` を変更する経路（自動登録・手動登録・編集）すべてで
+`event_key` を必ず再計算する。サービス層に単一の生成メソッドを置き、
+そこを通さずに `appearance` を保存しない。
+
+正規化結果が空文字になる場合（記号だけのイベント名）は、
+フォールバックとして `event_name` を小文字化した値を使う。`NOT NULL` を守るため。
+
+##### 制約が守る範囲
 
 公式は 1 つのイベントについて**複数回に分けて告知する**（実サンプル参照）。
 
@@ -240,9 +311,9 @@ CREATE TABLE appearance (
 ② 「XINXIN千葉公演タイムテーブル解禁」→ 出演時刻を後から告知
 ```
 
-この制約と第 7 章の補完ルールにより、②が①の行を二重に作らず、空欄を埋める形で反映される。
+この制約と第 7.1 節の補完ルールにより、②が①の行を二重に作らず、空欄を埋める形で反映される。
 
-同じ日に別のイベントへ掛け持ち出演する場合は `event_name` が異なるため制約に触れない。
+同じ日に別のイベントへ掛け持ち出演する場合は `event_key` が異なるため制約に触れない。
 複数日開催のイベントは `appearance_date` が異なるため同様。
 
 **1 つの投稿から複数の出演情報が生まれうる。** 「8/30 と 8/31 に出演」のように
@@ -305,7 +376,7 @@ CREATE INDEX idx_ingestion_run_status_finished
 ```
 
 `UNIQUE` 制約には自動でインデックスが作られるため、別途定義しない。
-これには `appearance_unique_event (appearance_date, event_name)` も含まれる。
+これには `appearance_unique_event (appearance_date, event_key)` も含まれる。
 **先頭列が `appearance_date` なので、月次の範囲検索にそのまま使える。**
 1 か月分の取得は `WHERE appearance_date BETWEEN ? AND ?` の 1 クエリで完結する（NFR-01）。
 `appearance_date` 単独のインデックスは重複するため作らない。
@@ -352,8 +423,8 @@ CREATE INDEX idx_ingestion_run_status_finished
 公式は 1 つのイベントを複数回に分けて告知する（第 4.3.2 節）。
 後続の告知は既存の行を二重に作らず、**空欄を埋める形で反映する**。
 
-1. 抽出した出演情報について、`appearance_date` が一致し、
-   **正規化した `event_name` が一致する**既存行を探す
+1. 抽出した出演情報について、`appearance_date` と `event_key` が一致する既存行を探す
+   （`event_key` の作り方は第 4.3.2 節）
 2. 見つからなければ新規登録（`INSERT`）
 3. 見つかれば、**値が `NULL` の列だけ**を埋める（`UPDATE`）
 
@@ -365,10 +436,12 @@ CREATE INDEX idx_ingestion_run_status_finished
 出演時刻を載せた告知が出典として示されるべきで、
 時刻の書かれていない最初の告知を指し続けるのは FR-06 の趣旨に反するため。
 
-照合時のイベント名の正規化は、記号と空白の差を吸収する目的で行う
-（`『』「」｢｣` などの括弧、全角・半角の空白、前後の空白を除去して比較）。
-DB の `UNIQUE` 制約は完全一致でしか働かないため、正規化で取りこぼすと二重登録になる。
-その保険として FR-23 の手動削除を残す。
+照合に使うのは `event_key` であり、`UNIQUE` 制約も同じ列に張られているため、
+**アプリケーションの判定と DB の制約が食い違わない**。
+
+ただし正規化は表記の揺れ（括弧・空白・全角半角）しか吸収できない。
+略称と正式名称が使い分けられた場合（`カンシャサイ` と `カンシャサイ。-秋-` など）は
+別イベントとして登録される。この取りこぼしの保険として FR-23 の手動削除を残す。
 
 補完の対象は `AUTO` の行に限らず `MANUAL` の行も含む。
 管理者が先に手で登録したイベントへ、後から公式のタイムテーブルが届く場合があるため。
@@ -434,8 +507,10 @@ backend/src/main/resources/db/migration/
 
 ## 10. 未決定事項
 
-1. **イベント名の正規化ルールの具体化**（第 7.1 節）。どの記号までを
-   除去対象にするかで、同一イベントの判定精度が変わる。実サンプルを増やして詰める
+1. **正規化で吸収できない表記ゆれへの対処**（第 4.3.2 節）。
+   正規化ルール自体は確定したが、略称と正式名称の使い分け、
+   サブタイトルの有無といった違いは吸収できない。
+   実運用で取りこぼしが目立つようなら、類似度による候補提示などを検討する
 2. **`event_name` と `venue_name` の正規化（テーブル分割）**。現時点では
    `appearance` に文字列で持たせる。会場別の絞り込みは非スコープであり、
    会場名の表記ゆれを吸収する必要が出るまで別テーブルにしない
