@@ -18,14 +18,26 @@
 
 ## 技術スタック
 
-| 層 | 技術 |
-| --- | --- |
-| フロントエンド | Next.js (App Router) / TypeScript |
-| バックエンド | Spring Boot / Java |
-| DB | PostgreSQL |
-| マイグレーション | Flyway（番号付き SQL。`backend/src/main/resources/db/migration/`） |
-| 外部 API | X API v2（従量課金 / OAuth2 App-Only） |
-| モバイル（将来） | Expo + EAS |
+| 層 | 技術 | ホスティング |
+| --- | --- | --- |
+| フロントエンド / BFF | Next.js (App Router) / TypeScript | Vercel |
+| バックエンド | Spring Boot / Java | Fly.io（**常時起動**） |
+| DB | PostgreSQL | Neon（Free） |
+| マイグレーション | Flyway（番号付き SQL。`backend/src/main/resources/db/migration/`） | — |
+| 外部 API | X API v2（従量課金 / OAuth2 App-Only） | — |
+| モバイル（将来） | Expo + EAS | EAS |
+
+月額の見込みは約 $4〜7（X API 込み）。詳細は `docs/architecture.md`。
+
+### 構成の原則
+
+- **ブラウザから Spring Boot を直接呼ばない。** すべて Next.js を経由する（BFF 構成）。
+  バックエンドの URL や内部 API キーを `NEXT_PUBLIC_` 付きの環境変数で扱わない
+  （付けるとブラウザに露出する）
+- **Fly.io は常時起動、インスタンスは 1 台に固定。** スリープすると `@Scheduled` の
+  取り込みが止まり、複数台だと多重起動する
+- **Neon の無料枠はコンピュート時間（100 CU-hours/月）が制約。**
+  公開ページは ISR でキャッシュし、閲覧アクセスを DB まで届かせない
 
 ## ディレクトリ構成
 
@@ -220,12 +232,17 @@ Owned Read（$0.001）は自アプリのオーナー自身のデータのみが�
 ## 未決定事項
 
 実装を始める前に決着させる。決まったら本ファイルと `docs/adr/` を更新する。
+構成に関する決定は `docs/architecture.md` にまとまっている。
 
-1. 認証方式（セッション or JWT、Next.js を BFF にするか）。
-   **単一管理者・DB にユーザーテーブルを持たない**前提で選ぶ
-2. PostgreSQL のホスティング先
-3. デプロイ構成（フロント / バックエンド / DB をどこに置くか）
-4. ポーリングの実行基盤（Spring の `@Scheduled` かジョブ基盤か）と間隔の確定
+1. **深夜公演の日付配置ルール**。「26:00 開演」を翌日扱いにすると、
+   告知どおりの日付で探すファンの直感とずれる（`docs/requirements.md` 未決定事項 7）
+2. **抽出精度の目標水準**。承認フローを持たないため、
+   抽出精度が公開情報の品質を直接決める（同 未決定事項 6）
+3. **情報源アカウントの X ハンドルの確定**（同 未決定事項 5）
+4. **CI の構成**。GitHub Actions を想定。
+   **X API を叩くテストを CI に含めない**ことだけは確定
+
+各文書に固有の未決定事項は、それぞれの文書末尾を参照する。
 
 ## Git 運用
 
