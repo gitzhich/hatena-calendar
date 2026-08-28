@@ -49,10 +49,10 @@ erDiagram
     appearance {
         bigserial   id PK
         date        appearance_date "JST の暦日"
-        time        start_time "JST の開始時刻（任意）"
-        text        event_name
-        text        venue_name
-        text        performance_time
+        text        event_name "日付との組で一意"
+        text        venue_name "都道府県・ステージ名を含む"
+        time        performance_start_time "XINXIN の出演開始（任意）"
+        time        performance_end_time "XINXIN の出演終了（任意）"
         text        ticket_url
         text        source_url "出典 X 投稿 URL"
         text        source_type "AUTO / MANUAL"
@@ -158,33 +158,92 @@ CREATE TABLE ingested_post (
 
 ```sql
 CREATE TABLE appearance (
-    id               BIGSERIAL   PRIMARY KEY,
-    appearance_date  DATE        NOT NULL,
-    start_time       TIME,
-    event_name       TEXT        NOT NULL CHECK (length(event_name) BETWEEN 1 AND 200),
-    venue_name       TEXT        CHECK (venue_name IS NULL OR length(venue_name) <= 200),
-    performance_time TEXT        CHECK (performance_time IS NULL OR length(performance_time) <= 100),
-    ticket_url       TEXT        CHECK (ticket_url IS NULL OR ticket_url ~ '^https://'),
-    source_url       TEXT        NOT NULL CHECK (source_url ~ '^https://'),
-    source_type      TEXT        NOT NULL CHECK (source_type IN ('AUTO', 'MANUAL')),
-    ingested_post_id BIGINT      REFERENCES ingested_post (id),
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    id                     BIGSERIAL   PRIMARY KEY,
+    appearance_date        DATE        NOT NULL,
+    event_name             TEXT        NOT NULL CHECK (length(event_name) BETWEEN 1 AND 200),
+    venue_name             TEXT        CHECK (venue_name IS NULL OR length(venue_name) <= 300),
+    performance_start_time TIME,
+    performance_end_time   TIME,
+    ticket_url             TEXT        CHECK (ticket_url IS NULL OR ticket_url ~ '^https?://'),
+    source_url             TEXT        NOT NULL CHECK (source_url ~ '^https://'),
+    source_type            TEXT        NOT NULL CHECK (source_type IN ('AUTO', 'MANUAL')),
+    ingested_post_id       BIGINT      REFERENCES ingested_post (id),
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
 
     CONSTRAINT appearance_auto_requires_post
         CHECK ((source_type = 'AUTO' AND ingested_post_id IS NOT NULL)
-            OR (source_type = 'MANUAL'))
+            OR (source_type = 'MANUAL')),
+
+    CONSTRAINT appearance_time_order
+        CHECK (performance_start_time IS NULL
+            OR performance_end_time IS NULL
+            OR performance_start_time <= performance_end_time),
+
+    CONSTRAINT appearance_unique_event
+        UNIQUE (appearance_date, event_name)
 );
 ```
 
 | 列 | 説明 |
 | --- | --- |
 | `appearance_date` | **JST の暦日**。カレンダーの配置に使う（第 6 章） |
-| `start_time` | JST の開始時刻。**未定を表現するため nullable**（FR-03 で時刻なしを後ろに並べる） |
-| `performance_time` | 「19:30-20:00」のような出演時間。表記が多様なため構造化せず文字列で保持する |
+| `event_name` | イベント名。`appearance_date` との組で一意（第 4.3.2 節） |
+| `venue_name` | 会場名。**都道府県とステージ名を含めた形**で保持する（下記） |
+| `performance_start_time` | **XINXIN の出演開始時刻**（JST）。告知の 🎤 行から抽出する |
+| `performance_end_time` | XINXIN の出演終了時刻（JST） |
+| `ticket_url` | チケット販売ページ。**価格は保持しない**（下記） |
 | `source_url` | 出典 X 投稿の URL。**手動登録でも必須**（FR-06。根拠のないデータを公開しない） |
 | `source_type` | `AUTO`（自動取り込み）/ `MANUAL`（管理者が手で登録）。FR-24 の一覧はこれで絞る |
 | `ingested_post_id` | 自動登録なら抽出元の投稿を指す。手動登録は `NULL` |
+
+#### 4.3.1 実際の告知投稿との対応
+
+`docs/x-post-sample/` の実データに基づく。告知は絵文字が項目マーカーになっている。
+
+| 告知の記述 | 対応する列 |
+| --- | --- |
+| `9/16(水)` | `appearance_date`（**年は書かれていない**。投稿日時から補い、曜日で検証する） |
+| `📍愛知・大須RADHALL` | `venue_name` |
+| `lonlium pre.『LONELY KIDS』` | `event_name` |
+| `🎤19:50-20:15 XINXIN出演` | `performance_start_time` / `performance_end_time` |
+| `🔗https://livepocket.jp/...` | `ticket_url` |
+
+**`venue_name` に都道府県とステージ名を含める。** 告知は必ず「愛知・大須RADHALL」の形式で
+都道府県が付く。フェスではさらに「📍Orange Shelter」のステージ指定が入る。
+これらを別列に分けないのは、地域別の絞り込みが非スコープであり、
+分割してもカレンダー表示で再び連結するだけだから。
+1 つのイベントが複数会場にまたがるサーキット形式（実サンプル 1.txt は 7 会場）もあるため、
+長さ上限は 300 文字とする。
+
+**イベントの OPEN / START 時刻と物販時刻は保持しない。** 告知には
+`⏰OPEN 17:00 / START 17:30` や `📸17:15-18:20 並行物販` があるが、
+閲覧者が最も必要とするのは XINXIN の出演時刻であり、
+その他は出典 X 投稿（`source_url`）で確認できる。列を増やさず MVP を軽く保つ。
+
+**チケット価格は保持しない。** 券種が「先行 / 一般 / 早期 / 通常 / 当日 / 2Days 通し /
+女性学生」と多様で構造化が難しく、転記ミスによる誤った価格の公開はファンに実害を与える。
+価格は `ticket_url` の先で確認してもらう（LR-02 の観点でも安全）。
+
+`ticket_url` の `CHECK` が `^https?://` と `http` を許すのは、実サンプル 5.txt の
+チケット URL が `http://kusanoneidolfes.com/#ticket` であるため。
+一方 `source_url` は X の投稿 URL を組み立てるので `^https://` に固定する。
+
+#### 4.3.2 同一イベントの一意性
+
+`UNIQUE (appearance_date, event_name)` を張る。同じ日に同じイベント名の行を作らせない。
+
+公式は 1 つのイベントについて**複数回に分けて告知する**（実サンプル参照）。
+
+```
+① 「XINXIN東京公演情報解禁」   → 日付・会場・イベント名・チケット（出演時刻はまだ無い）
+② 「XINXIN千葉公演タイムテーブル解禁」→ 出演時刻を後から告知
+```
+
+この制約と第 7 章の補完ルールにより、②が①の行を二重に作らず、空欄を埋める形で反映される。
+
+同じ日に別のイベントへ掛け持ち出演する場合は `event_name` が異なるため制約に触れない。
+複数日開催のイベントは `appearance_date` が異なるため同様。
 
 **1 つの投稿から複数の出演情報が生まれうる。** 「8/30 と 8/31 に出演」のように
 1 つの告知へ複数の日程が書かれる場合、`ingested_post` 1 行に対して `appearance` が
@@ -193,9 +252,11 @@ CREATE TABLE appearance (
 `appearance_auto_requires_post` により、「自動登録なのに抽出元が不明」という
 不整合をデータベース側で防ぐ。
 
-URL 列の `CHECK` は `https://` で始まることだけを検証する簡易なもの。
+URL 列の `CHECK` はスキームだけを検証する簡易なもの。
 X 由来の値を信頼しない方針（NFR-03）の最後の砦であり、
 本格的な検証はアプリケーション側（Bean Validation）で行う。
+
+`appearance_time_order` は、抽出ミスで終了時刻が開始時刻より前になった行を弾く。
 
 **`updated_at` はアプリケーション側で更新する**（JPA の `@UpdateTimestamp`）。
 トリガーを使うと更新経路が SQL とアプリの二箇所に分かれ、追いにくくなるため。
@@ -230,9 +291,6 @@ FR-08 の「最後に取り込みが成功した日時」は
 ## 5. インデックス
 
 ```sql
--- カレンダーの月次表示（FR-01, FR-03）。範囲検索が主
-CREATE INDEX idx_appearance_date ON appearance (appearance_date);
-
 -- 自動登録された出演情報の点検一覧（FR-24）
 CREATE INDEX idx_appearance_source_type_created
     ON appearance (source_type, created_at DESC);
@@ -246,11 +304,11 @@ CREATE INDEX idx_ingestion_run_status_finished
     ON ingestion_run (status, finished_at DESC);
 ```
 
-`ingested_post.tweet_id` と `source_account` の各 `UNIQUE` 制約には
-自動でインデックスが作られるため、別途定義しない。
-
-`appearance_date` にインデックスを置くことで、1 か月分の取得が
-`WHERE appearance_date BETWEEN ? AND ?` の 1 クエリで完結する（NFR-01）。
+`UNIQUE` 制約には自動でインデックスが作られるため、別途定義しない。
+これには `appearance_unique_event (appearance_date, event_name)` も含まれる。
+**先頭列が `appearance_date` なので、月次の範囲検索にそのまま使える。**
+1 か月分の取得は `WHERE appearance_date BETWEEN ? AND ?` の 1 クエリで完結する（NFR-01）。
+`appearance_date` 単独のインデックスは重複するため作らない。
 
 ---
 
@@ -264,7 +322,7 @@ CREATE INDEX idx_ingestion_run_status_finished
 | 種類 | 型 | 例 | 扱い |
 | --- | --- | --- | --- |
 | システムの時刻 | `TIMESTAMPTZ` | `created_at`, `posted_at`, `started_at` | **UTC で保存**し、表示時に JST へ変換する |
-| イベントの開催日・開始時刻 | `DATE` / `TIME` | `appearance_date`, `start_time` | **JST のローカル値として保存**し、UTC に変換しない |
+| イベントの開催日・出演時刻 | `DATE` / `TIME` | `appearance_date`, `performance_start_time` | **JST のローカル値として保存**し、UTC に変換しない |
 
 **なぜイベントの日付を UTC にしないか。** 「8 月 30 日の出演」という情報は、
 特定の瞬間ではなく**暦日そのもの**を指す。これを `TIMESTAMPTZ` に変換すると
@@ -276,17 +334,46 @@ CREATE INDEX idx_ingestion_run_status_finished
 
 - 月次クエリは `WHERE appearance_date BETWEEN '2026-08-01' AND '2026-08-31'` と書ける
 - サーバやコンテナの `TZ` 設定に結果が依存しない
-- `start_time` が `NULL` でも日付は確定する（時刻未定の出演情報を表現できる）
+- `performance_start_time` が `NULL` でも日付は確定する
+  （タイムテーブル未発表の出演情報を表現できる。実サンプル 1.txt がこのケース）
 
 **深夜公演の扱い。** 「26:00 開演」のような表記は、`appearance_date` を翌日、
-`start_time` を `02:00` として保存する（実際に時刻が属する暦日に置く）。
+`performance_start_time` を `02:00` として保存する（実際に時刻が属する暦日に置く）。
 ただしこの方針は告知どおりの日付で探すファンの直感とずれる可能性があり、
 [docs/requirements.md](requirements.md) の未決定事項 7 として再検討の対象になっている。
 **実装前に結論を出すこと。**
 
 ---
 
-## 7. 削除と冪等性
+## 7. 更新・削除と冪等性
+
+### 7.1 追加告知による空欄補完
+
+公式は 1 つのイベントを複数回に分けて告知する（第 4.3.2 節）。
+後続の告知は既存の行を二重に作らず、**空欄を埋める形で反映する**。
+
+1. 抽出した出演情報について、`appearance_date` が一致し、
+   **正規化した `event_name` が一致する**既存行を探す
+2. 見つからなければ新規登録（`INSERT`）
+3. 見つかれば、**値が `NULL` の列だけ**を埋める（`UPDATE`）
+
+**値が入っている列は上書きしない。** これにより、管理者が手で直した内容が
+後続の取り込みで巻き戻らない（FR-22）。公式が日程変更や中止を告知した場合は
+既存の値を書き換える必要があるが、それは自動では行わず管理者が手で対応する。
+
+補完が起きたときは `source_url` と `ingested_post_id` も**その告知のものへ更新する**。
+出演時刻を載せた告知が出典として示されるべきで、
+時刻の書かれていない最初の告知を指し続けるのは FR-06 の趣旨に反するため。
+
+照合時のイベント名の正規化は、記号と空白の差を吸収する目的で行う
+（`『』「」｢｣` などの括弧、全角・半角の空白、前後の空白を除去して比較）。
+DB の `UNIQUE` 制約は完全一致でしか働かないため、正規化で取りこぼすと二重登録になる。
+その保険として FR-23 の手動削除を残す。
+
+補完の対象は `AUTO` の行に限らず `MANUAL` の行も含む。
+管理者が先に手で登録したイベントへ、後から公式のタイムテーブルが届く場合があるため。
+
+### 7.2 削除と冪等性
 
 FR-23 の「削除しても同じ投稿から再び出演情報が作られない」を、次の形で担保する。
 
@@ -326,12 +413,14 @@ backend/src/main/resources/db/migration/
 
 | 要件 | 対応するテーブル / 列 |
 | --- | --- |
-| FR-01, FR-03 カレンダー表示 | `appearance.appearance_date` + `idx_appearance_date` |
+| FR-01, FR-03 カレンダー表示 | `appearance.appearance_date`（`appearance_unique_event` のインデックスを利用） |
+| FR-03 出演の並び順 | `appearance.performance_start_time`（`NULL` は末尾に置く） |
 | FR-04 詳細表示 | `appearance` の各列（`NULL` の列は画面に出さない） |
 | FR-06 出典リンク | `appearance.source_url`（`NOT NULL`） |
 | FR-08 最終更新日時 | `ingestion_run.finished_at` (`status = 'SUCCESS'`) |
 | FR-22 編集 | `appearance.updated_at` |
 | FR-23 削除の冪等性 | `ingested_post.tweet_id` の `UNIQUE` |
+| 追加告知の補完 | `appearance_unique_event` + 第 7.1 節 |
 | FR-24 自動登録の点検 | `appearance.source_type` + `idx_appearance_source_type_created` |
 | FR-25 未処理投稿 | `ingested_post.status = 'UNPARSED'` |
 | FR-40 差分取得 | `source_account.last_fetched_tweet_id` |
@@ -345,12 +434,14 @@ backend/src/main/resources/db/migration/
 
 ## 10. 未決定事項
 
-1. **`event_name` と `venue_name` の正規化**。現時点では `appearance` に文字列で
-   持たせる（非正規化）。会場別の絞り込みは非スコープであり、
-   同じ会場名の表記ゆれを吸収する必要が出るまで別テーブルにしない
-2. **`performance_time` の構造化**。「19:30-20:00」「3 番目」「時間未定」など
-   表記が多様なため、当面は文字列のまま持つ。集計要件が出たら再検討する
-3. **タイムゾーンをアプリ全体でどう固定するか**（JVM の `user.timezone`、
+1. **イベント名の正規化ルールの具体化**（第 7.1 節）。どの記号までを
+   除去対象にするかで、同一イベントの判定精度が変わる。実サンプルを増やして詰める
+2. **`event_name` と `venue_name` の正規化（テーブル分割）**。現時点では
+   `appearance` に文字列で持たせる。会場別の絞り込みは非スコープであり、
+   会場名の表記ゆれを吸収する必要が出るまで別テーブルにしない
+3. **イベントの OPEN / START 時刻と物販時刻を将来持つか**（第 4.3.1 節）。
+   MVP では持たない。特典会の時刻を知りたいという要望が出たら追加を検討する
+4. **タイムゾーンをアプリ全体でどう固定するか**（JVM の `user.timezone`、
    PostgreSQL の `timezone` 設定、コンテナの `TZ`）。第 6 章の設計は
    これらに依存しないが、`TIMESTAMPTZ` の表示変換には影響する
-4. **深夜公演の日付配置**（第 6 章）。requirements.md 未決定事項 7 と同一
+5. **深夜公演の日付配置**（第 6 章）。requirements.md 未決定事項 7 と同一
