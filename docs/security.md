@@ -95,7 +95,7 @@
 `🔗javascript:...` と書けば抽出対象になりうるため、次の 3 層で防ぐ。
 
 1. **抽出時**: 正規表現が `https?://` で始まる URL のみを拾う
-   （[x-integration.md](x-integration.md) 第 5.7 節）
+   （[x-integration.md](x-integration.md) 第 5.8 節）
 2. **保存時**: DB の `CHECK` 制約（`ticket_url ~ '^https?://'`）
 3. **表示時**: リンクを描画する前にスキームを再検証する
 

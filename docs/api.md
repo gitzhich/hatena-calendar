@@ -70,10 +70,10 @@ Spring Security で**デフォルト拒否**にし、パスごとに必要なキ
 | 種類 | 形式 | 例 | 意味 |
 | --- | --- | --- | --- |
 | イベントの開催日 | `YYYY-MM-DD` | `"2026-09-15"` | **JST の暦日**。オフセットを付けない |
-| 出演時刻 | `HH:mm:ss` | `"19:50:00"` | **JST のローカル時刻**。オフセットを付けない |
+| 出演時刻・物販時刻 | `HH:mm:ss` | `"19:50:00"` | **JST のローカル時刻**。オフセットを付けない |
 | システム日時 | ISO 8601（UTC） | `"2026-08-28T01:00:00Z"` | 作成日時・取り込み日時など |
 
-イベントの開催日と出演時刻に**タイムゾーン情報を付けない**。
+イベントの開催日・出演時刻・物販時刻に**タイムゾーン情報を付けない**。
 これらは特定の瞬間ではなく暦日・ローカル時刻であり、
 オフセットを付けるとクライアント側の変換で日付がずれる。
 
@@ -137,6 +137,8 @@ GET /api/public/appearances?from=2026-09-01&to=2026-09-30
       "venueName": "愛知・大須RADHALL",
       "performanceStartTime": "19:50:00",
       "performanceEndTime": "20:15:00",
+      "merchStartTime": "21:25:00",
+      "merchEndTime": "22:35:00",
       "ticketUrl": "https://livepocket.jp/e/lk-nagoya0916",
       "sourceUrl": "https://x.com/.../status/..."
     },
@@ -147,6 +149,8 @@ GET /api/public/appearances?from=2026-09-01&to=2026-09-30
       "venueName": "東京・渋谷音楽堂/Shibuya Milkyway/...",
       "performanceStartTime": null,
       "performanceEndTime": null,
+      "merchStartTime": null,
+      "merchEndTime": null,
       "ticketUrl": "https://t-dv.com/20260915_nikipre",
       "sourceUrl": "https://x.com/.../status/..."
     }
@@ -217,6 +221,8 @@ FR-24 の点検一覧。公開 API と違い、内部項目も返す。
       "venueName": "愛知・大須RADHALL",
       "performanceStartTime": "19:50:00",
       "performanceEndTime": "20:15:00",
+      "merchStartTime": "21:25:00",
+      "merchEndTime": "22:35:00",
       "ticketUrl": "https://livepocket.jp/e/lk-nagoya0916",
       "sourceUrl": "https://x.com/.../status/...",
       "sourceType": "AUTO",
@@ -247,6 +253,8 @@ POST /api/admin/appearances
   "venueName": "東京・SAMPLE HALL",
   "performanceStartTime": "18:00:00",
   "performanceEndTime": "18:30:00",
+  "merchStartTime": "19:00:00",
+  "merchEndTime": "20:00:00",
   "ticketUrl": "https://example.com/ticket",
   "sourceUrl": "https://x.com/.../status/...",
   "ingestedPostId": null
@@ -260,6 +268,7 @@ POST /api/admin/appearances
 | `sourceUrl` | ○ | `https://` で始まる（FR-06：根拠のないデータを公開しない） |
 | `venueName` | — | 300 文字以内 |
 | `performanceStartTime` / `performanceEndTime` | — | `HH:mm:ss`。両方ある場合 開始 ≦ 終了 |
+| `merchStartTime` / `merchEndTime` | — | `HH:mm:ss`。両方ある場合 開始 ≦ 終了。出演時刻との前後は問わない |
 | `ticketUrl` | — | `http://` または `https://` で始まる |
 | `ingestedPostId` | — | 未処理投稿から作る場合に指定（FR-25） |
 
