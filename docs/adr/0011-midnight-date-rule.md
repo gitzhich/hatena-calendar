@@ -57,11 +57,18 @@ CLAUDE.md と [requirements.md](../requirements.md) では暫定的に
   前日のセルにも併記するような表示上の補完は **MVP では行わない**
 - 出演枠が日を跨ぐケースだけは自動登録の対象外になる。
   実サンプルの出演枠はいずれも 15〜30 分で、この形の告知は想定していない
-- `appearance` の `appearance_time_order` 制約
-  （`performance_start_time <= performance_end_time`）は変更しない
+- `appearance` の出演時刻の順序制約
+  （`appearance_performance_time_order`: `performance_start_time <= performance_end_time`）は
+  変更しない
 - 日付の繰り上げで月・年をまたぐ（8/31 の 26:00 は 9/1 の 02:00）ため、
   日付加算はカレンダー演算で行う。境界のテストを必須とする
 - CLAUDE.md と requirements.md の未決定事項から本項目を削除した
+
+## 更新履歴
+
+- 2026-08-29: 物販時刻の列（`merch_start_time` / `merch_end_time`）追加にあわせ、
+  参照している制約名を `appearance_time_order` から
+  `appearance_performance_time_order` に改めた（決定内容の変更なし）
 
 ## 関連
 

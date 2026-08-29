@@ -166,6 +166,8 @@ CREATE TABLE appearance (
     venue_name             TEXT        CHECK (venue_name IS NULL OR length(venue_name) <= 300),
     performance_start_time TIME,
     performance_end_time   TIME,
+    merch_start_time       TIME,
+    merch_end_time         TIME,
     ticket_url             TEXT        CHECK (ticket_url IS NULL OR ticket_url ~ '^https?://'),
     source_url             TEXT        NOT NULL CHECK (source_url ~ '^https://'),
     source_type            TEXT        NOT NULL CHECK (source_type IN ('AUTO', 'MANUAL')),
@@ -177,10 +179,15 @@ CREATE TABLE appearance (
         CHECK ((source_type = 'AUTO' AND ingested_post_id IS NOT NULL)
             OR (source_type = 'MANUAL')),
 
-    CONSTRAINT appearance_time_order
+    CONSTRAINT appearance_performance_time_order
         CHECK (performance_start_time IS NULL
             OR performance_end_time IS NULL
             OR performance_start_time <= performance_end_time),
+
+    CONSTRAINT appearance_merch_time_order
+        CHECK (merch_start_time IS NULL
+            OR merch_end_time IS NULL
+            OR merch_start_time <= merch_end_time),
 
     CONSTRAINT appearance_unique_event
         UNIQUE (appearance_date, event_key)
@@ -195,6 +202,8 @@ CREATE TABLE appearance (
 | `venue_name` | 会場名。**都道府県とステージ名を含めた形**で保持する（下記） |
 | `performance_start_time` | **XINXIN の出演開始時刻**（JST）。告知の 🎤 行から抽出する |
 | `performance_end_time` | XINXIN の出演終了時刻（JST） |
+| `merch_start_time` | **XINXIN の物販開始時刻**（JST）。告知の 📸 行から抽出する（下記） |
+| `merch_end_time` | XINXIN の物販終了時刻（JST） |
 | `ticket_url` | チケット販売ページ。**価格は保持しない**（下記） |
 | `source_url` | 出典 X 投稿の URL。**手動登録でも必須**（FR-06。根拠のないデータを公開しない） |
 | `source_type` | `AUTO`（自動取り込み）/ `MANUAL`（管理者が手で登録）。FR-24 の一覧はこれで絞る |
@@ -210,6 +219,7 @@ CREATE TABLE appearance (
 | `📍愛知・大須RADHALL` | `venue_name` |
 | `lonlium pre.『LONELY KIDS』` | `event_name` |
 | `🎤19:50-20:15 XINXIN出演` | `performance_start_time` / `performance_end_time` |
+| `📸21:25-22:35 終演後物販` | `merch_start_time` / `merch_end_time` |
 | `🔗https://livepocket.jp/...` | `ticket_url` |
 
 **`venue_name` に都道府県とステージ名を含める。** 告知は必ず「愛知・大須RADHALL」の形式で
@@ -219,10 +229,21 @@ CREATE TABLE appearance (
 1 つのイベントが複数会場にまたがるサーキット形式（実サンプル 1.txt は 7 会場）もあるため、
 長さ上限は 300 文字とする。
 
-**イベントの OPEN / START 時刻と物販時刻は保持しない。** 告知には
-`⏰OPEN 17:00 / START 17:30` や `📸17:15-18:20 並行物販` があるが、
-閲覧者が最も必要とするのは XINXIN の出演時刻であり、
-その他は出典 X 投稿（`source_url`）で確認できる。列を増やさず MVP を軽く保つ。
+**物販時刻は保持する。** 告知の `📸21:25-22:35 終演後物販` にあたる。
+出演枠が 15〜30 分なのに対し物販は 1 時間前後あり、
+**ファンが実際に本人と会える時間帯**はこちらで決まる。
+「何時に行けば会えるか」は出演時刻からは分からないため、別の列として持つ。
+タイムテーブルが発表済みの実サンプル 4 件すべてに 📸 行があり、
+出演時刻と同じ精度で抽出できる。
+
+**`📸` 行には `XINXIN` の語が入らない。** `🎤` 行は「同じ行に XINXIN を含むこと」で
+他の出演者の枠と区別できるが、物販行にはその手がかりがない。
+どの `📸` 行を採用するかの規則は
+[x-integration.md](x-integration.md) 第 5.7 節で定める。
+
+**イベントの OPEN / START 時刻は保持しない。** `⏰OPEN 17:00 / START 17:30` は
+会場全体の時刻であり、XINXIN の出演時刻と物販時刻が分かればファンの行動には足りる。
+必要なら出典 X 投稿（`source_url`）で確認できる。列を増やさず MVP を軽く保つ。
 
 **チケット価格は保持しない。** 券種が「先行 / 一般 / 早期 / 通常 / 当日 / 2Days 通し /
 女性学生」と多様で構造化が難しく、転記ミスによる誤った価格の公開はファンに実害を与える。
@@ -327,7 +348,12 @@ URL 列の `CHECK` はスキームだけを検証する簡易なもの。
 X 由来の値を信頼しない方針（NFR-03）の最後の砦であり、
 本格的な検証はアプリケーション側（Bean Validation）で行う。
 
-`appearance_time_order` は、抽出ミスで終了時刻が開始時刻より前になった行を弾く。
+`appearance_performance_time_order` と `appearance_merch_time_order` は、
+抽出ミスで終了時刻が開始時刻より前になった行を弾く。
+
+**出演時刻と物販時刻の前後関係は制約にしない。** 実サンプルでは物販が出演の後に来るが、
+「並行物販」は他ステージの進行と並行して行われるため、
+XINXIN の出演より前に始まる告知がありうる。順序を制約にすると正しい告知を弾く。
 
 **`updated_at` はアプリケーション側で更新する**（JPA の `@UpdateTimestamp`）。
 トリガーを使うと更新経路が SQL とアプリの二箇所に分かれ、追いにくくなるため。
@@ -393,7 +419,7 @@ CREATE INDEX idx_ingestion_run_status_finished
 | 種類 | 型 | 例 | 扱い |
 | --- | --- | --- | --- |
 | システムの時刻 | `TIMESTAMPTZ` | `created_at`, `posted_at`, `started_at` | **UTC で保存**し、表示時に JST へ変換する |
-| イベントの開催日・出演時刻 | `DATE` / `TIME` | `appearance_date`, `performance_start_time` | **JST のローカル値として保存**し、UTC に変換しない |
+| イベントの開催日・出演時刻 | `DATE` / `TIME` | `appearance_date`, `performance_start_time`, `merch_start_time` | **JST のローカル値として保存**し、UTC に変換しない |
 
 **なぜイベントの日付を UTC にしないか。** 「8 月 30 日の出演」という情報は、
 特定の瞬間ではなく**暦日そのもの**を指す。これを `TIMESTAMPTZ` に変換すると
@@ -427,9 +453,16 @@ CREATE INDEX idx_ingestion_run_status_finished
 
 **出演枠そのものが日を跨ぐ場合**（「23:50-24:30」のような表記）は、
 `performance_start_time` > `performance_end_time` となり
-`appearance_time_order` 制約に反する。この場合は自動登録せず、
+`appearance_performance_time_order` 制約に反する。この場合は自動登録せず、
 投稿を `UNPARSED` として管理者に回す（[x-integration.md](x-integration.md) 第 5.6 節）。
 実サンプルの出演枠はいずれも 15〜30 分で、日を跨ぐ枠は想定していない。
+
+**物販時刻の繰り上げは出演時刻に従う。** `appearance_date` は出演時刻で決まるため、
+物販時刻だけが 24 時以上になる場合（`🎤23:30-23:55` に対し `📸24:10-25:00`）、
+物販は翌日の `00:10` を指すのにこの行の暦日は当日のままになる。
+この不一致を行の中に持ち込まないため、**繰り上げの判定が出演時刻と一致しないときは
+物販時刻を保存しない**（`NULL` にする）。出演情報そのものは登録する。
+物販時刻は補助情報であり、取れないことを許容する側に倒す。
 
 ---
 
@@ -531,8 +564,9 @@ backend/src/main/resources/db/migration/
 2. **`event_name` と `venue_name` の正規化（テーブル分割）**。現時点では
    `appearance` に文字列で持たせる。会場別の絞り込みは非スコープであり、
    会場名の表記ゆれを吸収する必要が出るまで別テーブルにしない
-3. **イベントの OPEN / START 時刻と物販時刻を将来持つか**（第 4.3.1 節）。
-   MVP では持たない。特典会の時刻を知りたいという要望が出たら追加を検討する
+3. **イベントの OPEN / START 時刻を将来持つか**（第 4.3.1 節）。
+   MVP では持たない。物販時刻は保持することにしたが（同節）、
+   OPEN / START は XINXIN の出演時刻と物販時刻が分かれば行動に足りるため見送る
 4. **タイムゾーンをアプリ全体でどう固定するか**（JVM の `user.timezone`、
    PostgreSQL の `timezone` 設定、コンテナの `TZ`）。第 6 章の設計は
    これらに依存しないが、`TIMESTAMPTZ` の表示変換には影響する
