@@ -29,3 +29,4 @@
 | [0009](0009-hosting.md) | ホスティングを Vercel + Fly.io + Neon にする | 承認済み |
 | [0010](0010-split-api-keys.md) | 内部 API キーを公開用と管理用に分離する | 承認済み |
 | [0011](0011-midnight-date-rule.md) | 深夜公演を時刻が実際に属する暦日に配置する | 承認済み |
+| [0012](0012-multi-slot-uniqueness.md) | 同じ日・同じイベントの複数出演枠を別の行として持つ | 承認済み |

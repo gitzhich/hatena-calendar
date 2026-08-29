@@ -98,7 +98,7 @@ RFC 7807（Problem Details）形式で返す。
 | `400` | バリデーション違反、クエリパラメータの形式不正 |
 | `403` | API キーが不正、または必要な系統のキーでない |
 | `404` | 指定した ID のリソースが存在しない |
-| `409` | 一意制約違反（同じ日付・同じイベントが既に存在） |
+| `409` | 一意制約違反（同じ日付・同じイベント・同じ開始時刻が既に存在） |
 | `429` | レート制限（NFR-03） |
 | `500` | サーバ内部エラー。詳細はログにのみ残す |
 
@@ -164,6 +164,9 @@ GET /api/public/appearances?from=2026-09-01&to=2026-09-30
   閲覧者に不要な内部情報を出さない
 - 並び順は `appearanceDate` 昇順、次に `performanceStartTime` 昇順。
   **時刻が `null` のものは同じ日付の末尾**に置く（FR-03）
+- **同じ日に同じ `eventName` が複数並ぶことがある。** 1 つのイベントの中で
+  複数回出演する告知があるため（[x-integration.md](x-integration.md) 第 5.10 節）。
+  会場と時刻で区別できる
 - 該当がない場合は `appearances` が空配列。`404` にしない
 
 ### 4.2 データの状態
@@ -273,8 +276,11 @@ POST /api/admin/appearances
 | `ingestedPostId` | — | 未処理投稿から作る場合に指定（FR-25） |
 
 - `eventKey` は**クライアントから受け取らない**。サーバ側で `eventName` から生成する
-- **同じ `appearanceDate` と `eventKey` の組が既にある場合は `409`** を返す。
-  上書きしない。既存を直したい場合は編集（第 5.3 節）を使う
+- **同じ `appearanceDate` / `eventKey` / `performanceStartTime` の組が既にある場合は
+  `409`** を返す。上書きしない。既存を直したい場合は編集（第 5.3 節）を使う。
+  開始時刻を含めるのは、同じ日・同じイベントで複数回出演する告知があるため
+  （[data-model.md](data-model.md) 第 4.3.2 節）。
+  `performanceStartTime` が未指定の行は 1 日 1 イベントにつき 1 行しか作れない
 - 成功時は `201 Created` と作成されたリソースを返す
 
 ### 5.3 編集
@@ -288,7 +294,7 @@ PUT /api/admin/appearances/{id}
 値の消去が意図せず無視される）。
 
 - `eventName` を変更した場合、`eventKey` はサーバ側で再計算する
-- 変更後の `appearanceDate` と `eventKey` が他の行と衝突する場合は `409`
+- 変更後の `appearanceDate` / `eventKey` / `performanceStartTime` が他の行と衝突する場合は `409`
 - 成功時は `200` と更新後のリソースを返す
 
 ### 5.4 削除
