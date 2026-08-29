@@ -408,11 +408,28 @@ CREATE INDEX idx_ingestion_run_status_finished
 - `performance_start_time` が `NULL` でも日付は確定する
   （タイムテーブル未発表の出演情報を表現できる。実サンプル 1.txt がこのケース）
 
-**深夜公演の扱い。** 「26:00 開演」のような表記は、`appearance_date` を翌日、
-`performance_start_time` を `02:00` として保存する（実際に時刻が属する暦日に置く）。
-ただしこの方針は告知どおりの日付で探すファンの直感とずれる可能性があり、
-[docs/requirements.md](requirements.md) の未決定事項 7 として再検討の対象になっている。
-**実装前に結論を出すこと。**
+**深夜公演の扱い。** 「26:00 開演」のような 24 時以上の表記は、
+**時刻が実際に属する暦日**に置く。`appearance_date` を翌日、
+`performance_start_time` を `02:00` として保存する
+（[ADR-0011](adr/0011-midnight-date-rule.md)）。
+
+```
+告知「9/16(火) ... 🎤26:00-26:30 XINXIN出演」
+  → appearance_date        = 2026-09-17   ← 翌日
+    performance_start_time = 02:00
+    performance_end_time   = 02:30
+```
+
+`TIME` 型は `24:00` 以上を表現できないため、この変換は保存の前提であって
+選択肢ではない。告知の日付で探すファンとはカレンダー上の位置がずれるが、
+**同じ暦日に 2 つの出演が並ぶ**（16 日夜の別公演と、16 日深夜＝17 日未明の公演）
+状況で日付をずらさずに持つと、時系列で並べたときに順序が壊れる。
+
+**出演枠そのものが日を跨ぐ場合**（「23:50-24:30」のような表記）は、
+`performance_start_time` > `performance_end_time` となり
+`appearance_time_order` 制約に反する。この場合は自動登録せず、
+投稿を `UNPARSED` として管理者に回す（[x-integration.md](x-integration.md) 第 5.6 節）。
+実サンプルの出演枠はいずれも 15〜30 分で、日を跨ぐ枠は想定していない。
 
 ---
 
@@ -519,4 +536,3 @@ backend/src/main/resources/db/migration/
 4. **タイムゾーンをアプリ全体でどう固定するか**（JVM の `user.timezone`、
    PostgreSQL の `timezone` 設定、コンテナの `TZ`）。第 6 章の設計は
    これらに依存しないが、`TIMESTAMPTZ` の表示変換には影響する
-5. **深夜公演の日付配置**（第 6 章）。requirements.md 未決定事項 7 と同一
