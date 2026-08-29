@@ -20,6 +20,7 @@
 | `event_key` | 同一判定 | 正規化後（`orangecheer`） |
 
 `UNIQUE (appearance_date, event_key)` を張る。
+（一意キーはのちに出演開始時刻を加えて 3 列へ拡張した。[ADR-0012](0012-multi-slot-uniqueness.md)）
 
 正規化は **NFKC → 小文字化 → 英数字・日本語文字以外を除去**。
 
@@ -61,3 +62,7 @@
 ## 関連
 
 - [docs/data-model.md](../data-model.md) 第 4.3.2 節
+
+## 更新履歴
+
+- 2026-08-29: 一意キーが 3 列へ拡張されたことへの参照を追記（本 ADR の決定内容の変更なし。[ADR-0012](0012-multi-slot-uniqueness.md)）

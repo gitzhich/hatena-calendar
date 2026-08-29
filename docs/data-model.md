@@ -190,7 +190,8 @@ CREATE TABLE appearance (
             OR merch_start_time <= merch_end_time),
 
     CONSTRAINT appearance_unique_event
-        UNIQUE (appearance_date, event_key)
+        UNIQUE NULLS NOT DISTINCT
+            (appearance_date, event_key, performance_start_time)
 );
 ```
 
@@ -221,6 +222,11 @@ CREATE TABLE appearance (
 | `🎤19:50-20:15 XINXIN出演` | `performance_start_time` / `performance_end_time` |
 | `📸21:25-22:35 終演後物販` | `merch_start_time` / `merch_end_time` |
 | `🔗https://livepocket.jp/...` | `ticket_url` |
+
+**1 つの投稿が複数の行になることがある。** 実サンプル 6.txt のように、
+同じ日・同じイベントで XINXIN が複数回出演する告知がある。
+この場合は出演枠ごとに `appearance` を 1 行ずつ作る（第 4.3.2 節）。
+会場も枠ごとに変わりうるため、行ごとに別の `venue_name` を持つ。
 
 **`venue_name` に都道府県とステージ名を含める。** 告知は必ず「愛知・大須RADHALL」の形式で
 都道府県が付く。フェスではさらに「📍Orange Shelter」のステージ指定が入る。
@@ -265,10 +271,34 @@ CREATE TABLE appearance (
 画面には常に `event_name` を出す。正規化した文字列を表示に使うと、
 **元の告知と違う名前がカレンダーに並ぶ**ことになるため、両者を混同しない。
 
-`UNIQUE (appearance_date, event_key)` を張る。制約を `event_key` 側に置くことで、
-アプリケーションの照合ロジックと DB の制約が**同じキーで判定する**。
-`event_name` に制約を張ると、表記ゆれをアプリが吸収しても DB が別物として通してしまい、
-二重登録を防げない。
+`UNIQUE NULLS NOT DISTINCT (appearance_date, event_key, performance_start_time)` を張る。
+制約を `event_key` 側に置くことで、アプリケーションの照合ロジックと DB の制約が
+**同じキーで判定する**。`event_name` に制約を張ると、表記ゆれをアプリが吸収しても
+DB が別物として通してしまい、二重登録を防げない。
+
+**開始時刻を含めるのは、同じ日に同じイベントで複数回出演することがあるため。**
+実サンプル 6.txt では、1 つのサーキットイベントの中で XINXIN が
+2 つの会場に出演している。
+
+```
+8/25(火) 『DERAX JAM~ DERA MAXIMUM JAM ~』
+  📍NAGOYA ReNY limited  🎤16:35-17:05 XINXIN①
+  📍RADHALL              🎤19:50-20:15 XINXIN②
+```
+
+`(appearance_date, event_key)` の 2 列だけで一意にすると、
+**2 公演目が登録できない**。開始時刻を加えることで別々の行として持てる。
+
+**`NULLS NOT DISTINCT` を付ける理由。** PostgreSQL の `UNIQUE` は既定で
+`NULL` 同士を「異なる値」として扱うため、これを付けないと
+`performance_start_time` が `NULL` の行を何行でも作れてしまう。
+タイムテーブル未発表の告知（実サンプル 1.txt）は時刻が `NULL` になるので、
+同じ告知を再処理するたびに行が増える事故が起こりうる。
+`NULLS NOT DISTINCT` により「時刻未定の行は 1 日 1 イベントにつき 1 行」を
+DB 側で保証する。
+
+> `NULLS NOT DISTINCT` は **PostgreSQL 15 以降**の構文。
+> Neon が提供するのは 16 / 17 系なので利用できる。
 
 ##### 正規化ルール
 
@@ -285,6 +315,7 @@ CREATE TABLE appearance (
 | `｢IGNITION-狂騒-｣` | `ignition狂騒` |
 | `lonlium pre.『LONELY KIDS』` | `lonliumprelonelykids` |
 | `「くさのねアイドルフェスティバル2026」` | `くさのねアイドルフェスティバル2026` |
+| `『DERAX JAM~ DERA MAXIMUM JAM ~』` | `deraxjamderamaximumjam` |
 
 NFKC 正規化は必須。実サンプル 1.txt のイベント名には**半角カナ**（`ﾆｷﾌﾟﾚ`）が含まれ、
 同じイベントが全角で再告知された場合に別物と判定されてしまうため。
@@ -473,10 +504,23 @@ CREATE INDEX idx_ingestion_run_status_finished
 公式は 1 つのイベントを複数回に分けて告知する（第 4.3.2 節）。
 後続の告知は既存の行を二重に作らず、**空欄を埋める形で反映する**。
 
-1. 抽出した出演情報について、`appearance_date` と `event_key` が一致する既存行を探す
-   （`event_key` の作り方は第 4.3.2 節）
-2. 見つからなければ新規登録（`INSERT`）
-3. 見つかれば、**値が `NULL` の列だけ**を埋める（`UPDATE`）
+1. `appearance_date` / `event_key` / `performance_start_time` が**すべて一致**する
+   既存行を探す（`event_key` の作り方は第 4.3.2 節）
+2. 見つからず、抽出結果に開始時刻がある場合は、同じ `appearance_date` と `event_key` を持ち
+   `performance_start_time` が `NULL` の行を探す。あればその行へ時刻を書き込む
+   （「公演情報解禁」で作られた時刻なしの行に、後続の「タイムテーブル解禁」が時刻を入れる流れ）
+3. どちらも見つからなければ新規登録（`INSERT`）
+4. 補完する場合は、**値が `NULL` の列だけ**を埋める（`UPDATE`）
+
+手順 2 は**時刻なしの行 1 つに対して 1 回だけ成立する**。
+同じ日・同じイベントに 2 つの出演枠が告知された場合（実サンプル 6.txt）、
+先に処理した枠が既存行の時刻を埋め、もう一方は手順 3 で新規登録される。
+どちらの枠が既存行を引き継ぐかは処理順に依存するが、
+最終的にできる行数と内容は変わらない。
+
+ただし、引き継いだ行にイベント全体の会場（サーキット形式なら会場が並んだ文字列）が
+既に入っていると、**枠ごとの会場では上書きされない**（値のある列は触らないため）。
+この取りこぼしは管理者の修正（FR-22）で直す。
 
 **値が入っている列は上書きしない。** これにより、管理者が手で直した内容が
 後続の取り込みで巻き戻らない（FR-22）。公式が日程変更や中止を告知した場合は
