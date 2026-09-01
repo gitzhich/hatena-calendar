@@ -19,10 +19,10 @@ Fly.io と Neon を落とす、環境変数でバックエンドの URL を外�
 
 ## 決定
 
-**Next.js の middleware で止める。**
+**Next.js の `proxy.ts`（旧 middleware）で止める。**
 
 ```
-middleware.ts
+proxy.ts
   SITE_DISABLED === 'true' なら、/admin 配下を除く全リクエストを
   /unavailable へ rewrite する
 
@@ -33,7 +33,7 @@ middleware.ts
 
 ## 理由
 
-- **middleware はキャッシュの手前で全リクエストを受ける。** ISR キャッシュ済みの
+- **`proxy.ts` はキャッシュの手前で全リクエストを受ける。** ISR キャッシュ済みの
   ページも確実に止まる。上記の制約を満たす方式がこれしかない
 - **依存を増やさない。** 環境変数と Next.js の標準機能だけで完結し、
   MVP を軽く保つ方針（[CLAUDE.md](../../CLAUDE.md)）に沿う
@@ -51,18 +51,19 @@ middleware.ts
 | バックエンド（Fly.io / Neon）を止める | **ISR キャッシュ済みのページが配信され続け、公開が止まらない** |
 | Vercel の Deployment Protection | 即時でコード変更も要らないが、サイト全体が認証壁になり削除要請の受付や経緯を説明するページも出せない。Hobby プランで使える範囲にも依存する |
 | 管理画面のトグル（Vercel Edge Config） | 再デプロイ不要で即時に切れるが、依存が 1 つ増える。MVP の軽さに見合わない |
-| 管理画面のトグル（状態を DB に保持） | middleware が毎リクエスト DB を読むことになり、**Neon の CU-hours を消費して T-04 の可用性攻撃に直撃する**（[security.md](../security.md) T-04） |
+| 管理画面のトグル（状態を DB に保持） | `proxy.ts` が毎リクエスト DB を読むことになり、**Neon の CU-hours を消費して T-04 の可用性攻撃に直撃する**（[security.md](../security.md) T-04） |
 
 ## 結果
 
 - `SITE_DISABLED` が Next.js（Vercel）の環境変数に加わった
   （[architecture.md](../architecture.md) 第 7 章）
-- `frontend/middleware.ts` と停止中の案内ページ `app/unavailable/` が
-  ルーティングに加わった（同 第 5.1 節）
+- `frontend/proxy.ts` と停止中の案内ページ `app/unavailable/` が
+  ルーティングに加わった（同 第 5.1 節）。
+  Next.js 16 で `middleware.ts` は非推奨になり `proxy.ts` に改称された
 - **停止ページに載せる連絡先が未確定。** 連絡手段そのものは
   [requirements.md](../requirements.md) 第 12 章の未決定事項として残っている
 - ISR キャッシュを外す変更を入れる場合、本 ADR の前提（キャッシュ済みページが
-  残る）は変わるが、middleware で止める方式はそのまま成立する
+  残る）は変わるが、`proxy.ts` で止める方式はそのまま成立する
 
 ## 関連
 

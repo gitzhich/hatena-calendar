@@ -192,18 +192,20 @@ backend/src/main/java/dev/mzhin/hatenacal/
 
 ```
 frontend/
-├── middleware.ts                     サイト全体の停止（第 5.4 節）
+├── proxy.ts                          サイト全体の停止（第 5.4 節）と
+│                                     管理画面への未認証アクセスの誘導
+├── lib/                              セッション・API クライアント
 └── app/
     ├── page.tsx                      当月カレンダー
     ├── [year]/[month]/page.tsx       指定月（FR-05：URL に年月を反映）
     ├── unavailable/page.tsx          停止中の案内（第 5.4 節）
     ├── admin/
+    │   ├── actions.ts                Server Action（管理操作の中継）
     │   ├── login/page.tsx
     │   ├── page.tsx                  自動登録の点検一覧（FR-24）
     │   ├── appearances/new/page.tsx  手動登録（FR-21）
     │   ├── appearances/[id]/page.tsx 編集・削除（FR-22, FR-23）
     │   └── unparsed/page.tsx         未処理投稿（FR-25）
-    ├── api/                          Route Handler（管理操作の中継）
     └── layout.tsx                    免責表示を含むフッタ（FR-07）
 ```
 
@@ -253,17 +255,23 @@ Spring Boot を呼び、Neon まで届く。**これは T-04（無料枠の枯�
 
 - 公開ページ: **Server Component からサーバ間通信**で Spring Boot を呼ぶ。
   内部 API キーがブラウザに渡らない
-- 管理ページ: フォーム送信を Route Handler が受け、Cookie を検証してから
-  Spring Boot を呼ぶ
+- 管理ページ: フォーム送信を **Server Action** が受け、Cookie を検証してから
+  Spring Boot を呼ぶ。Route Handler ではなく Server Action にしたのは、
+  Next.js が Origin ヘッダを検証するため **CSRF の防御が 1 枚増える**から。
+  経路（ブラウザ → Next.js → Spring Boot）と、管理キーを Cookie 検証後にしか
+  読まない性質は変わらない
 
 **ブラウザから Spring Boot を直接呼ぶコードを書かない。** 内部 API キーが漏れる。
 
 ### 5.4 サイト全体の停止
 
-削除要請を受けた際に公開を止める手段（LR-05）。**Next.js の middleware で止める。**
+削除要請を受けた際に公開を止める手段（LR-05）。**Next.js の `proxy.ts` で止める。**
+
+> `middleware.ts` は Next.js 16 で非推奨になり `proxy.ts` に改称された。
+> 役割は同じで、ルートのレンダリングより前に実行される。
 
 ```
-middleware.ts
+proxy.ts
   SITE_DISABLED === 'true' なら、/admin 配下を除く全リクエストを
   /unavailable へ rewrite する（200 で停止中の案内を返す）
 
@@ -274,7 +282,7 @@ middleware.ts
 
 **バックエンドを止めるだけでは不十分。** 公開カレンダーは ISR でキャッシュされており
 （第 5.2 節）、Fly.io や Neon を停止してもキャッシュ済みのページは配信され続ける。
-middleware は**キャッシュの手前**で全リクエストを受けるため、
+`proxy.ts` は**キャッシュの手前**で全リクエストを受けるため、
 キャッシュ済みのページも確実に止められる。ここが方式選定の決め手になっている。
 
 - 停止ページには**削除要請の連絡先**を残す。要請者が状況を確認できないまま
@@ -285,11 +293,11 @@ middleware は**キャッシュの手前**で全リクエストを受けるた�
 
 ### 5.5 公開ページのレート制限
 
-**レート制限は Next.js の middleware に置く。** Spring Boot から見た送信元は
+**レート制限は Next.js 側に置く。** Spring Boot から見た送信元は
 Vercel の egress IP であり、そこで IP 単位に絞ると攻撃者ではなく
 **全閲覧者がまとめて絞られる**。第 3.1 節で IP 許可リストを諦めたのと同じ理由。
 
-- middleware なら実クライアントの IP が見える
+- Next.js 側（`proxy.ts` または Server Action）なら実クライアントの IP が見える
 - Spring Boot 側のレート制限も残すが、目的が違う。こちらは
   「Vercel からの総量」を守る最後の防波堤で、発動すれば閲覧者全体に影響が出る
 - 具体値は運用のアクセス量を見て決める（[security.md](security.md) 第 9 章）
