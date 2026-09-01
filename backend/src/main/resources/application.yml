@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: hatenacal
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/hatenacal}
+    username: ${DATABASE_USER:hatenacal}
+    password: ${DATABASE_PASSWORD:hatenacal}
+  jpa:
+    # docs/data-model.md 第 8 章：update は消した列が残るため本番でもローカルでも使わない
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+# docs/data-model.md 第 6 章：システムの時刻は UTC で保存し、表示時に JST へ変換する。
+# イベントの開催日・出演時刻は DATE / TIME の JST ローカル値で、UTC 変換しない。
+server:
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

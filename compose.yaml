@@ -1,0 +1,20 @@
+# ローカル開発用の PostgreSQL。
+# Neon が提供するのは 16 / 17 系なので 17 に合わせる（docs/architecture.md 第 2.2 節）。
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: hatenacal
+      POSTGRES_USER: hatenacal
+      POSTGRES_PASSWORD: hatenacal
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hatenacal -d hatenacal"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

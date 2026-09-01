@@ -271,7 +271,28 @@ Owned Read（$0.001）は自アプリのオーナー自身のデータのみが�
 
 ## 開発上の注意
 
-- コマンド（ビルド / テスト / 起動）は各サブプロジェクト作成時にこのセクションへ追記する
+### コマンド
+
+ローカル DB は `compose.yaml`（PostgreSQL 17。Neon と同系）。
+バックエンドの起動前に立ち上げておく。
+
+```bash
+docker compose up -d --wait          # PostgreSQL 17 を起動
+docker compose down                  # 停止（データは volume に残る）
+
+cd backend
+./gradlew build                      # コンパイル + テスト
+./gradlew test                       # テストのみ
+./gradlew bootRun                    # 起動（:8080）
+
+cd frontend
+npm run dev                          # 開発サーバ（:3000）
+npm run build                        # 本番ビルド
+npm run lint                         # ESLint
+```
+
+Gradle ラッパーを同梱しているので、Gradle 本体の導入は不要（JDK 21 のみ要る）。
+Flyway はバックエンドの起動時に自動で適用される。
 - タイムゾーンは **JST 固定**。ただし保存形式を 2 種類に分ける
   - **システムの時刻**（作成日時、取り込み日時など）は `TIMESTAMPTZ` で UTC 保存し、表示時に JST へ変換する
   - **イベントの開催日・開始時刻**は JST のローカル値として `DATE` / `TIME` で保存し、**UTC に変換しない**。
