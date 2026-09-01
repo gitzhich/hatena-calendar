@@ -1,6 +1,6 @@
 # セキュリティ設計 — 脅威モデルと対策
 
-最終更新: 2026-08-28
+最終更新: 2026-08-29
 
 関連文書: [CLAUDE.md](../CLAUDE.md) / [docs/requirements.md](requirements.md) /
 [docs/architecture.md](architecture.md) / [docs/api.md](api.md)

@@ -1,6 +1,6 @@
 # データモデル設計 — XINXIN 出演情報カレンダー
 
-最終更新: 2026-08-28
+最終更新: 2026-09-01
 
 関連文書: [CLAUDE.md](../CLAUDE.md) / [docs/requirements.md](requirements.md)
 
@@ -50,10 +50,12 @@ erDiagram
         bigserial   id PK
         date        appearance_date "JST の暦日"
         text        event_name "表示用。原文のまま"
-        text        event_key "照合用。正規化後。日付との組で一意"
+        text        event_key "照合用。正規化後。画面には出さない"
         text        venue_name "都道府県・ステージ名を含む"
         time        performance_start_time "XINXIN の出演開始（任意）"
         time        performance_end_time "XINXIN の出演終了（任意）"
+        time        merch_start_time "XINXIN の物販開始（任意）"
+        time        merch_end_time "XINXIN の物販終了（任意）"
         text        ticket_url
         text        source_url "出典 X 投稿 URL"
         text        source_type "AUTO / MANUAL"
@@ -199,7 +201,7 @@ CREATE TABLE appearance (
 | --- | --- |
 | `appearance_date` | **JST の暦日**。カレンダーの配置に使う（第 6 章） |
 | `event_name` | **表示用のイベント名。告知の原文をそのまま保持する** |
-| `event_key` | **照合用の正規化済みイベント名。** 画面には出さない。`appearance_date` との組で一意（第 4.3.2 節） |
+| `event_key` | **照合用の正規化済みイベント名。** 画面には出さない。生成規則と一意性は第 4.3.2 節 |
 | `venue_name` | 会場名。**都道府県とステージ名を含めた形**で保持する（下記） |
 | `performance_start_time` | **XINXIN の出演開始時刻**（JST）。告知の 🎤 行から抽出する |
 | `performance_end_time` | XINXIN の出演終了時刻（JST） |
@@ -433,7 +435,7 @@ CREATE INDEX idx_ingestion_run_status_finished
 ```
 
 `UNIQUE` 制約には自動でインデックスが作られるため、別途定義しない。
-これには `appearance_unique_event (appearance_date, event_key)` も含まれる。
+これには `appearance_unique_event`（第 4.3 節）も含まれる。
 **先頭列が `appearance_date` なので、月次の範囲検索にそのまま使える。**
 1 か月分の取得は `WHERE appearance_date BETWEEN ? AND ?` の 1 クエリで完結する（NFR-01）。
 `appearance_date` 単独のインデックスは重複するため作らない。

@@ -1,6 +1,6 @@
 # アーキテクチャ設計 — XINXIN 出演情報カレンダー
 
-最終更新: 2026-08-28
+最終更新: 2026-09-01
 
 関連文書: [CLAUDE.md](../CLAUDE.md) / [docs/requirements.md](requirements.md) /
 [docs/data-model.md](data-model.md) / [docs/x-integration.md](x-integration.md)
@@ -239,7 +239,7 @@ FR-08 で最終更新日時を表示するため、この遅延は閲覧者に�
 ```
 ブラウザ → Vercel（ISR キャッシュ命中なら即返す）
               ↓ 未命中
-          Server Component → Spring Boot GET /api/appearances?from=&to=
+          Server Component → Spring Boot GET /api/public/appearances?from=&to=
                                  ↓
                              Neon（1 か月分を 1 クエリ）
 ```

@@ -1,6 +1,6 @@
 # API 設計 — XINXIN 出演情報カレンダー
 
-最終更新: 2026-08-28
+最終更新: 2026-08-29
 
 関連文書: [CLAUDE.md](../CLAUDE.md) / [docs/requirements.md](requirements.md) /
 [docs/data-model.md](data-model.md) / [docs/architecture.md](architecture.md)
