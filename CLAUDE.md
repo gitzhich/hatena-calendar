@@ -265,18 +265,30 @@ Owned Read（$0.001）は自アプリのオーナー自身のデータのみが�
 - **`main` ブランチに直接コミットしない**。変更は必ず作業ブランチを切って行い、
   `main` へはマージで取り込む
 - 作業ブランチ名は種別を接頭辞にする（`feat/` `fix/` `docs/` `chore/`）
-- マージは `--no-ff` を使い、マージコミットを残す
-  （どの作業がひとまとまりで入ったかを後から追えるようにするため）
+- **マージコミットを必ず残す**（PR なら `gh pr merge --merge`、ローカルなら `--no-ff`）。
+  `--squash` と `--rebase` は使わない。
+  どの作業がひとまとまりで入ったかを後から追えなくなるため
 - **マージ済みの作業ブランチは削除する**（`git branch -d <branch>`）。手元に残さない
 
-**`main` はブランチ保護をかけてある。** 直 push は GitHub 側で拒否される。
-規約だけに頼らず、破れないようにしてある。
+**取り込みは PR 経由で行う。** GitHub 側のブランチ保護（classic / ruleset）は
+**private リポジトリだと GitHub Pro が必要**で、無料プランでは使えない。
+代わりに `.githooks/` のローカルフックで止めている。
+
+```bash
+git config core.hooksPath .githooks   # clone 後に 1 回だけ実行する
+```
+
+- `pre-commit` … `main` 上での直接コミットを拒否する
+- `pre-push` … `main` への直 push を拒否する
+
+**`--no-verify` で迂回できるので保証ではない。** 事故を止めるためのもので、
+規約そのものは人が守る。有料プランへ移るなら GitHub 側の保護に置き換える。
 
 ```bash
 git checkout -b feat/xxx          # 作業ブランチを切る
 git push -u origin feat/xxx       # push
 gh pr create --fill               # PR を作る
-                                  # CI（ci ジョブ）の通過が必須
+                                  # 集約ジョブ ci の成功を確認してからマージする
 gh pr merge --merge --delete-branch   # マージコミットを残して取り込む
 git checkout main && git pull     # ローカルを追従させる
 ```
