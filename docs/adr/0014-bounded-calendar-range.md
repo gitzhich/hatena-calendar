@@ -66,6 +66,20 @@ ISR が効くのは**同じ URL が繰り返し要求される場合**だけで�
 - サービス開始月は固定値として持つ。過去の出演情報は削除せず保持するため
   （[requirements.md](../requirements.md) 第 8.3 節）、下限は動かさない
 
+## 更新履歴
+
+- 2026-09-01: 実装して分かった点を追記（決定内容の変更なし）。
+  **`generateStaticParams` を空配列で置く必要がある。** これが無いと
+  Next.js は `[year]/[month]` を純粋な動的レンダリングとして扱い、
+  応答が `no-store` になって ISR が効かない。実測で
+  `Cache-Control: private, no-cache, no-store` を確認した。
+  その状態では毎リクエストが DB へ到達し、**本 ADR が防ごうとしている
+  T-04 の経路が、範囲内の年月に対して開いたままになる**。
+  空配列を返せば「ビルド時は作らないが、初回アクセス時に生成して ISR で持つ」
+  になり、却下案（全月を事前生成）のビルド依存も避けられる。
+  追加後は `x-nextjs-cache: MISS → HIT` と
+  `s-maxage=300, stale-while-revalidate` を確認済み
+
 ## 関連
 
 - [docs/requirements.md](../requirements.md) FR-05 / NFR-01 / NFR-04

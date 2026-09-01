@@ -37,4 +37,11 @@ dependencies {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+	// 日付境界の検証のため、テスト JVM のタイムゾーンを差し替えられるようにする。
+	// イベントの開催日・出演時刻は JST のローカル値で、どの TZ で動かしても
+	// 結果が変わってはいけない（docs/data-model.md 第 6 章 / ADR-0005）。
+	//   ./gradlew test -PtestTimeZone=America/New_York
+	providers.gradleProperty("testTimeZone").orNull?.let {
+		jvmArgs("-Duser.timezone=$it")
+	}
 }

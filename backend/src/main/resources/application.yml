@@ -10,10 +10,12 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
-    properties:
-      hibernate:
-        jdbc:
-          time_zone: UTC
+    # hibernate.jdbc.time_zone を設定しない。
+    # これを UTC にすると DATE / TIME 列にも変換がかかり、
+    # DB の 21:05 が JVM 側で 06:05 になる（JST との差 +9）。
+    # イベントの開催日・出演時刻は JST のローカル値であり、
+    # 変換してはいけない（docs/data-model.md 第 6 章 / ADR-0005）。
+    # TIMESTAMPTZ は絶対時刻なのでこの設定なしでも UTC で正しく往復する。
   flyway:
     enabled: true
     locations: classpath:db/migration
