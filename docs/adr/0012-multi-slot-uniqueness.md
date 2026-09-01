@@ -70,6 +70,14 @@ CONSTRAINT appearance_unique_event
 - 公開 API では、同じ日に同じ `eventName` が複数並びうる。
   会場と開始時刻で区別する（FR-03）
 
+## 更新履歴
+
+- 2026-09-01: `NULLS NOT DISTINCT` の理由で挙げた「タイムテーブル未発表の告知
+  （実サンプル 1.txt）から時刻 `NULL` の行が作られる」は、抽出対象の絞り込みにより
+  自動取り込みでは起きなくなった。時刻 `NULL` の行は**管理者の手動登録**から生まれる
+  （[x-integration.md](../x-integration.md) 第 5.2 節）。
+  制約が必要である結論は変わらないため決定内容は変更しない
+
 ## 関連
 
 - [ADR-0006](0006-event-key-separation.md) イベント名を表示用と照合用に分離する

@@ -294,8 +294,9 @@ DB が別物として通してしまい、二重登録を防げない。
 **`NULLS NOT DISTINCT` を付ける理由。** PostgreSQL の `UNIQUE` は既定で
 `NULL` 同士を「異なる値」として扱うため、これを付けないと
 `performance_start_time` が `NULL` の行を何行でも作れてしまう。
-タイムテーブル未発表の告知（実サンプル 1.txt）は時刻が `NULL` になるので、
-同じ告知を再処理するたびに行が増える事故が起こりうる。
+時刻が `NULL` の行は**管理者の手動登録から生まれる**。
+出演時刻が未確定の告知（実サンプル 1.txt）は自動取り込みの対象外で
+（[x-integration.md](x-integration.md) 第 5.2 節）、管理者が手で登録するため。
 `NULLS NOT DISTINCT` により「時刻未定の行は 1 日 1 イベントにつき 1 行」を
 DB 側で保証する。
 
@@ -465,7 +466,7 @@ CREATE INDEX idx_ingestion_run_status_finished
 - 月次クエリは `WHERE appearance_date BETWEEN '2026-08-01' AND '2026-08-31'` と書ける
 - サーバやコンテナの `TZ` 設定に結果が依存しない
 - `performance_start_time` が `NULL` でも日付は確定する
-  （タイムテーブル未発表の出演情報を表現できる。実サンプル 1.txt がこのケース）
+  （出演時刻がまだ告知されていない公演を、管理者が手で登録できる）
 
 **深夜公演の扱い。** 「26:00 開演」のような 24 時以上の表記は、
 **時刻が実際に属する暦日**に置く。`appearance_date` を翌日、
@@ -508,9 +509,10 @@ CREATE INDEX idx_ingestion_run_status_finished
 
 1. `appearance_date` / `event_key` / `performance_start_time` が**すべて一致**する
    既存行を探す（`event_key` の作り方は第 4.3.2 節）
-2. 見つからず、抽出結果に開始時刻がある場合は、同じ `appearance_date` と `event_key` を持ち
+2. 見つからなければ、同じ `appearance_date` と `event_key` を持ち
    `performance_start_time` が `NULL` の行を探す。あればその行へ時刻を書き込む
-   （「公演情報解禁」で作られた時刻なしの行に、後続の「タイムテーブル解禁」が時刻を入れる流れ）
+   （管理者が手で登録した時刻なしの行に、後続の「タイムテーブル解禁」が時刻を入れる流れ）。
+   自動取り込みが作る行は必ず開始時刻を持つため、ここで見つかるのは手動登録の行になる
 3. どちらも見つからなければ新規登録（`INSERT`）
 4. 補完する場合は、**値が `NULL` の列だけ**を埋める（`UPDATE`）
 
