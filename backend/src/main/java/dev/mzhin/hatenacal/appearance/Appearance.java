@@ -83,6 +83,50 @@ public class Appearance {
         // JPA 用
     }
 
+    /**
+     * 新規作成。
+     *
+     * <p>event_key を外から渡す形にしているのは、生成を AppearanceService の
+     * 単一メソッドに閉じ込めるため（ADR-0006）。パッケージ内からしか呼べない。
+     */
+    static Appearance create(String eventKey, SourceType sourceType,
+            LocalDate appearanceDate, String eventName, String venueName,
+            LocalTime performanceStartTime, LocalTime performanceEndTime,
+            LocalTime merchStartTime, LocalTime merchEndTime,
+            String ticketUrl, String sourceUrl, Long ingestedPostId) {
+        Appearance a = new Appearance();
+        a.eventKey = eventKey;
+        a.sourceType = sourceType;
+        a.appearanceDate = appearanceDate;
+        a.eventName = eventName;
+        a.venueName = venueName;
+        a.performanceStartTime = performanceStartTime;
+        a.performanceEndTime = performanceEndTime;
+        a.merchStartTime = merchStartTime;
+        a.merchEndTime = merchEndTime;
+        a.ticketUrl = ticketUrl;
+        a.sourceUrl = sourceUrl;
+        a.ingestedPostId = ingestedPostId;
+        return a;
+    }
+
+    /** 全項目を差し替える。部分更新にしない理由は docs/api.md 第 5.3 節。 */
+    void replace(String eventKey, LocalDate appearanceDate, String eventName,
+            String venueName, LocalTime performanceStartTime, LocalTime performanceEndTime,
+            LocalTime merchStartTime, LocalTime merchEndTime,
+            String ticketUrl, String sourceUrl) {
+        this.eventKey = eventKey;
+        this.appearanceDate = appearanceDate;
+        this.eventName = eventName;
+        this.venueName = venueName;
+        this.performanceStartTime = performanceStartTime;
+        this.performanceEndTime = performanceEndTime;
+        this.merchStartTime = merchStartTime;
+        this.merchEndTime = merchEndTime;
+        this.ticketUrl = ticketUrl;
+        this.sourceUrl = sourceUrl;
+    }
+
     public Long getId() {
         return id;
     }

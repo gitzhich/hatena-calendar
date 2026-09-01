@@ -84,7 +84,7 @@ class PublicAppearanceApiIT {
         HttpRequest.Builder b = HttpRequest.newBuilder(
                 URI.create("http://localhost:" + port + path));
         if (apiKey != null) {
-            b.header(ApiKeyFilter.HEADER, apiKey);
+            b.header(ApiKeyFilter.PUBLIC_HEADER, apiKey);
         }
         if ("POST".equals(method)) {
             b.header("Content-Type", "application/json")

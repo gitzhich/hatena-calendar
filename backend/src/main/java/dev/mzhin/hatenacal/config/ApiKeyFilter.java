@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -16,37 +17,53 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /**
  * Next.js から渡される内部 API キーを検証する（docs/api.md 第 2 章 / ADR-0010）。
  *
- * <p>キーは公開用と管理用の 2 種類に分かれる。ここで扱うのは公開用。
+ * <p><b>キーは公開用と管理用の 2 種類。</b> 1 種類だと、公開ページの
+ * レンダリングで使うキーが漏れただけで管理操作まで通ってしまう。
+ * 公開データの取得は全ページで使われ露出機会が多いため、被害を限定する。
  *
  * <p><b>比較は固定時間で行う。</b> String#equals は先頭から順に比較して
  * 不一致で打ち切るため、応答時間の差からキーを 1 文字ずつ推測されうる。
  */
 public class ApiKeyFilter extends OncePerRequestFilter {
 
-    public static final String HEADER = "X-Api-Key";
+    public static final String PUBLIC_HEADER = "X-Api-Key";
+    public static final String ADMIN_HEADER = "X-Admin-Api-Key";
     public static final String ROLE_PUBLIC = "ROLE_PUBLIC_API";
+    public static final String ROLE_ADMIN = "ROLE_ADMIN_API";
 
-    private final byte[] expected;
+    private final byte[] publicKey;
+    private final byte[] adminKey;
 
-    public ApiKeyFilter(String expected) {
-        this.expected = expected.getBytes(StandardCharsets.UTF_8);
+    public ApiKeyFilter(String publicKey, String adminKey) {
+        this.publicKey = publicKey.getBytes(StandardCharsets.UTF_8);
+        this.adminKey = adminKey.getBytes(StandardCharsets.UTF_8);
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
             FilterChain chain) throws ServletException, IOException {
-        String provided = request.getHeader(HEADER);
-        if (provided != null && matches(provided)) {
+        List<SimpleGrantedAuthority> granted = new ArrayList<>();
+        if (matches(request.getHeader(PUBLIC_HEADER), publicKey)) {
+            granted.add(new SimpleGrantedAuthority(ROLE_PUBLIC));
+        }
+        if (matches(request.getHeader(ADMIN_HEADER), adminKey)) {
+            // 管理キーは公開 API も通せる。逆は通さない
+            granted.add(new SimpleGrantedAuthority(ROLE_ADMIN));
+            granted.add(new SimpleGrantedAuthority(ROLE_PUBLIC));
+        }
+        if (!granted.isEmpty()) {
             SecurityContextHolder.getContext().setAuthentication(
-                    UsernamePasswordAuthenticationToken.authenticated("public-api", null,
-                            List.of(new SimpleGrantedAuthority(ROLE_PUBLIC))));
+                    UsernamePasswordAuthenticationToken.authenticated("internal", null, granted));
         }
         // 一致しなければ認証を設定しないだけ。理由を区別できる応答を返さない
-        // （docs/api.md 第 2.2 節）。拒否は認可層が 403 で行う。
+        // （docs/api.md 第 2.2 節）。拒否は認可層が 403 で行う
         chain.doFilter(request, response);
     }
 
-    private boolean matches(String provided) {
+    private static boolean matches(String provided, byte[] expected) {
+        if (provided == null || expected.length == 0) {
+            return false; // キー未設定のときに空文字で通らないようにする
+        }
         return MessageDigest.isEqual(provided.getBytes(StandardCharsets.UTF_8), expected);
     }
 }

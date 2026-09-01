@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import dev.mzhin.hatenacal.common.BadRequestException;
+import dev.mzhin.hatenacal.ingestion.IngestedPostRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -29,7 +30,8 @@ class AppearanceServiceValidationTest {
             Clock.fixed(Instant.parse("2026-09-01T00:00:00Z"), ZoneOffset.UTC);
 
     private final AppearanceRepository repository = mock(AppearanceRepository.class);
-    private final AppearanceService service = new AppearanceService(repository, NOW);
+    private final AppearanceService service = new AppearanceService(repository,
+            mock(IngestedPostRepository.class), NOW);
 
     @Test
     @DisplayName("from が to より後なら 400")
