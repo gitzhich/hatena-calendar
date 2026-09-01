@@ -1,6 +1,6 @@
 # API 設計 — XINXIN 出演情報カレンダー
 
-最終更新: 2026-08-29
+最終更新: 2026-09-01
 
 関連文書: [CLAUDE.md](../CLAUDE.md) / [docs/requirements.md](requirements.md) /
 [docs/data-model.md](data-model.md) / [docs/architecture.md](architecture.md)
@@ -273,9 +273,14 @@ POST /api/admin/appearances
 | `performanceStartTime` / `performanceEndTime` | — | `HH:mm:ss`。両方ある場合 開始 ≦ 終了 |
 | `merchStartTime` / `merchEndTime` | — | `HH:mm:ss`。両方ある場合 開始 ≦ 終了。出演時刻との前後は問わない |
 | `ticketUrl` | — | `http://` または `https://` で始まる |
-| `ingestedPostId` | — | 未処理投稿から作る場合に指定（FR-25） |
+| `ingestedPostId` | — | 未処理投稿から作る場合に指定（FR-25）。存在する投稿を指すこと。`EXCLUDED` の投稿は指定できない（`400`） |
 
 - `eventKey` は**クライアントから受け取らない**。サーバ側で `eventName` から生成する
+- **`ingestedPostId` を指定した場合、その投稿の `status` を `REGISTERED` へ進める**
+  （`UNPARSED` のときだけ。既に `REGISTERED` なら変更しない）。
+  これにより処理済みの投稿が未処理一覧（第 5.5 節）から消える。
+  同じ投稿から 2 件目の出演情報を作る場合は一覧に出てこないため、
+  出典 URL を控えたうえで本エンドポイントを直接使う
 - **同じ `appearanceDate` / `eventKey` / `performanceStartTime` の組が既にある場合は
   `409`** を返す。上書きしない。既存を直したい場合は編集（第 5.3 節）を使う。
   開始時刻を含めるのは、同じ日・同じイベントで複数回出演する告知があるため

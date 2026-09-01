@@ -177,7 +177,7 @@ backend/src/main/java/.../
 
 `@Scheduled` で 15〜30 分間隔（[x-integration.md](x-integration.md) 第 10 章）。
 
-- **多重起動を防ぐ。** 前回の実行が終わっていない場合はスキップする。
+- **多重起動を防ぐ。** 判定規則は [x-integration.md](x-integration.md) 第 10.1 節。
   Fly.io のインスタンスを 1 台に固定し、単一インスタンス前提で運用する
 - 取り込みの失敗が公開 API に影響しない（NFR-02）。ジョブと Web は
   同一プロセスだが、例外はジョブ内で完結させる
@@ -189,17 +189,20 @@ backend/src/main/java/.../
 ### 5.1 ルーティング
 
 ```
-frontend/app/
-├── page.tsx                      当月カレンダー
-├── [year]/[month]/page.tsx       指定月（FR-05：URL に年月を反映）
-├── admin/
-│   ├── login/page.tsx
-│   ├── page.tsx                  自動登録の点検一覧（FR-24）
-│   ├── appearances/new/page.tsx  手動登録（FR-21）
-│   ├── appearances/[id]/page.tsx 編集・削除（FR-22, FR-23）
-│   └── unparsed/page.tsx         未処理投稿（FR-25）
-├── api/                          Route Handler（管理操作の中継）
-└── layout.tsx                    免責表示を含むフッタ（FR-07）
+frontend/
+├── middleware.ts                     サイト全体の停止（第 5.4 節）
+└── app/
+    ├── page.tsx                      当月カレンダー
+    ├── [year]/[month]/page.tsx       指定月（FR-05：URL に年月を反映）
+    ├── unavailable/page.tsx          停止中の案内（第 5.4 節）
+    ├── admin/
+    │   ├── login/page.tsx
+    │   ├── page.tsx                  自動登録の点検一覧（FR-24）
+    │   ├── appearances/new/page.tsx  手動登録（FR-21）
+    │   ├── appearances/[id]/page.tsx 編集・削除（FR-22, FR-23）
+    │   └── unparsed/page.tsx         未処理投稿（FR-25）
+    ├── api/                          Route Handler（管理操作の中継）
+    └── layout.tsx                    免責表示を含むフッタ（FR-07）
 ```
 
 ### 5.2 キャッシュ戦略
@@ -229,6 +232,31 @@ FR-08 で最終更新日時を表示するため、この遅延は閲覧者に�
   Spring Boot を呼ぶ
 
 **ブラウザから Spring Boot を直接呼ぶコードを書かない。** 内部 API キーが漏れる。
+
+### 5.4 サイト全体の停止
+
+削除要請を受けた際に公開を止める手段（LR-05）。**Next.js の middleware で止める。**
+
+```
+middleware.ts
+  SITE_DISABLED === 'true' なら、/admin 配下を除く全リクエストを
+  /unavailable へ rewrite する（200 で停止中の案内を返す）
+
+停止手順
+  1. Vercel の環境変数に SITE_DISABLED=true を設定
+  2. 再デプロイ（1〜2 分）
+```
+
+**バックエンドを止めるだけでは不十分。** 公開カレンダーは ISR でキャッシュされており
+（第 5.2 節）、Fly.io や Neon を停止してもキャッシュ済みのページは配信され続ける。
+middleware は**キャッシュの手前**で全リクエストを受けるため、
+キャッシュ済みのページも確実に止められる。ここが方式選定の決め手になっている。
+
+- 停止ページには**削除要請の連絡先**を残す。要請者が状況を確認できないまま
+  サイトが消える状態にしない（連絡手段そのものは
+  [requirements.md](requirements.md) 第 12 章の未決定事項）
+- `/admin` 配下を除外するのは、停止中も管理者が個別削除（FR-23）を行えるようにするため
+- 反映に再デプロイを挟むが、LR-05 が求めるのは**手段を持つこと**であり即時性ではない
 
 ---
 
@@ -273,6 +301,7 @@ FR-08 で最終更新日時を表示するため、この遅延は閲覧者に�
 | `BACKEND_API_KEY` | 公開 API 用の内部キー |
 | `BACKEND_ADMIN_API_KEY` | 管理 API 用の内部キー。**Cookie 検証に成功したときだけ使う** |
 | `SESSION_SECRET` | セッション Cookie の署名・暗号化鍵 |
+| `SITE_DISABLED` | `true` でサイト全体を停止する（第 5.4 節。LR-05） |
 
 `NEXT_PUBLIC_` を付けるとブラウザに露出する。**上記のいずれにも付けない。**
 
