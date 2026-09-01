@@ -269,6 +269,23 @@ Owned Read（$0.001）は自アプリのオーナー自身のデータのみが�
   （どの作業がひとまとまりで入ったかを後から追えるようにするため）
 - **マージ済みの作業ブランチは削除する**（`git branch -d <branch>`）。手元に残さない
 
+**`main` はブランチ保護をかけてある。** 直 push は GitHub 側で拒否される。
+規約だけに頼らず、破れないようにしてある。
+
+```bash
+git checkout -b feat/xxx          # 作業ブランチを切る
+git push -u origin feat/xxx       # push
+gh pr create --fill               # PR を作る
+                                  # CI（ci ジョブ）の通過が必須
+gh pr merge --merge --delete-branch   # マージコミットを残して取り込む
+git checkout main && git pull     # ローカルを追従させる
+```
+
+- **PR のマージは `--merge`**（マージコミットを残す）。`--squash` と `--rebase` は使わない。
+  どの作業がひとまとまりで入ったかを追えなくなるため
+- 必須チェックは集約ジョブ `ci` のみ。`backend` / `frontend` は
+  変更のないディレクトリではスキップされ、チェックを報告しないため直接は指定できない
+
 ## 開発上の注意
 
 ### コマンド

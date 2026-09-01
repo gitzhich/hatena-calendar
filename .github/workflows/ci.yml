@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 変更されたディレクトリだけをビルドする（docs/adr/0001-monorepo.md の「結果」）。
+  # 第三者アクションを増やさないため git diff で判定する。
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base=$(git merge-base origin/${{ github.base_ref }} HEAD)
+          else
+            base="${{ github.event.before }}"
+          fi
+          # 比較元が取れないとき（初回 push など）は全部走らせる
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "backend=true"  >> "$GITHUB_OUTPUT"
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only "$base" HEAD)
+          echo "$changed"
+          grep -q '^backend/'  <<< "$changed" && b=true || b=false
+          grep -q '^frontend/' <<< "$changed" && f=true || f=false
+          # CI 自体を変えたときは両方走らせる
+          if grep -q '^\.github/workflows/' <<< "$changed"; then b=true; f=true; fi
+          echo "backend=$b"  >> "$GITHUB_OUTPUT"
+          echo "frontend=$f" >> "$GITHUB_OUTPUT"
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    services:
+      # ローカルの compose.yaml と同じ 17 系。Neon が 16/17 のため
+      # （docs/architecture.md 第 2.2 節）
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: hatenacal
+          POSTGRES_USER: hatenacal
+          POSTGRES_PASSWORD: hatenacal
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U hatenacal -d hatenacal"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: build（Flyway 適用 + テスト + コンパイル）
+        working-directory: backend
+        run: ./gradlew build --no-daemon --console=plain
+        env:
+          DATABASE_URL: jdbc:postgresql://localhost:5432/hatenacal
+          DATABASE_USER: hatenacal
+          DATABASE_PASSWORD: hatenacal
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: frontend
+        run: npm ci
+      - working-directory: frontend
+        run: npm run lint
+      - working-directory: frontend
+        run: npm run build
+
+  # ブランチ保護の必須チェックはこのジョブだけにする。
+  # パス絞り込みでジョブがスキップされると、そのチェックは報告されず
+  # 保護ルールが永久に待ち続けるため、常に走る集約ジョブで受ける。
+  ci:
+    needs: [backend, frontend]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 各ジョブの結果を集約する
+        run: |
+          echo "backend=${{ needs.backend.result }} frontend=${{ needs.frontend.result }}"
+          for r in "${{ needs.backend.result }}" "${{ needs.frontend.result }}"; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "::error::CI が失敗した"; exit 1 ;;
+            esac
+          done
+          echo "すべて成功またはスキップ"
