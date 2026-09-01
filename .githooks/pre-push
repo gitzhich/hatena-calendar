@@ -1,0 +1,20 @@
+#!/bin/sh
+# main への直 push を止める。
+#
+# GitHub 側のブランチ保護（classic / ruleset）は private リポジトリだと
+# GitHub Pro が要るため、無料プランでは使えない。代わりのローカルガード。
+# --no-verify で迂回できるので保証ではない。事故を止めるためのもの。
+# 取り込みは PR 経由で行う（CLAUDE.md の Git 運用）。
+
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+    case "$remote_ref" in
+        refs/heads/main)
+            echo "pre-push: main への直 push は禁止（CLAUDE.md の Git 運用）" >&2
+            echo "  作業ブランチを push して PR を作ってください:" >&2
+            echo "    git checkout -b feat/xxx && git push -u origin feat/xxx" >&2
+            echo "    gh pr create --fill" >&2
+            exit 1
+            ;;
+    esac
+done
+exit 0
