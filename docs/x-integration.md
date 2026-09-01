@@ -34,7 +34,7 @@ sequenceDiagram
     participant X as X API
     participant DB as PostgreSQL
 
-    S->>J: 起動（15〜30 分間隔）
+    S->>J: 起動（30 分間隔）
     J->>DB: ingestion_run を RUNNING で作成
     J->>DB: source_account を読む（x_user_id, last_fetched_tweet_id）
     J->>X: GET /2/users/{id}/tweets?since_id=...&exclude=replies,retweets
@@ -158,7 +158,12 @@ WHERE started_at >= date_trunc('month', now());
 1 日 10 投稿として月 300 リソース ≒ **$1.5/月**。
 `exclude=replies,retweets` により実際の課金対象はさらに少なくなる。
 新規投稿がない実行は返却 0 件で**課金されない**ため、
-ポーリング間隔を短くしてもコストはほぼ増えない。
+ポーリング間隔を短くしても X API のコストはほぼ増えない。
+
+**ただし間隔は X API のコストだけでは決められない。** 実行のたびに
+Neon のコンピュートが最低 5 分起動するため、間隔を詰めると
+無料枠の CU-hours を圧迫する。この制約で 30 分に決めている
+（[architecture.md](architecture.md) 第 11 章）。
 
 ### 4.4 コスト増を招く実装上の地雷
 
@@ -594,7 +599,9 @@ WHERE started_at >= date_trunc('month', now());
 
 ## 10. 運用と監視
 
-- ポーリング間隔は **15〜30 分**を暫定とする。新規投稿がなければ課金は発生しない
+- ポーリング間隔は **30 分**とする。新規投稿がなければ X API の課金は発生しないが、
+  実行のたびに Neon のコンピュートが最低 5 分起動するため、
+  間隔を短くすると CU-hours を消費する（[architecture.md](architecture.md) 第 11 章）
 - 実行基盤は Fly.io 上の Spring Boot `@Scheduled`（[architecture.md](architecture.md) 第 4.3 節）
 - 監視すべき値:
   - 直近の実行が成功しているか（FR-08 の表示に直結）
@@ -626,12 +633,9 @@ RUNNING の行があり started_at が 15 分以内
 
 ## 11. 未決定事項
 
-1. **ポーリング間隔の確定**。15〜30 分を暫定としている。
-   実行基盤は `@Scheduled` で確定済み（第 10 章）。
-   運用開始後の投稿頻度と告知から公演までの猶予を見て決める
-2. **抽出精度の目標水準**。requirements.md 未決定事項 6 と同一。
+1. **抽出精度の目標水準**。requirements.md 未決定事項 6 と同一。
    サンプルが 6 件では表記ゆれを網羅できていない。運用開始後に実データを蓄積して見直す
-3. **告知の種別判定**。「公演情報解禁」と「タイムテーブル解禁」以外の
+2. **告知の種別判定**。「公演情報解禁」と「タイムテーブル解禁」以外の
    告知パターン（中止・変更・出演者追加など）が実サンプルにない。
    実データを増やして判定条件を詰める
-4. **初回バックフィルの遡及期間**（第 8 章で 3 か月を既定としたが要確認）
+3. **初回バックフィルの遡及期間**（第 8 章で 3 か月を既定としたが要確認）
