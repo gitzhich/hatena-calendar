@@ -30,3 +30,6 @@
 | [0010](0010-split-api-keys.md) | 内部 API キーを公開用と管理用に分離する | 承認済み |
 | [0011](0011-midnight-date-rule.md) | 深夜公演を時刻が実際に属する暦日に配置する | 承認済み |
 | [0012](0012-multi-slot-uniqueness.md) | 同じ日・同じイベントの複数出演枠を別の行として持つ | 承認済み |
+| [0013](0013-site-kill-switch.md) | サイト全体の停止を Next.js の middleware で行う | 承認済み |
+| [0014](0014-bounded-calendar-range.md) | 公開カレンダーが受け付ける年月の範囲を有限にする | 承認済み |
+| [0015](0015-private-repository.md) | リポジトリを外部公開しない | 承認済み |

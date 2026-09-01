@@ -1,6 +1,6 @@
 # データモデル設計 — XINXIN 出演情報カレンダー
 
-最終更新: 2026-08-28
+最終更新: 2026-09-01
 
 関連文書: [CLAUDE.md](../CLAUDE.md) / [docs/requirements.md](requirements.md)
 
@@ -50,10 +50,12 @@ erDiagram
         bigserial   id PK
         date        appearance_date "JST の暦日"
         text        event_name "表示用。原文のまま"
-        text        event_key "照合用。正規化後。日付との組で一意"
+        text        event_key "照合用。正規化後。画面には出さない"
         text        venue_name "都道府県・ステージ名を含む"
         time        performance_start_time "XINXIN の出演開始（任意）"
         time        performance_end_time "XINXIN の出演終了（任意）"
+        time        merch_start_time "XINXIN の物販開始（任意）"
+        time        merch_end_time "XINXIN の物販終了（任意）"
         text        ticket_url
         text        source_url "出典 X 投稿 URL"
         text        source_type "AUTO / MANUAL"
@@ -141,7 +143,7 @@ CREATE TABLE ingested_post (
 
 | `status` | 意味 |
 | --- | --- |
-| `REGISTERED` | 出演情報を抽出して登録済み |
+| `REGISTERED` | 出演情報が登録済み。自動抽出に成功した場合と、管理者が未処理から手で登録した場合の両方を含む |
 | `UNPARSED` | 抽出できず未処理。管理者の手動処理を待つ（FR-25） |
 | `EXCLUDED` | 出演告知ではないと管理者が判断した（FR-25） |
 
@@ -199,7 +201,7 @@ CREATE TABLE appearance (
 | --- | --- |
 | `appearance_date` | **JST の暦日**。カレンダーの配置に使う（第 6 章） |
 | `event_name` | **表示用のイベント名。告知の原文をそのまま保持する** |
-| `event_key` | **照合用の正規化済みイベント名。** 画面には出さない。`appearance_date` との組で一意（第 4.3.2 節） |
+| `event_key` | **照合用の正規化済みイベント名。** 画面には出さない。生成規則と一意性は第 4.3.2 節 |
 | `venue_name` | 会場名。**都道府県とステージ名を含めた形**で保持する（下記） |
 | `performance_start_time` | **XINXIN の出演開始時刻**（JST）。告知の 🎤 行から抽出する |
 | `performance_end_time` | XINXIN の出演終了時刻（JST） |
@@ -292,8 +294,9 @@ DB が別物として通してしまい、二重登録を防げない。
 **`NULLS NOT DISTINCT` を付ける理由。** PostgreSQL の `UNIQUE` は既定で
 `NULL` 同士を「異なる値」として扱うため、これを付けないと
 `performance_start_time` が `NULL` の行を何行でも作れてしまう。
-タイムテーブル未発表の告知（実サンプル 1.txt）は時刻が `NULL` になるので、
-同じ告知を再処理するたびに行が増える事故が起こりうる。
+時刻が `NULL` の行は**管理者の手動登録から生まれる**。
+出演時刻が未確定の告知（実サンプル 1.txt）は自動取り込みの対象外で
+（[x-integration.md](x-integration.md) 第 5.2 節）、管理者が手で登録するため。
 `NULLS NOT DISTINCT` により「時刻未定の行は 1 日 1 イベントにつき 1 行」を
 DB 側で保証する。
 
@@ -433,7 +436,7 @@ CREATE INDEX idx_ingestion_run_status_finished
 ```
 
 `UNIQUE` 制約には自動でインデックスが作られるため、別途定義しない。
-これには `appearance_unique_event (appearance_date, event_key)` も含まれる。
+これには `appearance_unique_event`（第 4.3 節）も含まれる。
 **先頭列が `appearance_date` なので、月次の範囲検索にそのまま使える。**
 1 か月分の取得は `WHERE appearance_date BETWEEN ? AND ?` の 1 クエリで完結する（NFR-01）。
 `appearance_date` 単独のインデックスは重複するため作らない。
@@ -463,7 +466,7 @@ CREATE INDEX idx_ingestion_run_status_finished
 - 月次クエリは `WHERE appearance_date BETWEEN '2026-08-01' AND '2026-08-31'` と書ける
 - サーバやコンテナの `TZ` 設定に結果が依存しない
 - `performance_start_time` が `NULL` でも日付は確定する
-  （タイムテーブル未発表の出演情報を表現できる。実サンプル 1.txt がこのケース）
+  （出演時刻がまだ告知されていない公演を、管理者が手で登録できる）
 
 **深夜公演の扱い。** 「26:00 開演」のような 24 時以上の表記は、
 **時刻が実際に属する暦日**に置く。`appearance_date` を翌日、
@@ -506,9 +509,10 @@ CREATE INDEX idx_ingestion_run_status_finished
 
 1. `appearance_date` / `event_key` / `performance_start_time` が**すべて一致**する
    既存行を探す（`event_key` の作り方は第 4.3.2 節）
-2. 見つからず、抽出結果に開始時刻がある場合は、同じ `appearance_date` と `event_key` を持ち
+2. 見つからなければ、同じ `appearance_date` と `event_key` を持ち
    `performance_start_time` が `NULL` の行を探す。あればその行へ時刻を書き込む
-   （「公演情報解禁」で作られた時刻なしの行に、後続の「タイムテーブル解禁」が時刻を入れる流れ）
+   （管理者が手で登録した時刻なしの行に、後続の「タイムテーブル解禁」が時刻を入れる流れ）。
+   自動取り込みが作る行は必ず開始時刻を持つため、ここで見つかるのは手動登録の行になる
 3. どちらも見つからなければ新規登録（`INSERT`）
 4. 補完する場合は、**値が `NULL` の列だけ**を埋める（`UPDATE`）
 
