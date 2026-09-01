@@ -20,15 +20,19 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final String publicApiKey;
+    private final String adminApiKey;
 
-    public SecurityConfig(@Value("${INTERNAL_API_KEY:}") String publicApiKey) {
+    public SecurityConfig(@Value("${INTERNAL_API_KEY:}") String publicApiKey,
+            @Value("${INTERNAL_ADMIN_API_KEY:}") String adminApiKey) {
         this.publicApiKey = publicApiKey;
+        this.adminApiKey = adminApiKey;
     }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // API キーによるステートレス認証。Cookie を使わないため CSRF の対象にならない
+                // API キーによるステートレス認証。Cookie を使わないため CSRF の対象にならない。
+                // ブラウザからは呼ばれず、Next.js からのサーバ間通信のみ
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .httpBasic(basic -> basic.disable())
@@ -41,12 +45,16 @@ public class SecurityConfig {
                                 res.setStatus(HttpServletResponse.SC_FORBIDDEN))
                         .accessDeniedHandler((req, res, e) ->
                                 res.setStatus(HttpServletResponse.SC_FORBIDDEN)))
-                .addFilterBefore(new ApiKeyFilter(publicApiKey),
+                .addFilterBefore(new ApiKeyFilter(publicApiKey, adminApiKey),
                         UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         // 公開 API は GET のみ。他のメソッドを許可しない
                         .requestMatchers(HttpMethod.GET, "/api/public/**")
                         .hasAuthority(ApiKeyFilter.ROLE_PUBLIC)
+                        // 管理 API と内部 API は管理キーだけが通る。
+                        // 公開キーでは通らない（ADR-0010）
+                        .requestMatchers("/api/admin/**", "/internal/**")
+                        .hasAuthority(ApiKeyFilter.ROLE_ADMIN)
                         .requestMatchers("/actuator/health").permitAll()
                         // 明示的に許可したもの以外はすべて拒否する
                         .anyRequest().denyAll());

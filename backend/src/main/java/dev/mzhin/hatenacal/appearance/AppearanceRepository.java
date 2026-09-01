@@ -2,6 +2,10 @@ package dev.mzhin.hatenacal.appearance;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.time.LocalTime;
+import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -26,4 +30,29 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
                       a.id ASC
             """)
     List<Appearance> findForCalendar(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    /** 点検一覧（FR-24）。登録日時の新しい順（docs/api.md 第 5.1 節）。 */
+    Page<Appearance> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    Page<Appearance> findBySourceTypeOrderByCreatedAtDesc(SourceType sourceType,
+            Pageable pageable);
+
+    /**
+     * 一意キーでの照合（ADR-0012）。開始時刻ありの場合。
+     *
+     * <p>アプリの照合ロジックと DB の UNIQUE 制約が同じキーで判定するようにする。
+     *
+     * <p><b>NULL 有無で 2 本に分けている。</b> 1 本にまとめて
+     * {@code (col = :start OR (col IS NULL AND :start IS NULL))} と書くと、
+     * PostgreSQL が裸のパラメータの型を決められず
+     * 「could not determine data type of parameter」で落ちる。
+     * JPQL に IS NOT DISTINCT FROM がないため、呼び出し側で分岐する。
+     */
+    Optional<Appearance> findByAppearanceDateAndEventKeyAndPerformanceStartTime(
+            LocalDate appearanceDate, String eventKey, LocalTime performanceStartTime);
+
+    /** 一意キーでの照合。開始時刻なしの場合（NULLS NOT DISTINCT に対応）。 */
+    Optional<Appearance> findByAppearanceDateAndEventKeyAndPerformanceStartTimeIsNull(
+            LocalDate appearanceDate, String eventKey);
+
 }
