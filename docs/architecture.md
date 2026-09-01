@@ -144,7 +144,7 @@ Cookie を事前に複製されていた場合は有効期限まで使える。
 関連するコードが 1 か所に集まり、取り込み機能ごと差し替えやすくなる。
 
 ```
-backend/src/main/java/.../
+backend/src/main/java/dev/mzhin/hatenacal/
 ├── appearance/          出演情報（公開・管理の両方）
 │   ├── Appearance.java              エンティティ
 │   ├── AppearanceRepository.java
