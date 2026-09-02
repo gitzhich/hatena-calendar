@@ -1,6 +1,6 @@
 # アーキテクチャ設計 — XINXIN 出演情報カレンダー
 
-最終更新: 2026-09-01
+最終更新: 2026-09-02
 
 関連文書: [CLAUDE.md](../CLAUDE.md) / [docs/requirements.md](requirements.md) /
 [docs/data-model.md](data-model.md) / [docs/x-integration.md](x-integration.md)
@@ -335,7 +335,27 @@ Vercel の egress IP であり、そこで IP 単位に絞ると攻撃者では�
 ## 7. 設定と環境変数
 
 すべて環境変数で注入する。リポジトリに値を置かない。
-`.env.example` に**キー名だけ**を記載する。
+**本章が変数一覧の正本**であり、雛形ファイルはここの写しではない。
+
+### 雛形ファイルの置き場
+
+読む主体ごとに分かれている。**一方が他方のファイルを読むことはない。**
+
+| ファイル | 読む主体 | 使い方 |
+| --- | --- | --- |
+| `.env.example` | Spring Boot（ローカル実行） | `cp .env.example .env` |
+| `frontend/.env.example` | Next.js | `cp frontend/.env.example frontend/.env.local` |
+
+いずれも**キー名だけ**を書き、値は入れない。
+
+**雛形には「ローカルで実際に設定する変数」だけを置く。**
+ローカルに既定値がある変数（下表）を空の値で書くと、
+`application.yml` の `${VAR:default}` は変数が**未設定のときだけ**
+デフォルトを使うため、空文字がデフォルトを潰して起動しなくなる。
+
+ローカル実行時の `.env` は Gradle の `bootRun` が**環境変数として**渡す
+（`backend/build.gradle.kts`）。空の値は渡さない。本番の Fly.io Secrets と
+同じ経路になるため、注入方法が環境で分岐しない。
 
 ### Next.js（Vercel）
 
@@ -351,17 +371,67 @@ Vercel の egress IP であり、そこで IP 単位に絞ると攻撃者では�
 
 ### Spring Boot（Fly.io Secrets）
 
-| 変数 | 用途 |
-| --- | --- |
-| `DATABASE_URL` | Neon の接続文字列 |
-| `X_BEARER_TOKEN` | X API の認証。**課金に直結する** |
-| `X_SOURCE_USERNAME` | 情報源アカウントのハンドル |
-| `ADMIN_PASSWORD_HASH` | 管理者パスワードの BCrypt ハッシュ |
-| `INTERNAL_API_KEY` | 公開 API 用の共有シークレット |
-| `INTERNAL_ADMIN_API_KEY` | 管理 API・内部 API 用の共有シークレット |
+| 変数 | 用途 | ローカルの既定値 |
+| --- | --- | --- |
+| `DATABASE_URL` | Neon の接続文字列 | `compose.yaml` に合わせた値 |
+| `DATABASE_USER` | 同上 | `hatenacal` |
+| `DATABASE_PASSWORD` | 同上 | `hatenacal` |
+| `PORT` | 待ち受けポート | `8080` |
+| `X_BEARER_TOKEN` | X API の認証。**課金に直結する** | なし |
+| `X_SOURCE_USERNAME` | 情報源アカウントのハンドル | なし |
+| `ADMIN_PASSWORD_HASH` | 管理者パスワードの BCrypt ハッシュ | なし |
+| `INTERNAL_API_KEY` | 公開 API 用の共有シークレット | なし |
+| `INTERNAL_ADMIN_API_KEY` | 管理 API・内部 API 用の共有シークレット | なし |
+
+**既定値のある 4 つは `.env.example` に載せない。** ローカルでは設定不要で、
+空の値を置くと既定値を潰す。本番では `DATABASE_*` を Fly.io Secrets に入れる。
+
+`X_SOURCE_USERNAME` は**どのアカウントを取り込むかの指定**であり、
+取り込み後のハンドルの正本は `source_account.username`
+（[data-model.md](data-model.md) 第 4.1 節）。投稿 URL の組み立てなど
+既存データの表示には DB 側を使う。
 
 `spring.jpa.hibernate.ddl-auto` は `validate` に固定する
 （[data-model.md](data-model.md) 第 8 章）。
+
+### 7.1 未解決：接続情報の渡し方が二重になっている
+
+`application.yml` は接続情報を **3 つに分けて**データソースへ渡している。
+
+```yaml
+url:      ${DATABASE_URL:jdbc:postgresql://localhost:5432/hatenacal}
+username: ${DATABASE_USER:hatenacal}
+password: ${DATABASE_PASSWORD:hatenacal}
+```
+
+**問題**: Neon の接続文字列は認証情報を URL に含む形
+（`...?user=X&password=Y`）で配られる。本番で `DATABASE_URL` だけを
+Fly.io Secrets に入れると、Spring は**同時に `username=hatenacal` /
+`password=hatenacal` も渡す**。URL のクエリと明示プロパティのどちらが
+優先されるかは PostgreSQL JDBC ドライバとコネクションプールの実装依存で、
+バージョンによって変わりうる。
+
+**影響**: 明示プロパティが勝つ側に倒れると、**起動時に接続できず
+バックエンドが上がらない**。Flyway もデータソースを使うため、
+マイグレーション以前の段階で落ちる。ローカルでは 3 つの既定値が
+`compose.yaml` と一致するため、この食い違いは表に出ない。
+
+**対処（案）**: `username` / `password` を `application.yml` から外し、
+認証情報を `DATABASE_URL` に含める形へ寄せる。
+
+```yaml
+url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/hatenacal?user=hatenacal&password=hatenacal}
+```
+
+- 環境変数が 3 つから **1 つ**になる
+- 優先順位の曖昧さが消える。どちらが勝つかに依存しない
+- ローカルの既定値に平文パスワードが入るが、`compose.yaml` に
+  コミット済みの使い捨て値であり、新たな露出ではない
+
+**検証**: 変更後に `./gradlew test` が通れば、ローカルの接続は成立している
+（結合テストが実 DB を使う）。本番側は初回デプロイで確認する。
+
+デプロイ前に決着させる。
 
 ---
 
