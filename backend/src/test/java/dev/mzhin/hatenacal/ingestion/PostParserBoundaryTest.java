@@ -348,4 +348,84 @@ class PostParserBoundaryTest {
             assertThat(a.ticketUrl()).isNull();
         }
     }
+
+    @Nested
+    @DisplayName("マーカーと値の間の空白（第 5.12 節）")
+    class MarkerWhitespace {
+
+        /**
+         * 実 API で取得した投稿に現れた形。
+         *
+         * <p>サンプル 13 件はすべて {@code 🔗https://...} だったため、
+         * この形は取り込みを実際に動かすまで見つからなかった。
+         * <b>投稿は登録され、チケット URL だけが黙って欠ける</b>ため
+         * 気づきにくい壊れ方をする。
+         */
+        @Test
+        @DisplayName("🔗 の後にスペースがあってもチケット URL を拾う")
+        void ticketUrlAfterSpace() {
+            String body = """
+                    🔶XINXIN東京公演タイムテーブル解禁🔶
+
+                    9/5(土)📍東京・BLAZE GOTANDA
+                    『new story』
+
+                    ⏰OPEN 11:45 / START 12:00
+                    🔗 https://t.co/8HfxMg2TkK
+
+                    ▪️タイムテーブル
+                    🎤14:30-14:55 XINXIN出演
+                    📸15:15-16:35 並行物販C
+                    """;
+            ParsedAppearance a = only(body, posted(2026, 9, 2));
+
+            assertThat(a.ticketUrl()).isEqualTo("https://t.co/8HfxMg2TkK");
+            assertThat(a.performanceStartTime()).hasToString("14:30");
+            assertThat(a.merchStartTime()).hasToString("15:15");
+        }
+
+        @Test
+        @DisplayName("🎤 と 📸 の後の空白も許す")
+        void timesAfterSpace() {
+            ParsedAppearance a = only(
+                    post("9/16(水)", "🎤 19:50-20:15 XINXIN出演\n📸 20:30-21:00 物販"),
+                    posted(2026, 9, 1));
+
+            assertThat(a.performanceStartTime()).hasToString("19:50");
+            assertThat(a.merchStartTime())
+                    .as("📸 を取り逃すと物販時刻が黙って欠ける")
+                    .hasToString("20:30");
+        }
+
+        @Test
+        @DisplayName("全角スペースも許す")
+        void ideographicSpace() {
+            ParsedAppearance a = only(
+                    post("9/16(水)", "🎤　19:50-20:15 XINXIN出演"), posted(2026, 9, 1));
+
+            assertThat(a.performanceStartTime()).hasToString("19:50");
+        }
+
+        @Test
+        @DisplayName("改行をまたいだ値は拾わない")
+        void doesNotCrossNewline() {
+            String body = """
+                    🔸XINXIN公演情報解禁🔸
+
+                    9/16(水)📍愛知・テスト会場
+                    『テストイベント』
+
+                    ⏰OPEN 17:00 / START 17:30
+                    🔗
+                    https://example.com/別の節のURL
+
+                    ▪️タイムテーブル
+                    🎤19:50-20:15 XINXIN出演
+                    """;
+            assertThat(only(body, posted(2026, 9, 1)).ticketUrl())
+                    .as("改行をまたいで許すと、別の節にある URL を拾いうる")
+                    .isNull();
+        }
+    }
+
 }
