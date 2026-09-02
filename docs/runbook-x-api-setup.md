@@ -174,23 +174,19 @@ curl -u "$API_KEY:$API_SECRET_KEY" \
 read -rs -p 'X_BEARER_TOKEN: ' TOKEN && printf 'X_BEARER_TOKEN=%s\n' "$TOKEN" >> .env && unset TOKEN
 ```
 
-`.env.example` には**キー名だけ**を書く（[architecture.md](architecture.md) 第 7 章）。
-値は絶対に入れない。本アプリが必要とするのは次の 2 つ。
-
-```
-X_BEARER_TOKEN=
-X_SOURCE_USERNAME=
-```
+本アプリが X 連携で使う `X_BEARER_TOKEN` と `X_SOURCE_USERNAME` は、
+**`.env.example` に値を伏せた状態で登録済み**（[architecture.md](architecture.md) 第 7 章）。
+追記は要らない。**空のまま保つこと。**
 
 ### 4.3 置いた直後に確認する
 
 ```bash
 git status --porcelain          # .env が現れないこと
 git check-ignore -v .env        # .gitignore に当たっていること
-grep -n '^X_' .env.example      # キー名だけで、= の右に値が無いこと
+grep -n '^X_' .env.example      # 2 キーとも = の右が空であること
 ```
 
-`.env.example` に上の 2 キーが無ければ追記する（**値は空のまま**）。
+`.env.example` に値が入っていたら**それは事故**。ここは常に空でなければならない。
 
 ---
 
