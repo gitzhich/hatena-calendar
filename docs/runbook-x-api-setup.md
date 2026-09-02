@@ -187,17 +187,45 @@ curl -u "$API_KEY:$API_SECRET_KEY" \
 **トークンをコマンドライン引数に書かない。** シェル履歴に残る。
 チャット・Issue・スクリーンショットにも貼らない。
 
-ローカルはリポジトリ直下の `.env`（`.gitignore` 済み）に置く。
-エディタで直接書き込むか、履歴に残らない形で追記する。
+ローカルはリポジトリ直下の `.env`（`.gitignore` 済み）に置く。雛形から作る。
 
 ```bash
-# 履歴にトークンを残さずに追記する
-read -rs -p 'X_BEARER_TOKEN: ' TOKEN && printf 'X_BEARER_TOKEN=%s\n' "$TOKEN" >> .env && unset TOKEN
+cp .env.example .env
 ```
 
-本アプリが X 連携で使う `X_BEARER_TOKEN` と `X_SOURCE_USERNAME` は、
-**`.env.example` に値を伏せた状態で登録済み**（[architecture.md](architecture.md) 第 7 章）。
-追記は要らない。**空のまま保つこと。**
+`X_BEARER_TOKEN` と `X_SOURCE_USERNAME` を含む全キーが、
+**値を伏せた状態で `.env.example` に登録済み**（[architecture.md](architecture.md) 第 7 章）。
+つまり `.env` には**空の行が既にある**。
+
+**追記（`>>`）してはいけない。同じキーが 2 行になる。**
+既存の行を置き換える。もっとも確実なのは**エディタで開いて空欄に貼る**こと。
+トークンが手元にある以上、入力を隠しても得るものはない。
+
+ターミナルで完結させたい場合は、追記ではなく置換にする。
+
+```bash
+read -rs -p 'X_BEARER_TOKEN: ' TOKEN; echo
+grep -v '^X_BEARER_TOKEN=' .env > .env.tmp \
+  && printf 'X_BEARER_TOKEN=%s\n' "$TOKEN" >> .env.tmp \
+  && mv .env.tmp .env
+unset TOKEN
+```
+
+`read` は**標準入力から**読むため、値がシェル履歴に残らない。`-s` は画面にも出さない
+（スクロールバックとスクリーンショットへの写り込みを防ぐ）。`.env.tmp` は
+`.gitignore` の `.env.*` に当たる。
+
+**`.env.example` は空のまま保つこと。**
+
+### 4.2.1 `.env` を自動で読むものは無い
+
+**Spring Boot も Next.js も、リポジトリ直下の `.env` を読まない。**
+
+- Spring Boot が見るのは**プロセスの環境変数**（`application.yml` の `${X_BEARER_TOKEN}`）
+- Next.js が読むのは `frontend/.env.local` などで、リポジトリ直下ではない
+
+`.env` は**シェルで読み込むための置き場**である。読み込むときは
+**`X_` だけに絞る**（理由は第 5 章冒頭）。
 
 ### 4.3 置いた直後に確認する
 
@@ -216,26 +244,48 @@ grep -n '^X_' .env.example      # 2 キーとも = の右が空であること
 **ここから課金が発生する。** 各段階の費用を明記する。単価は
 [x-integration.md](x-integration.md) 第 4.1 節。
 
-以降 `$X_BEARER_TOKEN` は `.env` から読み込んだ値とする
-（`set -a; . ./.env; set +a`）。
+以降 `$X_BEARER_TOKEN` は `.env` から読み込んだ値とする。
+**`X_` で始まる行だけを読み込む。**
+
+```bash
+set -a; . <(grep '^X_' ./.env); set +a
+```
+
+**`.env` を丸ごと読み込まない**（`. ./.env`）。雛形由来の `.env` は
+`DATABASE_URL=` などが**空文字**で入っている。Spring の
+`${DATABASE_URL:jdbc:postgresql://localhost:5432/hatenacal}` は変数が
+**未設定のとき**だけデフォルトを使うため、空文字を環境に置くと
+デフォルトが効かず、同じシェルでの `./gradlew bootRun` が接続に失敗する。
 
 ### 5.1 トークンの有効性を確認する（$0）
 
 **Post を 1 件も読まないので課金されない。** 最初にこれを叩く。
 
 ```bash
-curl -s -H "Authorization: Bearer $X_BEARER_TOKEN" \
-     'https://api.x.com/2/usage/credits'
+curl -sS -w 'HTTP %{http_code}\n' \
+     -H "Authorization: Bearer $X_BEARER_TOKEN" \
+     'https://api.x.com/2/usage/tweets'
 ```
 
 ```json
-{ "data": { "total_balance": 10.00, "prepaid_balance": 10.00,
-            "free_balance": 0.00, "free_grants": [] } }
+{"data":{"cap_reset_day":2,"project_cap":"3000000",
+         "project_id":"...","project_usage":"0"}}
 ```
 
-- `401` が返る → トークンが誤っているか無効化されている
-- `total_balance` が 0 → クレジットが未購入。手順 3 に戻る
-- `free_grants` に無償枠がある場合、**有効期限がある**。`expires_at` を控えておく
+| 返り値 | 意味 |
+| --- | --- |
+| `200` | **トークンは有効。** 認証が通っている |
+| `401` | トークンが誤っているか、無効化されている |
+| `403` | App が Project に接続されていない可能性がある |
+
+- `project_cap` は請求サイクルあたりの Post 読み取り上限（`3000000`）
+- `project_usage` は当サイクルの消費数。**このエンドポイント自体は加算されない**
+- `cap_reset_day` は上限がリセットされる日。請求サイクルの起点と一致する
+
+**`GET /2/usage/credits` は使えない。** `docs.x.com` に
+「クレジット残高を返す」として記載があるが、`api.x.com` / `api.twitter.com` の
+いずれでも **404（本文なし）** が返る。残高はコンソールの
+「請求書作成 → クレジット」で見る（第 3.3 節）。
 
 ### 5.2 ユーザー ID を解決する（$0.010）
 
@@ -330,8 +380,8 @@ fly secrets list     # 名前とダイジェストだけが出る。値は表示
 | 頻度 | 見るもの | 判断 |
 | --- | --- | --- |
 | 週次 | 管理画面の当月 `fetched_resource_count` | 想定は月 300 前後。**桁違いなら第三者利用を疑う**（[security.md](security.md) T-01） |
-| 週次 | `GET /2/usage/credits` の `total_balance` | 想定の減り方（月 $1.5）と合っているか |
-| 月次 | `GET /2/usage/tweets` の日次内訳 | 特定日に跳ねていないか |
+| 週次 | コンソールの残高（請求書作成 → クレジット） | 想定の減り方（月 $1.5）と合っているか。**API では取れない**（第 5.1 節） |
+| 月次 | `GET /2/usage/tweets` の `project_usage` | 当サイクルの累計。**日次の内訳は返らない**（付録 C.2） |
 | 随時 | `UNPARSED` の滞留件数 | 抽出精度の劣化を示す |
 
 無償枠（`free_grants`）を使っている場合は **`expires_at` を過ぎると
@@ -384,7 +434,7 @@ fly secrets list     # 名前とダイジェストだけが出る。値は表示
 - [ ] Bearer Token をコマンドライン引数・チャット・スクリーンショットに出していない
 - [ ] `.env` が `git status` に現れない
 - [ ] `.env.example` に**キー名だけ**が入っている
-- [ ] `GET /2/usage/credits` が 200 を返す
+- [ ] `GET /2/usage/tweets` が 200 を返す
 - [ ] `source_account` に行があり、`last_fetched_tweet_id` が `NULL`
 - [ ] `fly secrets list` に `X_BEARER_TOKEN` がある
 - [ ] `fly.toml` とコミット履歴にトークンが入っていない
@@ -399,7 +449,7 @@ fly secrets list     # 名前とダイジェストだけが出る。値は表示
 | 従量課金の単価・月間 300 万リソース上限・24 時間 UTC の重複排除・自動チャージ・支出上限 | `docs.x.com/x-api/getting-started/pricing` |
 | App-Only Bearer Token の取得（`POST /oauth2/token`） | `docs.x.com/fundamentals/authentication/oauth-2-0/bearer-tokens` |
 | 使用量エンドポイント（`/2/usage/tweets`） | `docs.x.com/x-api/usage/introduction` |
-| クレジット残高エンドポイント（`/2/usage/credits`、`free_grants`） | `docs.x.com/x-api/usage/get-usage-credits` |
+| クレジット残高エンドポイント（`/2/usage/credits`） | `docs.x.com/x-api/usage/get-usage-credits`。**記載はあるが実際には 404**（第 5.1 節） |
 | `tweet.fields` が現行のパラメータ名／`note_tweet` の意味 | `docs.x.com/x-api/fundamentals/data-dictionary` |
 | `GET /2/users/{id}/tweets` のパラメータと `max_results` の範囲 | `docs.x.com/x-api/posts/user-posts-timeline-by-user-id` |
 | アクセス取得の手順（`console.x.com`、認証情報の 1 回限りの表示） | `docs.x.com/x-api/getting-started/getting-access` |
@@ -417,6 +467,8 @@ fly secrets list     # 名前とダイジェストだけが出る。値は表示
 | 2026-09-02 | 手順 2 開発者アカウントと App | **完了。** Developer Console にアクセスでき、App `hatena-calendar` を `Default Project` 配下に作成した（`Pay Per Use` / `active`） |
 | 2026-09-02 | 手順 2 App の認証設定 | **完了。** User authentication settings は未設定（「セットアップ」ボタンのまま）。権限は「読む — 投稿とプロフィール情報を読む」のみ |
 | 2026-09-02 | 手順 3 課金ガードレール | **完了。** 下表のとおり、推奨値どおりに設定した |
+| 2026-09-02 | 手順 4 Bearer Token | **完了。** App 作成時に控えたトークンを `.env` に格納した（116 文字 / `AAAAAAAAAA` 始まり） |
+| 2026-09-02 | 手順 5.1 トークンの有効性 | **完了。** `GET /2/usage/tweets` が `200`。課金なし |
 
 手順 3 の設定値（`console.x.com` → 請求書作成 → クレジット）:
 
@@ -429,6 +481,30 @@ fly secrets list     # 名前とダイジェストだけが出る。値は表示
 | 請求サイクル | 2026-09-02 〜 2026-10-02 | 購入日起点。暦月ではない |
 
 **この時点での最大損失は $10（残高）、1 サイクルあたり $5 に限定されている。**
+
+### C.2 手順 5.1 で分かったこと
+
+実測のレスポンス（`GET https://api.x.com/2/usage/tweets`、HTTP 200）:
+
+```json
+{"data":{"cap_reset_day":2,"project_cap":"3000000",
+         "project_id":"...","project_usage":"0"}}
+```
+
+`api-version: 2.168` / `x-rate-limit-limit: 50`。
+
+**公式文書と実際の挙動が食い違う点が 2 つある。**
+
+| | 文書の記載 | 実際 |
+| --- | --- | --- |
+| `GET /2/usage/credits` | クレジット残高を返す | **404（本文なし）。** `api.x.com` / `api.twitter.com` の両方で再現 |
+| `GET /2/usage/tweets` のレスポンス | `daily_project_usage[]` に日次の内訳 | 日次の配列は無く、`project_usage` に**累計値**のみ |
+
+**`project_cap` が `3000000` であることが実測で確定した。**
+二次情報の「200 万」は誤りで、公式文書の 300 万が正しい（第 0.1 節）。
+
+この結果、手順 7 の「日次内訳を見る」は**現状できない**。
+当サイクルの累計と、コンソールのクレジット残高で追う。
 
 ### C.1 提出したユースケース説明
 
