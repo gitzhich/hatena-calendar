@@ -8,10 +8,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * 鮮度判定の境界（FR-08 / docs/api.md 第 4.2 節）。
+ * データの状態が何をもって決まるか（FR-08 / docs/api.md 第 4.2 節）。
  *
- * <p>「24 時間以上」の境界をここで固定する。DB も HTTP も通さないので、
- * 実時刻に依存せず 1 秒刻みで確かめられる。
+ * <p>DB も HTTP も通さない。「24 時間以上」の境界は実時刻に依存せず 1 秒刻みで確かめられ、
+ * 日時の正規化は<b>任意のオフセットを渡して</b>確かめられる。
+ * DB を経由する {@link PublicStatusApiIT} では後者を守れない。PostgreSQL の
+ * TIMESTAMPTZ を OffsetDateTime で読むとドライバが UTC で返すため、
+ * 正規化を外しても結果が変わらないからで、これは変異テストで実際に素通りした。
  */
 class IngestionStatusTest {
 
@@ -56,6 +59,26 @@ class IngestionStatusTest {
     @DisplayName("最終成功が未来でも stale にしない。時計のずれで警告を出さない")
     void futureTimestampIsNotStale() {
         assertThat(IngestionStatusService.isStale(NOW.plusHours(1), NOW)).isFalse();
+    }
+
+    @Test
+    @DisplayName("DTO は日時を UTC に正規化する（docs/api.md 第 4.2 節）")
+    void dtoNormalizesToUtc() {
+        OffsetDateTime jst = OffsetDateTime.of(2026, 8, 28, 10, 0, 0, 0, ZoneOffset.ofHours(9));
+        PublicStatusDto dto = new PublicStatusDto(jst, false);
+
+        assertThat(dto.lastSuccessfulIngestionAt().getOffset())
+                .as("API 契約は UTC。表記が揺れると受け取り側の JST 変換が読みにくくなる")
+                .isEqualTo(ZoneOffset.UTC);
+        assertThat(dto.lastSuccessfulIngestionAt().toInstant())
+                .as("正規化で瞬間そのものを動かしてはいけない")
+                .isEqualTo(jst.toInstant());
+    }
+
+    @Test
+    @DisplayName("一度も成功していなければ日時は null のまま")
+    void dtoKeepsNull() {
+        assertThat(new PublicStatusDto(null, false).lastSuccessfulIngestionAt()).isNull();
     }
 
     @Test
