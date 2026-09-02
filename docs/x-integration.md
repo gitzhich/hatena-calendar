@@ -1,9 +1,10 @@
 # X API 連携設計 — 取得・課金・抽出
 
-最終更新: 2026-09-01
+最終更新: 2026-09-02
 
 関連文書: [CLAUDE.md](../CLAUDE.md) / [docs/requirements.md](requirements.md) /
-[docs/data-model.md](data-model.md) / 実サンプル `docs/x-post-sample/`
+[docs/data-model.md](data-model.md) / 実キーの設定手順は [docs/runbook-x-api-setup.md](runbook-x-api-setup.md) /
+実サンプル `docs/x-post-sample/`
 
 ---
 
@@ -16,7 +17,7 @@ XINXIN 公式アカウントの新規投稿を定期的に取得し、出演情�
 | --- | --- |
 | エンドポイント | `GET /2/users/{id}/tweets` |
 | 認証 | Bearer Token（OAuth2 App-Only） |
-| 情報源 | XINXIN 公式アカウント 1 件のみ |
+| 情報源 | `@xinxin_official`（XINXIN 公式）1 件のみ。ユーザー ID は [runbook](runbook-x-api-setup.md) 付録 C.3 |
 | 取得方式 | `since_id` による差分取得 |
 | 承認 | なし。抽出に成功した情報はそのまま公開する（FR-41） |
 
@@ -107,6 +108,11 @@ GET /2/users/{id}/tweets
 | `max_results` | 100（上限）。ページング回数を減らす |
 | `tweet.fields` | `created_at`（年の補完に使う）、`note_tweet`（長文投稿の本文） |
 
+**レート制限は制約にならない。** 実測で `x-rate-limit-limit: 10000`
+（アプリ単位・15 分あたり）。30 分間隔のポーリングは 15 分あたり 0〜1 回なので、
+4 桁の余裕がある。間隔を決めているのは X API ではなく Neon の CU-hours
+（第 4.3 節）。
+
 **`expansions` と `media.fields` は指定しない。** 画像を保持しないため（LR-03）、
 メディア情報を取得する必要がない。指定すると返却リソースが増えて課金が膨らむ。
 
@@ -118,8 +124,19 @@ GET /2/users/{id}/tweets
 本文 = note_tweet.text があればそれ、なければ text
 ```
 
-`text` は 280 文字で切れる。実サンプル 5.txt は 1,253 バイトあり、
-**`text` だけを見ると出演時刻の行に到達しない**。必ず `note_tweet` を優先する。
+`text` は途中で切れ、末尾が `https://t.co/...` に置き換わる。
+実サンプル 5.txt は 1,253 バイトあり、**`text` だけを見ると出演時刻の行に到達しない**。
+必ず `note_tweet` を優先する。
+
+実 API でも確認済み（2026-09-02、直近 5 件）。
+
+| 投稿 | `text` | `note_tweet.text` |
+| --- | --- | --- |
+| タイムテーブル解禁 | 233 字。**物販の行の途中で切れる** | 492 字 |
+| 情報解禁 | 247 字 | 645 字 |
+
+**`text` は半分以下しか含まない。** とくに物販時刻は末尾寄りに現れるため、
+`note_tweet` を見ないと第 5.7 節の抽出が成立しない。
 
 ### 3.4 ページング
 
@@ -155,6 +172,19 @@ WHERE started_at >= date_trunc('month', now());
 ```
 
 概算コストは `リソース数 × $0.005`。月 $5 を超えない想定（NFR-04）。
+
+**課金がレスポンスのリソース数と一致することは実測済み**（2026-09-02）。
+`max_results=5` で 5 件を取得したところ、`GET /2/usage/tweets` の
+`project_usage` がちょうど 5 増えた。
+
+**ただし X 側の使用量エンドポイントは Post 読み取りしか数えない。**
+`GET /2/users/by/username/{handle}`（User Read、$0.010）は
+`project_usage` に加算されない。この差は初回の 1 回だけなので実害はないが、
+**請求額と `project_usage` を突き合わせるときは一致しない**ことを踏まえる。
+
+日次の内訳が要る場合は `usage.fields` を指定する
+（`?days=7&usage.fields=daily_project_usage`。既定では返らない）。
+使用量エンドポイントの呼び出し自体は課金されない。
 
 ### 4.3 想定コスト
 
@@ -781,7 +811,7 @@ RUNNING の行があり started_at が 15 分以内
 
 ## 12. 未決定事項
 
-1. **抽出精度の目標水準**。requirements.md 未決定事項 6 と同一。
+1. **抽出精度の目標水準**。requirements.md 未決定事項 5 と同一。
    サンプルが 6 件では表記ゆれを網羅できていない。運用開始後に実データを蓄積して見直す
 2. **告知の種別判定**。「公演情報解禁」と「タイムテーブル解禁」以外の
    告知パターン（中止・変更・出演者追加など）が実サンプルにない。
