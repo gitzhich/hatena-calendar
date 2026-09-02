@@ -14,7 +14,13 @@
 
 1. 作業ツリーが汚れていたら実行しない（ベースラインが曖昧なまま始めない）
 2. 変異前にベースラインが緑であることを確かめる
-3. 復元は git ではなく**メモリに退避した元の中身**から行う
+3. **その変異が使うテスト選択が、変異前に緑であることも確かめる**
+4. 復元は git ではなく**メモリに退避した元の中身**から行う
+
+3 が要るのは、テストコマンドやフィルタが間違っていると
+「何も選ばれず失敗」がそのまま「変異を検出した」に見えるため。
+実際に ``--cwd`` を指定し忘れてフロントのファイルに backend の
+コマンドを当て、偽陽性を出した。
 
 使い方
 ------
@@ -165,9 +171,23 @@ def main() -> int:
         print("ベースライン: 緑\n")
 
     survived: list[str] = []
+    # 同じテスト選択を何度も確かめない
+    selection_ok: dict[str, bool] = {}
+
     for m in mutations:
         if not m.file.exists():
             print(f"  !! ファイルが無い: {m.file}")
+            survived.append(m.desc)
+            continue
+
+        command = args.test_cmd.format(tests=m.tests)
+        if command not in selection_ok:
+            selection_ok[command] = run(command, args.cwd)
+        if not selection_ok[command]:
+            # 変異前から落ちるなら、落ちた理由は変異ではない。
+            # ここを見ないと「テストコマンドが壊れている」を
+            # 「変異を検出した」と読み違える
+            print(f"  !! 変異前からテストが通らない（コマンドかフィルタを確認）: {m.desc}")
             survived.append(m.desc)
             continue
 
