@@ -1,4 +1,5 @@
 import "server-only";
+import { backendBaseUrl } from "./backend-url";
 
 /**
  * Spring Boot の公開 API を呼ぶ。
@@ -30,7 +31,7 @@ export type FetchResult =
   | { ok: true; appearances: Appearance[] }
   | { ok: false };
 
-const BASE_URL = process.env.BACKEND_BASE_URL ?? "http://localhost:8080";
+const BASE_URL = backendBaseUrl();
 
 export async function fetchAppearances(from: string, to: string): Promise<FetchResult> {
   const url = `${BASE_URL}/api/public/appearances?from=${from}&to=${to}`;
