@@ -1,4 +1,9 @@
-import "server-only";
+/*
+ * server-only を付けていない。カウンタは秘密を持たず、
+ * 付けると node --test から読めなくなる（rate-limit.ts と同じ判断）。
+ * サーバ境界は呼び出し側（app/admin/actions.ts）が守る。
+ */
+import { createRateLimiter } from "./rate-limit.ts";
 
 /**
  * ログイン試行のレート制限（FR-20 / T-02）。
@@ -8,33 +13,30 @@ import "server-only";
  * 送信元は Vercel の egress IP なので、そこだけでは全利用者が
  * まとめて絞られてしまう（docs/architecture.md 第 5.5 節）。
  *
+ * **数えるのは失敗だけ。** 成功したらカウンタを捨てる。
+ * 正しいパスワードを入れている管理者を締め出さないため。
+ * 公開ページの制限（proxy.ts）が全リクエストを数えるのとはここが違う。
+ *
  * プロセス内のメモリに持つ。サーバレスでは実行環境をまたぐと共有されないが、
  * **これは 2 枚あるうちの 1 枚**であり、Spring Boot 側が最後の砦になる。
  */
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 15 * 60 * 1000;
+export const MAX_LOGIN_ATTEMPTS = 5;
+export const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
-const attempts = new Map<string, { count: number; firstAt: number }>();
+const limiter = createRateLimiter({
+  limit: MAX_LOGIN_ATTEMPTS,
+  windowMs: LOGIN_WINDOW_MS,
+});
 
+/** 試行してよいか。**ここでは消費しない。** */
 export function allowLogin(key: string): boolean {
-  const record = attempts.get(key);
-  if (!record) return true;
-  if (Date.now() - record.firstAt > WINDOW_MS) {
-    attempts.delete(key);
-    return true;
-  }
-  return record.count < MAX_ATTEMPTS;
+  return limiter.allow(key);
 }
 
 export function recordLoginFailure(key: string): void {
-  const record = attempts.get(key);
-  if (!record || Date.now() - record.firstAt > WINDOW_MS) {
-    attempts.set(key, { count: 1, firstAt: Date.now() });
-    return;
-  }
-  record.count += 1;
+  limiter.hit(key);
 }
 
 export function recordLoginSuccess(key: string): void {
-  attempts.delete(key);
+  limiter.reset(key);
 }

@@ -562,9 +562,8 @@ X API v2 に依存する。料金体系と API 仕様の詳細は [CLAUDE.md](..
 - [ ] **NFR-01〜NFR-09**
   - [x] NFR-02 / NFR-05 / NFR-07
   - [ ] **NFR-01** 応答時間。Neon のコールドスタートを含むため本番でしか測れない
-  - [ ] **NFR-03** 公開ページと公開 API のレート制限が未実装
-        （ログイン試行の制限のみ実装済み）。
-        セキュリティヘッダは設定済み（[ADR-0016](adr/0016-static-csp-public-nonce-admin.md)）
+  - [x] **NFR-03** セキュリティヘッダ（[ADR-0016](adr/0016-static-csp-public-nonce-admin.md)）と
+        レート制限（[security.md](security.md) 第 4.2 節）を実装済み
   - [ ] **NFR-04** 消費リソース数を見る手段がない（FR-42 と同じ）。
         Neon の CU-hours が未計測
   - [ ] **NFR-06 / NFR-08** タップ対象 44px は確保済み。
@@ -578,7 +577,8 @@ X API v2 に依存する。料金体系と API 仕様の詳細は [CLAUDE.md](..
         **サイト全体の非公開と、停止中の個別削除はローカルで動作確認済み**
         （[security.md](security.md) 第 5 章）。残るのは連絡手段だけ
 - [ ] `docs/security.md` 第 5 章の実装チェックリストをすべて満たす
-      （残っているのは NFR-03 / NFR-04 と同じ項目だけ）
+      （残っているのは NFR-04 の消費リソース表示と、デプロイ後にしか確認できない
+      本番 HTTPS・Neon の autoscaling 下限）
 - [x] 日付境界（月またぎ・日またぎ・深夜帯）のテストが通る（NFR-05）
 - [x] X API を実際に叩くテストが CI に含まれていない
       （`IngestionGuardrailTest` が規約として検査する。[CLAUDE.md](../CLAUDE.md) 開発上の注意）

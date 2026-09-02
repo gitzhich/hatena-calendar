@@ -21,11 +21,14 @@ public class SecurityConfig {
 
     private final String publicApiKey;
     private final String adminApiKey;
+    private final PublicApiRateLimiter rateLimiter;
 
     public SecurityConfig(@Value("${INTERNAL_API_KEY:}") String publicApiKey,
-            @Value("${INTERNAL_ADMIN_API_KEY:}") String adminApiKey) {
+            @Value("${INTERNAL_ADMIN_API_KEY:}") String adminApiKey,
+            PublicApiRateLimiter rateLimiter) {
         this.publicApiKey = publicApiKey;
         this.adminApiKey = adminApiKey;
+        this.rateLimiter = rateLimiter;
     }
 
     @Bean
@@ -47,6 +50,9 @@ public class SecurityConfig {
                                 res.setStatus(HttpServletResponse.SC_FORBIDDEN)))
                 .addFilterBefore(new ApiKeyFilter(publicApiKey, adminApiKey),
                         UsernamePasswordAuthenticationFilter.class)
+                // 公開 API の総量制限。**キーの検証を通ったものだけ数える**ため
+                // ApiKeyFilter の後ろに置く（docs/architecture.md 第 5.5 節）
+                .addFilterAfter(new PublicApiRateLimitFilter(rateLimiter), ApiKeyFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         // 公開 API は GET のみ。他のメソッドを許可しない
                         .requestMatchers(HttpMethod.GET, "/api/public/**")
