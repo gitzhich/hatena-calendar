@@ -1,9 +1,10 @@
 # X API 連携設計 — 取得・課金・抽出
 
-最終更新: 2026-09-01
+最終更新: 2026-09-02
 
 関連文書: [CLAUDE.md](../CLAUDE.md) / [docs/requirements.md](requirements.md) /
-[docs/data-model.md](data-model.md) / 実サンプル `docs/x-post-sample/`
+[docs/data-model.md](data-model.md) / 実キーの設定手順は [docs/runbook-x-api-setup.md](runbook-x-api-setup.md) /
+実サンプル `docs/x-post-sample/`
 
 ---
 

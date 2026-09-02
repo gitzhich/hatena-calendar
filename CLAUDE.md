@@ -78,6 +78,7 @@ Web の API 契約をそのままモバイルから叩けるようにしてお�
 | `docs/api.md` | REST API 契約（エンドポイント / リクエスト / レスポンス） |
 | `docs/x-integration.md` | X API 連携の設計（取得・課金・パース） |
 | `docs/security.md` | 脅威モデルと対策 |
+| `docs/runbook-*.md` | 作業手順書（設計ではなく手順）。現状は `runbook-x-api-setup.md` のみ |
 | `docs/adr/` | 意思決定記録。一覧と運用ルールは `docs/adr/README.md` |
 
 ドキュメントと実装が食い違ったら、**ドキュメントを正として実装を直す**か、
