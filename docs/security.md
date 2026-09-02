@@ -1,6 +1,6 @@
 # セキュリティ設計 — 脅威モデルと対策
 
-最終更新: 2026-09-01
+最終更新: 2026-09-02
 
 関連文書: [CLAUDE.md](../CLAUDE.md) / [docs/requirements.md](requirements.md) /
 [docs/architecture.md](architecture.md) / [docs/api.md](api.md)
@@ -197,48 +197,72 @@ LR-02（投稿本文を転載しない）は**公開されるアプリ**に対�
 
 リリース前に確認する。requirements.md の Definition of Done と併せて使う。
 
+**チェック状況は 2026-09-02 時点。** 未達の項目には何が残っているかを併記する。
+実装が進んだらこの章を更新する。
+
+**チェックは「実装した」ではなく「確認した」で入れる。** 実装はあるが
+動かして確かめていないものは未チェックのままにし、その旨を書く。
+
 **シークレット**
 
-- [ ] `.env*` と `application-local.yml` が `.gitignore` に含まれている
-- [ ] コミット履歴にシークレットが含まれていない
-- [ ] リポジトリが非公開のままである（[ADR-0015](adr/0015-private-repository.md)）
-- [ ] `NEXT_PUBLIC_` 付きの環境変数にバックエンド URL・API キーを入れていない
-- [ ] ログにトークン・パスワードが出力されない
+- [x] `.env*` と `application-local.yml` が `.gitignore` に含まれている
+- [x] コミット履歴にシークレットが含まれていない
+      （履歴で追加されたのは `.env.example` と `frontend/.env.example` のみ）
+- [x] リポジトリが非公開のままである（[ADR-0015](adr/0015-private-repository.md)）
+- [x] `NEXT_PUBLIC_` 付きの環境変数にバックエンド URL・API キーを入れていない
+      （`NEXT_PUBLIC_` をどこでも使っていない）
+- [x] ログにトークン・パスワードが出力されない
+      （`IngestionServiceIT`「失敗の記録にトークンやスタックトレースを残さない」）
 
 **認証・認可**
 
-- [ ] Spring Security がデフォルト拒否になっている
-- [ ] 公開 API に `GET` 以外のメソッドが定義されていない
-- [ ] 公開キーで管理 API を呼ぶと `403` になる
-- [ ] API キーの比較が固定時間比較である
-- [ ] ログイン試行のレート制限が Next.js と Spring Boot の両方で働く
-- [ ] セッション Cookie に `HttpOnly` / `Secure` / `SameSite` が付く
-- [ ] 管理操作の POST に CSRF トークンが必要
+- [x] Spring Security がデフォルト拒否になっている
+      （`anyRequest().denyAll()`。`SecurityDefaultDenyIT` が検査する）
+- [x] 公開 API に `GET` 以外のメソッドが定義されていない
+- [x] 公開キーで管理 API を呼ぶと `403` になる（`AdminApiIT`「キーの分離」）
+- [x] API キーの比較が固定時間比較である（`ApiKeyComparisonTest`）
+- [x] ログイン試行のレート制限が Next.js と Spring Boot の両方で働く
+      （`lib/login-rate-limit.ts` / `LoginAttemptLimiter`）
+- [x] セッション Cookie に `HttpOnly` / `Secure` / `SameSite` が付く
+      （`Secure` は本番のみ。ローカルは HTTP で動かすため）
+- [x] 管理操作の POST に CSRF トークンが必要（`csrfMatches`）
 
 **入力・出力**
 
-- [ ] `dangerouslySetInnerHTML` を使っていない
-- [ ] `javascript:` スキームの URL が抽出・保存・表示のいずれでも通らない
-- [ ] SQL を文字列連結で組み立てている箇所がない
-- [ ] エラーレスポンスにスタックトレース・SQL・クラス名が含まれない
+- [x] `dangerouslySetInnerHTML` を使っていない
+- [x] `javascript:` スキームの URL が抽出・保存・表示のいずれでも通らない
+      （DDL の `CHECK (... ~ '^https?://')` と `PostParserBoundaryTest`）
+- [x] SQL を文字列連結で組み立てている箇所がない
+      （`createNativeQuery` はテストにしか無い）
+- [x] エラーレスポンスにスタックトレース・SQL・クラス名が含まれない
+      （`PublicAppearanceApiIT` / `AdminApiIT`）
 
 **ヘッダ・通信**
 
 - [ ] CSP / HSTS / `nosniff` / `Referrer-Policy` を設定した
-- [ ] 本番が HTTPS のみで動作する
-- [ ] CORS の許可オリジンにワイルドカードを使っていない
+      — **未設定。`frontend/next.config.ts` が空のまま**
+- [ ] 本番が HTTPS のみで動作する — 未デプロイのため未確認
+- [x] CORS の許可オリジンにワイルドカードを使っていない
+      — **CORS 設定そのものを持たない。** ブラウザから Spring Boot を直接呼ばない
+      BFF 構成のため不要（第 2 章）。将来 CORS を有効化するならこの項目を見直す
 
 **可用性・コスト**
 
-- [ ] 公開カレンダーが ISR でキャッシュされる
-- [ ] **範囲外の年月 URL が DB に到達せず `404` になる**
-- [ ] 公開ページのレート制限が Next.js 側（実クライアント IP）で働く
-- [ ] 公開 API にレート制限がある（Vercel からの総量を守る目的）
-- [ ] Neon の autoscaling 下限が `0.25 CU` に固定されている
+- [x] 公開カレンダーが ISR でキャッシュされる
+      （`next build` の出力で `/` が `Revalidate 5m` になる）
+- [x] **範囲外の年月 URL が DB に到達せず `404` になる**
+      （`parseMonthParams` → `notFound()`。バックエンド側は `CalendarRange` が多層防御）
+- [ ] 公開ページのレート制限が Next.js 側（実クライアント IP）で働く — **未実装**
+- [ ] 公開 API にレート制限がある（Vercel からの総量を守る目的） — **未実装**
+- [ ] Neon の autoscaling 下限が `0.25 CU` に固定されている — 未デプロイのため未設定
 - [ ] X API の消費リソース数を管理画面で確認できる
+      — **未実装。** 集計クエリ（`sumFetchedResourceCountSince`）はあるが呼び出し側が無い
 - [ ] `SITE_DISABLED` でサイトを止められ、停止中は**キャッシュ済みページも配信されない**
+      — `proxy.ts` に実装済み。**動かして確かめていない**
 - [ ] 停止中も `/admin` から個別削除ができる
-- [ ] `RUNNING` のまま残った実行記録が、以降の取り込みを恒久的に止めない
+      — `proxy.ts` が `/admin` を停止の対象外にしている。**動かして確かめていない**
+- [x] `RUNNING` のまま残った実行記録が、以降の取り込みを恒久的に止めない
+      （`IngestionService.STALE_RUN_THRESHOLD` が 15 分で倒す）
 
 ---
 
