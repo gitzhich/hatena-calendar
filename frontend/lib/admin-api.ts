@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE, openSession, type Session } from "@/lib/session";
+import { backendBaseUrl } from "./backend-url";
 
 /**
  * 管理 API のクライアント。
@@ -14,7 +15,7 @@ import { SESSION_COOKIE, openSession, type Session } from "@/lib/session";
  * 管理操作まで通ってしまう。分離の意味は、読み込む場所を絞ってこそ出る。
  */
 
-const BASE_URL = process.env.BACKEND_BASE_URL ?? "http://localhost:8080";
+const BASE_URL = backendBaseUrl();
 
 /** 認証済みでなければログイン画面へ送る。管理画面の入口すべてで呼ぶ。 */
 export async function requireAdmin(): Promise<Session> {

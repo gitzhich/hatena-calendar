@@ -394,7 +394,41 @@ Vercel の egress IP であり、そこで IP 単位に絞ると攻撃者では�
 `spring.jpa.hibernate.ddl-auto` は `validate` に固定する
 （[data-model.md](data-model.md) 第 8 章）。
 
-### 7.1 未解決：接続情報の渡し方が二重になっている
+### 7.1 値の作り方
+
+| 変数 | 作り方 |
+| --- | --- |
+| `SESSION_SECRET` | `openssl rand -base64 32`。**32 文字以上**なら長さは問わない（内部で SHA-256 して AES-256 鍵にする） |
+| `INTERNAL_API_KEY` / `INTERNAL_ADMIN_API_KEY` | 同上。**2 つは別の値にする**（分離の意味が消える。ADR-0010） |
+| `BACKEND_API_KEY` / `BACKEND_ADMIN_API_KEY` | 上の 2 つと**同じ値**。Next.js 側の変数名が違うだけ |
+| `BACKEND_BASE_URL` | ローカルは `http://localhost:8080`。本番は Fly.io のアプリ URL |
+| `ADMIN_PASSWORD_HASH` | 下記 |
+
+**キーの対応**を取り違えやすい。左右で変数名が違い、値は同じである。
+
+| Next.js 側 | 送るヘッダ | Spring Boot 側 |
+| --- | --- | --- |
+| `BACKEND_API_KEY` | `X-Api-Key` | `INTERNAL_API_KEY` |
+| `BACKEND_ADMIN_API_KEY` | `X-Admin-Api-Key` | `INTERNAL_ADMIN_API_KEY` |
+
+#### `ADMIN_PASSWORD_HASH`
+
+BCrypt ハッシュ。**パスワードがシェル履歴に残らない形**で作る。
+
+```bash
+python3 -c "
+import bcrypt, getpass
+pw = getpass.getpass('管理者パスワード: ').encode()
+print(bcrypt.hashpw(pw, bcrypt.gensalt(rounds=12)).decode())
+"
+```
+
+出力（`$2b$12$...`）をそのまま環境変数に入れる。
+**Spring Security が `$2b$` を受けることはテストで固定してある**
+（`ExternalBcryptHashIT`）。Spring 自身が作ったハッシュしか検証していないと、
+手順どおりに作った値が通るかは分からない。
+
+### 7.2 未解決：接続情報の渡し方が二重になっている
 
 `application.yml` は接続情報を **3 つに分けて**データソースへ渡している。
 
