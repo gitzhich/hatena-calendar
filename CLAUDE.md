@@ -318,7 +318,7 @@ git checkout main && git pull     # ローカルを追従させる
 ### コマンド
 
 ローカル DB は `compose.yaml`（PostgreSQL 17。Neon と同系）。
-バックエンドの起動前に立ち上げておく。
+**`bootRun` の前に立ち上げておく。テストには要らない。**
 
 ```bash
 docker compose up -d --wait          # PostgreSQL 17 を起動
@@ -338,6 +338,14 @@ npm run lint                         # ESLint
 Gradle ラッパーを同梱しているので、Gradle 本体の導入は不要（JDK 21 のみ要る）。
 Flyway はバックエンドの起動時に自動で適用される。
 
+**テストは `compose.yaml` の DB を使わない。** Testcontainers が使い捨ての
+PostgreSQL を実行ごとに立てる（`PostgresContainerListener`）。
+結合テストは各テーブルを削除するため、開発用の DB を共有していると
+`./gradlew test` のたびに `source_account` まで消える。行が消えたことに
+気づかず取り込みを動かすと、`last_fetched_tweet_id` がテストの残した値に
+なっており、**取得範囲が意図せず広がって課金が跳ねる**。
+Docker が動いていればテストは通る。
+
 ### 変異テスト
 
 テストが本当に退行を捕まえるかは、**実装をわざと壊して確かめる**。
@@ -355,6 +363,10 @@ case FetchWindow.Since since -> b.queryParam("since_id", since.sinceId());
 case FetchWindow.Since since -> { }
 EOF
 ```
+
+`\u3000` や `\t` を含む行は、ヒアドキュメントを通る間に変質して
+一致しなくなる。その場合は `--- from` の代わりに `### regex:` で
+1 行を指す（リテラルを写す必要がなくなる）。
 
 **手で `git checkout` して戻さない。** 修正が未コミットのまま実行すると、
 変異ではなく修正ごと捨ててしまう。するとベースラインが壊れた状態で

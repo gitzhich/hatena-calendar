@@ -32,7 +32,11 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-security-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
-	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	// テストは使い捨ての PostgreSQL コンテナに対して行う。
+	// バージョンは Spring Boot の BOM が管理する
+	testImplementation("org.testcontainers:testcontainers-postgresql")
+	// LauncherSessionListener を実装するためコンパイル時にも要る
+	testImplementation("org.junit.platform:junit-platform-launcher")
 }
 
 // ローカル実行でリポジトリ直下の .env を「環境変数として」渡す。
