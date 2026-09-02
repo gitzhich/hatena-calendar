@@ -118,13 +118,19 @@ class PublicApiRateLimitIT {
     @DisplayName("キーの無いリクエストは枠を消費しない。正規の通信を締め出させない")
     void unauthenticatedRequestsDoNotConsumeBudget() throws Exception {
         // 認証を通らないリクエストは DB に到達しないため数える意味がなく、
-        // 数えると攻撃者が正規の枠を食い潰せてしまう
-        for (int i = 0; i < 50; i++) {
-            assertThat(get(PUBLIC, ApiKeyFilter.PUBLIC_HEADER, "wrong-key").statusCode())
-                    .isEqualTo(403);
+        // 数えると攻撃者が正規の枠を食い潰せてしまう。
+        //
+        // **残り 1 枠にしてから試す。** 余裕がある状態で数回叩いても、
+        // 消費していてもいなくても結果が変わらず、退行を捕まえられない
+        for (int i = 0; i < PublicApiRateLimiter.MAX_REQUESTS_PER_WINDOW - 1; i++) {
+            limiter.allow();
         }
+
+        assertThat(get(PUBLIC, ApiKeyFilter.PUBLIC_HEADER, "wrong-key").statusCode())
+                .isEqualTo(403);
+
         assertThat(get(PUBLIC, ApiKeyFilter.PUBLIC_HEADER, "test-public-key").statusCode())
-                .as("枠を食われていれば 429 になる")
+                .as("最後の 1 枠が残っているはず。403 に食われていれば 429 になる")
                 .isEqualTo(200);
     }
 }
