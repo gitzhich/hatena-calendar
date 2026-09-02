@@ -345,6 +345,34 @@ PostgreSQL を実行ごとに立てる（`PostgresContainerListener`）。
 気づかず取り込みを動かすと、`last_fetched_tweet_id` がテストの残した値に
 なっており、**取得範囲が意図せず広がって課金が跳ねる**。
 Docker が動いていればテストは通る。
+
+### 変異テスト
+
+テストが本当に退行を捕まえるかは、**実装をわざと壊して確かめる**。
+このリポジトリでは繰り返し穴が見つかっており、通っているテストが
+規約を守っていない例が何度もあった。
+
+```bash
+scripts/mutation-test.py <<'EOF'
+### desc: since_id を送らない
+### file: backend/src/main/java/dev/mzhin/hatenacal/ingestion/XApiHttpClient.java
+### tests: *XApiHttpClientTest*
+--- from
+case FetchWindow.Since since -> b.queryParam("since_id", since.sinceId());
+--- to
+case FetchWindow.Since since -> { }
+EOF
+```
+
+`\u3000` や `\t` を含む行は、ヒアドキュメントを通る間に変質して
+一致しなくなる。その場合は `--- from` の代わりに `### regex:` で
+1 行を指す（リテラルを写す必要がなくなる）。
+
+**手で `git checkout` して戻さない。** 修正が未コミットのまま実行すると、
+変異ではなく修正ごと捨ててしまう。するとベースラインが壊れた状態で
+テストが落ち、それが「変異を検出した」に見える。**偽陽性が黙って出る。**
+スクリプトは作業ツリーが汚れていたら実行を拒否し、ベースラインが緑で
+あることを確かめ、復元を git ではなく退避した中身から行う。
 - タイムゾーンは **JST 固定**。ただし保存形式を 2 種類に分ける
   - **システムの時刻**（作成日時、取り込み日時など）は `TIMESTAMPTZ` で UTC 保存し、表示時に JST へ変換する
   - **イベントの開催日・開始時刻**は JST のローカル値として `DATE` / `TIME` で保存し、**UTC に変換しない**。
