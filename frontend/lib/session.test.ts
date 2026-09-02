@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
+import { readFileSync } from "node:fs";
 import {
+  SESSION_COOKIE_PATH,
   SESSION_TTL_SECONDS,
   csrfMatches,
   newSession,
@@ -111,5 +113,33 @@ describe("csrfMatches", () => {
     assert.equal(csrfMatches("abc123", undefined), false);
     assert.equal(csrfMatches("abc123", null), false);
     assert.equal(csrfMatches("abc123", 123), false);
+  });
+});
+
+/**
+ * セッション Cookie を送る範囲（docs/security.md T-02 / ADR-0016）。
+ *
+ * **ソースを読んで確かめる。** Cookie を実際に発行するには Next.js の
+ * リクエストコンテキストが要り、単体では動かせない。ここで守りたいのは
+ * 「公開ページに送らない」という規約そのものなので、その規約を検査する。
+ */
+describe("セッション Cookie の適用範囲", () => {
+  const actions = readFileSync(new URL("../app/admin/actions.ts", import.meta.url), "utf8");
+
+  it("公開ページには送らない。path はルートではない", () => {
+    assert.notEqual(SESSION_COOKIE_PATH, "/");
+    assert.ok(SESSION_COOKIE_PATH.startsWith("/admin"));
+  });
+
+  it("set がリテラルの path を持たず、定数を使う", () => {
+    // path: "/" と書き戻されると、公開ページの XSS から管理操作へ繋がる
+    // 経路が復活する（ADR-0016）
+    assert.doesNotMatch(actions, /path:\s*"\/"/);
+    assert.match(actions, /path:\s*SESSION_COOKIE_PATH/);
+  });
+
+  it("delete も同じ path を渡す。省くとログアウトで消えない", () => {
+    assert.doesNotMatch(actions, /delete\(SESSION_COOKIE\)/);
+    assert.match(actions, /delete\(\{\s*name:\s*SESSION_COOKIE,\s*path:\s*SESSION_COOKIE_PATH\s*\}\)/);
   });
 });

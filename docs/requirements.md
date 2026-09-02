@@ -562,9 +562,9 @@ X API v2 に依存する。料金体系と API 仕様の詳細は [CLAUDE.md](..
 - [ ] **NFR-01〜NFR-09**
   - [x] NFR-02 / NFR-05 / NFR-07
   - [ ] **NFR-01** 応答時間。Neon のコールドスタートを含むため本番でしか測れない
-  - [ ] **NFR-03** CSP / HSTS / `nosniff` / `Referrer-Policy` が未設定
-        （`frontend/next.config.ts` が空）。公開ページと公開 API の
-        レート制限が未実装（ログイン試行の制限のみ実装済み）
+  - [ ] **NFR-03** 公開ページと公開 API のレート制限が未実装
+        （ログイン試行の制限のみ実装済み）。
+        セキュリティヘッダは設定済み（[ADR-0016](adr/0016-static-csp-public-nonce-admin.md)）
   - [ ] **NFR-04** 消費リソース数を見る手段がない（FR-42 と同じ）。
         Neon の CU-hours が未計測
   - [ ] **NFR-06 / NFR-08** タップ対象 44px は確保済み。
