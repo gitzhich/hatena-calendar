@@ -114,6 +114,66 @@ public class AppearanceService {
         return AdminAppearanceDto.from(saved);
     }
 
+    /**
+     * 自動取り込みからの登録・補完（FR-41）。
+     *
+     * <p>照合と補完の規則は docs/data-model.md 第 7.1 節。
+     *
+     * <ol>
+     *   <li>日付・イベント・開始時刻が<b>すべて一致</b>する行があれば、その空欄を埋める
+     *   <li>無ければ、同じ日付・イベントで<b>開始時刻が NULL</b> の行を探す。
+     *       あればそこへ時刻を書き込む（管理者が時刻なしで登録した行に、
+     *       後続の「タイムテーブル解禁」が時刻を入れる流れ）
+     *   <li>どちらも無ければ新規登録する
+     * </ol>
+     *
+     * <p>手順 2 は手順 1 が空振りしたときにだけ走るため、
+     * 埋めた結果が既存行と衝突することはない。
+     *
+     * <p><b>承認を挟まずそのまま公開する</b>（FR-41）。告知の速報性を優先し、
+     * 誤りは管理者の事後修正で直す。
+     */
+    @Transactional
+    public IngestionOutcome registerFromIngestion(AppearanceCommand cmd) {
+        validateTimes(cmd);
+        String key = EventKey.of(cmd.eventName());
+
+        Optional<Appearance> exact = cmd.performanceStartTime() == null
+                ? repository.findByAppearanceDateAndEventKeyAndPerformanceStartTimeIsNull(
+                        cmd.appearanceDate(), key)
+                : repository.findByAppearanceDateAndEventKeyAndPerformanceStartTime(
+                        cmd.appearanceDate(), key, cmd.performanceStartTime());
+        if (exact.isPresent()) {
+            return fillBlanks(exact.get(), cmd)
+                    ? IngestionOutcome.COMPLETED
+                    : IngestionOutcome.UNCHANGED;
+        }
+
+        if (cmd.performanceStartTime() != null) {
+            Optional<Appearance> timeless = repository
+                    .findByAppearanceDateAndEventKeyAndPerformanceStartTimeIsNull(
+                            cmd.appearanceDate(), key);
+            if (timeless.isPresent()) {
+                fillBlanks(timeless.get(), cmd);
+                return IngestionOutcome.COMPLETED;
+            }
+        }
+
+        repository.save(Appearance.create(key, SourceType.AUTO,
+                cmd.appearanceDate(), cmd.eventName(), cmd.venueName(),
+                cmd.performanceStartTime(), cmd.performanceEndTime(),
+                cmd.merchStartTime(), cmd.merchEndTime(),
+                cmd.ticketUrl(), cmd.sourceUrl(), cmd.ingestedPostId()));
+        return IngestionOutcome.CREATED;
+    }
+
+    private static boolean fillBlanks(Appearance target, AppearanceCommand cmd) {
+        return target.fillBlanks(cmd.venueName(),
+                cmd.performanceStartTime(), cmd.performanceEndTime(),
+                cmd.merchStartTime(), cmd.merchEndTime(),
+                cmd.ticketUrl(), cmd.sourceUrl(), cmd.ingestedPostId());
+    }
+
     /** 編集（FR-22）。部分更新ではなく全項目を差し替える。 */
     @Transactional
     public AdminAppearanceDto update(Long id, AppearanceCommand cmd) {
