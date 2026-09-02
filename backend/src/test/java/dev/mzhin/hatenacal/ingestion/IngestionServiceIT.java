@@ -107,12 +107,12 @@ class IngestionServiceIT {
         return OffsetDateTime.of(y, m, d, 12, 0, 0, 0, ZoneOffset.ofHours(9));
     }
 
-    /** 情報解禁の告知。タイムテーブルの行を差し替えて使う。 */
-    private static String announcement(String timetable) {
+    /** 情報解禁の告知。会場とタイムテーブルの行を差し替えて使う。 */
+    private static String announcement(String venue, String timetable) {
         return """
                 🔸XINXIN愛知公演情報解禁🔸
 
-                9/16(水)📍愛知・テスト会場
+                9/16(水)📍愛知・%s
                 『テストイベント』
 
                 ⏰OPEN 17:00 / START 17:30
@@ -120,7 +120,11 @@ class IngestionServiceIT {
 
                 ▪️タイムテーブル
                 %s
-                """.formatted(timetable);
+                """.formatted(venue, timetable);
+    }
+
+    private static String announcement(String timetable) {
+        return announcement("テスト会場", timetable);
     }
 
     private static SourcePost post(long id, String body, OffsetDateTime postedAt) {
@@ -207,25 +211,42 @@ class IngestionServiceIT {
     @Test
     @DisplayName("投稿を古い順に処理し、後続の告知が空欄を埋める（第 2.1 節）")
     void processesOldestFirstSoLaterPostsFillBlanks() {
-        // API は新しい順に返す。時刻つきの告知を先に置く
+        /*
+         * API は新しい順に返す。並べ替えていなければ結果が変わるように組む。
+         * 2 件は会場が違う。行を「作った」ほうの会場が残り、あとから来た
+         * ほうは値のある列を上書きできない。どちらが先に処理されたかが
+         * 会場と出典 URL に現れる。
+         */
         client.responses.add(page(null,
-                post(2100, announcement("🎤19:50-20:15 XINXIN出演"), at(2026, 9, 2)),
-                post(2099, announcement("🎤19:50-20:15 XINXIN出演\n📸20:30-21:00 物販"),
-                        at(2026, 9, 1))));
+                post(2100, announcement("新しい投稿の会場",
+                        "🎤19:50-20:15 XINXIN出演\n📸20:30-21:00 物販"), at(2026, 9, 2)),
+                post(2099, announcement("古い投稿の会場",
+                        "🎤19:50-20:15 XINXIN出演"), at(2026, 9, 1))));
 
         service.run();
 
         assertThat(count("appearance"))
                 .as("同じ公演を指すなら新しい行を作らず空欄を埋める（FR-41）")
                 .isEqualTo(1);
+        assertThat(column("SELECT venue_name FROM appearance"))
+                .as("古い投稿が行を作る。新しい順に処理していたら新しい会場になる")
+                .isEqualTo("愛知・古い投稿の会場");
         assertThat(column("SELECT merch_start_time FROM appearance"))
-                .as("先に処理された古い投稿の物販時刻が残る")
+                .as("あとから来た告知が空欄を埋める")
                 .isNotNull();
+        assertThat(column("SELECT source_url FROM appearance"))
+                .as("補完した告知が出典になる（第 7.1 節）")
+                .isEqualTo("https://x.com/xinxin_official/status/2100");
     }
 
     @Test
     @DisplayName("1 投稿の複数枠は出演開始時刻の昇順で処理する（第 7.1 節）")
     void multipleSlotsAreProcessedInAscendingOrder() {
+        /*
+         * 時刻なしの既存行を「引き継ぐのは最も早い枠」と決まっている。
+         * 降順で処理すると 19:50 が引き継いでしまい、同じ入力から違う結果が出る。
+         */
+        insertManual("", "");
         String body = announcement("🎤19:50-20:15 XINXIN出演\n🎤16:35-16:55 XINXIN出演");
         client.responses.add(page(null, post(2200, body, at(2026, 9, 1))));
 
@@ -234,6 +255,10 @@ class IngestionServiceIT {
         assertThat(count("appearance"))
                 .as("同じ日・同じイベントでも開始時刻で区別する（ADR-0012）")
                 .isEqualTo(2);
+        assertThat(column(
+                "SELECT performance_start_time FROM appearance WHERE source_type = 'MANUAL'"))
+                .as("既存行を引き継ぐのは最も早い枠。降順なら 19:50 になる")
+                .hasToString("16:35");
     }
 
     // ------------------------------------------------------------ 未処理
@@ -267,8 +292,13 @@ class IngestionServiceIT {
 
         assertThat(first).isEqualTo(1);
         assertThat(count("appearance"))
-                .as("tweet_id の UNIQUE と取り込み済み判定が二重登録を防ぐ")
+                .as("取り込み済みの投稿は飛ばす")
                 .isEqualTo(1);
+        assertThat(column("SELECT status FROM ingestion_run ORDER BY id DESC"))
+                .as("アプリ側で飛ばすこと。tweet_id の UNIQUE 違反で"
+                        + "止まっているなら実行が FAILED になる")
+                .isEqualTo("SUCCESS");
+        assertThat(count("ingested_post")).isEqualTo(1);
     }
 
     // ------------------------------------------------------------ 取得位置
