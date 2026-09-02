@@ -81,6 +81,12 @@ X API の料金体系は **2026-02-06 に従量課金（pay-per-usage）へ移�
    カレンダー表示する、投稿本文は転載せず事実データに正規化して保持する）
 4. App を作成する
 
+**App と Project の関係**: コンソールの説明どおり、
+**App は「鍵の束」で、Project に接続することで何を呼べるかが決まる**。
+既定では `Default Project` に接続され、プランは `Pay Per Use` になる。
+App を複数持っても課金は増えないが、**鍵は App ごとに別物**である。
+どの App の鍵を使っているかを取り違えないこと。
+
 App 作成後の認証設定について:
 
 - **User authentication settings は設定しない。** 本アプリは
@@ -113,7 +119,7 @@ X の従量課金は**クレジットの前払い**で、残高が閾値を割�
 
 ### 3.2 設定する値
 
-`console.x.com` → Billing / Credits で設定する。
+`console.x.com` の左サイドバー **請求書作成**（クレジット / 支払い / 請求情報）で設定する。
 
 | 設定 | 推奨値 | 理由 |
 | --- | --- | --- |
@@ -386,3 +392,70 @@ fly secrets list     # 名前とダイジェストだけが出る。値は表示
 | 自動チャージの既定値と閾値の発火条件 | `devcommunity.x.com`「Update to Auto-Recharge Behavior for Free Credits」ほか二次情報 |
 
 ---
+
+---
+
+## 付録 C. 実施記録
+
+| 日付 | 手順 | 結果 |
+| --- | --- | --- |
+| 2026-09-02 | 手順 2 開発者アカウントと App | **完了。** Developer Console にアクセスでき、App `hatena-calendar` を `Default Project` 配下に作成した（`Pay Per Use` / `active`） |
+
+**手順 2 で未確認の点**（App 作成後の設定。手順 3 に進む前に見ておく）:
+
+- User authentication settings を**設定していない**こと
+- 権限が **Read のみ**であること
+
+### C.1 提出したユースケース説明
+
+申請時に「X のデータおよび API のすべてのユースケースを説明してください」欄へ
+提出した原文。**差し戻しや再申請の際は、この文面を起点にする。**
+
+```text
+I am building a non-commercial, personal fan project: a public web
+calendar showing the live-performance schedule of XINXIN, a Japanese
+independent ("underground") idol group.
+
+How I use the API
+- Read-only, app-only (OAuth2 Bearer) access to GET /2/users/:id/tweets
+  for a single account: the group's official account.
+- I fetch only new Posts using since_id, poll about every 30 minutes,
+  and set exclude=replies,retweets. The account posts roughly 10 times
+  per day, so my request volume is very low.
+- I take no write actions of any kind. I do not post, reply, like,
+  follow, or send messages through the API.
+
+What I do with the data
+- From each announcement Post I extract factual event details only:
+  date, venue, event name, and performance start/end times. These are
+  stored as normalized structured fields in my own database.
+- I do not store or republish the full text of Posts, and I do not
+  store or display images or any other media from X.
+- Every event entry on my site links back to the original Post on
+  x.com as its source, so visitors can verify the information at
+  its origin.
+
+Display and audience
+- The calendar is a free public website with no user registration and
+  no advertising. Only I, the operator, can sign in, and only to
+  correct mistakes made by the automatic extraction.
+- The site states clearly on every page that it is an unofficial,
+  fan-made tool with no affiliation with the group or its management,
+  and it provides a contact method for removal requests.
+
+I will not resell, redistribute, or provide bulk or derivative access
+to any data obtained from the X API, and I will not use it to train
+machine-learning models.
+```
+
+**この文面は実装に対する約束である。** 次を変えるときは、
+申請内容との食い違いが生じていないか確認する。
+
+| 文面での約束 | 対応する設計 |
+| --- | --- |
+| 単一アカウントのみ / 読み取り専用 | [requirements.md](requirements.md) FR-40、本書 手順 2 |
+| `since_id` による差分取得・30 分間隔・`exclude=replies,retweets` | [x-integration.md](x-integration.md) 第 3.2 節 |
+| 投稿本文を保存・再掲しない / 画像を保持しない | [CLAUDE.md](../CLAUDE.md) 法務方針、LR-03 |
+| 各出演情報に出典 URL を添える | [data-model.md](data-model.md) `source_url` |
+| 非公式である旨を全ページに明示 / 削除要請の連絡手段 | LR-01 / LR-05 |
+| 再販・再配布・機械学習への利用をしない | 公開 API は読み取り専用（[api.md](api.md)） |
