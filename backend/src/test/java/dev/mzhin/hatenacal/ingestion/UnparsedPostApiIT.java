@@ -27,7 +27,8 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestPropertySource(properties = {
     "INTERNAL_ADMIN_API_KEY=admin-key",
-    "X_SOURCE_USERNAME=xinxin_official"
+    // わざと DB と違う値を入れる。投稿 URL がこちらに引きずられたら退行
+    "X_SOURCE_USERNAME=this-env-var-must-not-be-used"
 })
 class UnparsedPostApiIT {
 
@@ -55,7 +56,8 @@ class UnparsedPostApiIT {
             em.createNativeQuery("DELETE FROM ingested_post").executeUpdate();
             em.createNativeQuery("DELETE FROM source_account").executeUpdate();
             em.createNativeQuery(
-                    "INSERT INTO source_account (username, x_user_id) VALUES ('xinxin', 1)")
+                    "INSERT INTO source_account (username, x_user_id)"
+                    + " VALUES ('xinxin_official', 1907616831361396737)")
                     .executeUpdate();
         });
         tx.executeWithoutResult(s -> {
@@ -103,6 +105,7 @@ class UnparsedPostApiIT {
         assertThat(item.get("tweetId").isString()).isTrue();
         assertThat(item.get("tweetId").asString()).isEqualTo("1962000000000000001");
         assertThat(item.get("postUrl").asString())
+                .as("ハンドルの正本は source_account の行。環境変数ではない")
                 .isEqualTo("https://x.com/xinxin_official/status/1962000000000000001");
     }
 

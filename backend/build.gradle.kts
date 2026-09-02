@@ -35,6 +35,31 @@ dependencies {
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+// ローカル実行でリポジトリ直下の .env を「環境変数として」渡す。
+// 本番（Fly.io Secrets）と同じ経路になるため、注入方法がローカルと本番で分岐しない。
+//
+// spring.config.import で .env を読み込む案は採らなかった。
+// あちらは bootRun だけでなく **テスト実行時にも** .env を読む。
+// .env には INTERNAL_API_KEY などローカル用の値が入るため、
+// 「キーが未設定のとき誰も通せない」ことを守る MissingApiKeyIT が
+// 設定済みの状態で走ることになり、未設定の場面を一度も検証しなくなる。
+// しかもテストは通ったままで、守っていないことに気づけない
+// （ApiKeyFilter の未設定ガードを外す変異が、環境変数を与えると素通りした）。
+//
+// 空の値は渡さない。application.yml の ${VAR:default} は変数が未設定のときだけ
+// デフォルトを使うため、空文字を環境に置くとデフォルトが効かなくなる。
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+	val dotenv = file("../.env")
+	if (dotenv.exists()) {
+		dotenv.readLines()
+			.map { it.trim() }
+			.filter { it.isNotEmpty() && !it.startsWith("#") && it.contains("=") }
+			.map { it.split("=", limit = 2) }
+			.filter { it[1].isNotBlank() }
+			.forEach { environment(it[0], it[1]) }
+	}
+}
+
 tasks.withType<Test> {
 	useJUnitPlatform()
 	// 日付境界の検証のため、テスト JVM のタイムゾーンを差し替えられるようにする。

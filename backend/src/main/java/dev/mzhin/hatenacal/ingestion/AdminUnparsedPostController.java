@@ -2,7 +2,6 @@ package dev.mzhin.hatenacal.ingestion;
 
 import dev.mzhin.hatenacal.common.NotFoundException;
 import dev.mzhin.hatenacal.common.PageResponse;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,12 +20,31 @@ public class AdminUnparsedPostController {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final IngestedPostRepository repository;
-    private final String sourceUsername;
+    private final SourceAccountRepository sourceAccounts;
 
     public AdminUnparsedPostController(IngestedPostRepository repository,
-            @Value("${X_SOURCE_USERNAME:xinxin}") String sourceUsername) {
+            SourceAccountRepository sourceAccounts) {
         this.repository = repository;
-        this.sourceUsername = sourceUsername;
+        this.sourceAccounts = sourceAccounts;
+    }
+
+    /**
+     * 投稿 URL に使うハンドル。<b>正本は {@code source_account} の行</b>
+     * （docs/data-model.md 第 4.1 節 / docs/architecture.md 第 7 章）。
+     *
+     * <p>以前は {@code X_SOURCE_USERNAME} を既定値つきで読んでいた。
+     * 設定漏れのとき、<b>実在しうる無関係のアカウント名を指す URL</b> を
+     * 管理画面に出してしまう。環境変数は「どのアカウントを取り込むか」の
+     * 指定であって、取り込み済みデータの表示に使う値ではない。
+     *
+     * <p>行が無ければ未処理投稿も存在しない（外部キーで紐づく）ため、
+     * 既定値は要らない。
+     */
+    private String sourceUsername() {
+        return sourceAccounts.findAll().stream()
+                .findFirst()
+                .map(SourceAccount::getUsername)
+                .orElse(null);
     }
 
     @GetMapping
@@ -38,7 +56,7 @@ public class AdminUnparsedPostController {
         return PageResponse.of(
                 repository.findByStatusOrderByPostedAtDesc(IngestedPostStatus.UNPARSED,
                         PageRequest.of(Math.max(page, 0), capped)),
-                p -> UnparsedPostDto.from(p, sourceUsername));
+                p -> UnparsedPostDto.from(p, sourceUsername()));
     }
 
     /** 出演告知ではない投稿を一覧から外す（FR-25）。 */
