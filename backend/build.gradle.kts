@@ -35,6 +35,27 @@ dependencies {
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+// ローカル実行でリポジトリ直下の .env を「環境変数として」渡す。
+// 本番（Fly.io Secrets）と同じ経路になるため、注入方法がローカルと本番で分岐しない。
+//
+// 空の値は渡さない。application.yml の ${VAR:default} は変数が未設定のときだけ
+// デフォルトを使うため、空文字を環境に置くとデフォルトが効かなくなる
+// （.env は .env.example の写しで、使っていないキーが空のまま残る）。
+//
+// spring.config.import で .env を読み込む案は採らなかった。
+// 空の DATABASE_URL がデフォルトを潰し、テストの Spring コンテキストが起動しなくなる。
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+	val dotenv = file("../.env")
+	if (dotenv.exists()) {
+		dotenv.readLines()
+			.map { it.trim() }
+			.filter { it.isNotEmpty() && !it.startsWith("#") && it.contains("=") }
+			.map { it.split("=", limit = 2) }
+			.filter { it[1].isNotBlank() }
+			.forEach { environment(it[0], it[1]) }
+	}
+}
+
 tasks.withType<Test> {
 	useJUnitPlatform()
 	// 日付境界の検証のため、テスト JVM のタイムゾーンを差し替えられるようにする。
