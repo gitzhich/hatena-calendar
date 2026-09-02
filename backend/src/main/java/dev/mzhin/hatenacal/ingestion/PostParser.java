@@ -25,21 +25,30 @@ import org.springframework.stereotype.Component;
 @Component
 public class PostParser {
 
+    /**
+     * マーカーと値の間に入りうる空白（第 5.12 節）。
+     *
+     * <p>サンプル 13 件はすべてマーカー直後に値が続いていたが、実 API で
+     * 取得した投稿は {@code 🔗 https://...} とスペースを挟んでいた。
+     * <b>行内の空白だけを許す。</b>改行をまたいで許すと、別の節にある値を拾いうる。
+     */
+    private static final String SP = "[ \u3000\t]*";
+
     /** 第 5.3 節。年は書かれないので投稿日時から補う。 */
     private static final Pattern DATE =
             Pattern.compile("(\\d{1,2})/(\\d{1,2})\\((月|火|水|木|金|土|日)(?:祝)?\\)");
 
     /** 第 5.6 節。同じ行に XINXIN を含むことを別途要求する。 */
     private static final Pattern MIC =
-            Pattern.compile("🎤(\\d{1,2}):(\\d{2})-(\\d{1,2}):(\\d{2})");
+            Pattern.compile("🎤" + SP + "(\\d{1,2}):(\\d{2})-(\\d{1,2}):(\\d{2})");
 
     /** 第 5.7 節。XINXIN の語が入らないため、🎤 との位置関係で決める。 */
     private static final Pattern CAMERA =
-            Pattern.compile("📸(\\d{1,2}):(\\d{2})-(\\d{1,2}):(\\d{2})");
+            Pattern.compile("📸" + SP + "(\\d{1,2}):(\\d{2})-(\\d{1,2}):(\\d{2})");
 
     /** 第 5.8 節。🔗 マーカーの付いた URL のみを対象にする。 */
     private static final Pattern TICKET =
-            Pattern.compile("🔗(https?://\\S+)");
+            Pattern.compile("🔗" + SP + "(https?://\\S+)");
 
     private static final String PIN = "📍";      // 📍
     private static final String CLOCK = "⏰";          // ⏰

@@ -464,6 +464,7 @@ fly secrets list     # 名前とダイジェストだけが出る。値は表示
 - [ ] `fly.toml` とコミット履歴にトークンが入っていない
 - [ ] Fly.io のインスタンスが 1 台に固定されている
 
+
 ## 付録 B. 出典
 
 すべて 2026-09-02 に確認した。
@@ -498,10 +499,11 @@ fly secrets list     # 名前とダイジェストだけが出る。値は表示
 | 2026-09-02 | 手順 5.3 `source_account` の投入 | **完了。** ローカル DB に 1 行。`last_fetched_tweet_id` は `NULL` |
 | 2026-09-02 | 手順 5.4 投稿の取得 | **完了。$0.025 を消費。** 5 件取得。`note_tweet` を確認 |
 | 2026-09-02 | 手順 5.5 課金の照合 | **完了。** `project_usage` が 0 → 5。返却件数と一致 |
+| 2026-09-02 | **初回の実取り込み** | **完了。$0.005 を消費。** 結果は C.4 |
 | — | 手順 6 Fly.io | 未着手。デプロイ時に行う |
 
-**ここまでの実費は $0.035**（User Read $0.010 + Post Read 5 件 $0.025）。
-手順書の事前見積もりと一致した。
+**手順 5 までの実費は $0.035**（User Read $0.010 + Post Read 5 件 $0.025）。
+手順書の事前見積もりと一致した。初回の実取り込みを含めた累計は **$0.040**。
 手順 3 の設定値（`console.x.com` → 請求書作成 → クレジット）:
 
 | 設定 | 値 | 推奨値との一致 |
@@ -514,7 +516,63 @@ fly secrets list     # 名前とダイジェストだけが出る。値は表示
 
 **この時点での最大損失は $10（残高）、1 サイクルあたり $5 に限定されている。**
 
+### C.1 提出したユースケース説明
+
+
+申請時に「X のデータおよび API のすべてのユースケースを説明してください」欄へ
+提出した原文。**差し戻しや再申請の際は、この文面を起点にする。**
+
+```text
+I am building a non-commercial, personal fan project: a public web
+calendar showing the live-performance schedule of XINXIN, a Japanese
+independent ("underground") idol group.
+
+How I use the API
+- Read-only, app-only (OAuth2 Bearer) access to GET /2/users/:id/tweets
+  for a single account: the group's official account.
+- I fetch only new Posts using since_id, poll about every 30 minutes,
+  and set exclude=replies,retweets. The account posts roughly 10 times
+  per day, so my request volume is very low.
+- I take no write actions of any kind. I do not post, reply, like,
+  follow, or send messages through the API.
+
+What I do with the data
+- From each announcement Post I extract factual event details only:
+  date, venue, event name, and performance start/end times. These are
+  stored as normalized structured fields in my own database.
+- I do not store or republish the full text of Posts, and I do not
+  store or display images or any other media from X.
+- Every event entry on my site links back to the original Post on
+  x.com as its source, so visitors can verify the information at
+  its origin.
+
+Display and audience
+- The calendar is a free public website with no user registration and
+  no advertising. Only I, the operator, can sign in, and only to
+  correct mistakes made by the automatic extraction.
+- The site states clearly on every page that it is an unofficial,
+  fan-made tool with no affiliation with the group or its management,
+  and it provides a contact method for removal requests.
+
+I will not resell, redistribute, or provide bulk or derivative access
+to any data obtained from the X API, and I will not use it to train
+machine-learning models.
+```
+
+**この文面は実装に対する約束である。** 次を変えるときは、
+申請内容との食い違いが生じていないか確認する。
+
+| 文面での約束 | 対応する設計 |
+| --- | --- |
+| 単一アカウントのみ / 読み取り専用 | [requirements.md](requirements.md) FR-40、本書 手順 2 |
+| `since_id` による差分取得・30 分間隔・`exclude=replies,retweets` | [x-integration.md](x-integration.md) 第 3.2 節 |
+| 投稿本文を保存・再掲しない / 画像を保持しない | [CLAUDE.md](../CLAUDE.md) 法務方針、LR-03 |
+| 各出演情報に出典 URL を添える | [data-model.md](data-model.md) `source_url` |
+| 非公式である旨を全ページに明示 / 削除要請の連絡手段 | LR-01 / LR-05 |
+| 再販・再配布・機械学習への利用をしない | 公開 API は読み取り専用（[api.md](api.md)） |
+
 ### C.2 手順 5.1 で分かったこと
+
 
 実測のレスポンス（`GET https://api.x.com/2/usage/tweets`、HTTP 200）:
 
@@ -577,6 +635,7 @@ fly secrets list     # 名前とダイジェストだけが出る。値は表示
 
 ### C.3 情報源アカウント
 
+
 `GET /2/users/by/username/xinxin_official` の結果（HTTP 200、$0.010）:
 
 | 項目 | 値 |
@@ -593,56 +652,40 @@ fly secrets list     # 名前とダイジェストだけが出る。値は表示
 `BIGINT` の上限（約 9.22 × 10^18）に対して 1.91 × 10^18 なので、
 [data-model.md](data-model.md) の型定義で収まっている。
 
-### C.1 提出したユースケース説明
+### C.4 初回の実取り込み
 
-申請時に「X のデータおよび API のすべてのユースケースを説明してください」欄へ
-提出した原文。**差し戻しや再申請の際は、この文面を起点にする。**
 
-```text
-I am building a non-commercial, personal fan project: a public web
-calendar showing the live-performance schedule of XINXIN, a Japanese
-independent ("underground") idol group.
+2026-09-02、ローカルで `bootRun` し、スケジューラ経由で 1 回実行した。
 
-How I use the API
-- Read-only, app-only (OAuth2 Bearer) access to GET /2/users/:id/tweets
-  for a single account: the group's official account.
-- I fetch only new Posts using since_id, poll about every 30 minutes,
-  and set exclude=replies,retweets. The account posts roughly 10 times
-  per day, so my request volume is very low.
-- I take no write actions of any kind. I do not post, reply, like,
-  follow, or send messages through the API.
+**実行前に取得範囲を固定した。** `last_fetched_tweet_id` がテストの残骸で
+`2002` になっており、そのまま動かすと**最新 1000 件を取得して $5.00**、
+支出上限ちょうどになるところだった。疎通確認で見た最古の投稿
+（`2094065845186318628`、2026-08-30）に固定してから実行した。
 
-What I do with the data
-- From each announcement Post I extract factual event details only:
-  date, venue, event name, and performance start/end times. These are
-  stored as normalized structured fields in my own database.
-- I do not store or republish the full text of Posts, and I do not
-  store or display images or any other media from X.
-- Every event entry on my site links back to the original Post on
-  x.com as its source, so visitors can verify the information at
-  its origin.
-
-Display and audience
-- The calendar is a free public website with no user registration and
-  no advertising. Only I, the operator, can sign in, and only to
-  correct mistakes made by the automatic extraction.
-- The site states clearly on every page that it is an unofficial,
-  fan-made tool with no affiliation with the group or its management,
-  and it provides a contact method for removal requests.
-
-I will not resell, redistribute, or provide bulk or derivative access
-to any data obtained from the X API, and I will not use it to train
-machine-learning models.
-```
-
-**この文面は実装に対する約束である。** 次を変えるときは、
-申請内容との食い違いが生じていないか確認する。
-
-| 文面での約束 | 対応する設計 |
+| | |
 | --- | --- |
-| 単一アカウントのみ / 読み取り専用 | [requirements.md](requirements.md) FR-40、本書 手順 2 |
-| `since_id` による差分取得・30 分間隔・`exclude=replies,retweets` | [x-integration.md](x-integration.md) 第 3.2 節 |
-| 投稿本文を保存・再掲しない / 画像を保持しない | [CLAUDE.md](../CLAUDE.md) 法務方針、LR-03 |
-| 各出演情報に出典 URL を添える | [data-model.md](data-model.md) `source_url` |
-| 非公式である旨を全ページに明示 / 削除要請の連絡手段 | LR-01 / LR-05 |
-| 再販・再配布・機械学習への利用をしない | 公開 API は読み取り専用（[api.md](api.md)） |
+| 取得 | 5 件（1 ページ。`next_token` なし） |
+| 登録 | 1 件 |
+| 未処理 | 4 件 |
+| 実費 | **$0.005**（5 件中 4 件は同日に取得済みで重複排除が効いた） |
+
+**4 件が未処理になったのは設計どおり。** 内訳は「出演時刻が未確定の情報解禁」が
+3 件と、お礼投稿が 1 件。前者は初期リリースの対象外で、将来対応する
+（[x-integration.md](x-integration.md) 第 11.1 節）。
+
+**24 時間の重複排除を実測で確認した。** 同じ 5 件を取り直しても
+`project_usage` は増えなかった。
+
+#### 見つかった不具合
+
+**チケット URL が `NULL` になっていた。** 投稿が `🔗 https://...` と
+スペースを挟んでおり、正規表現が一致していなかった。
+サンプル 13 件には無い表記で、実際に動かすまで見つからなかった
+（[x-integration.md](x-integration.md) 第 5.12 節）。
+
+#### 注意：テストがローカル DB を消す
+
+結合テストは**ローカルの開発 DB を共有**しており、`source_account` を含めて
+各テーブルを削除する。`./gradlew test` のあとに取り込みを動かすときは、
+**`source_account` を入れ直し、`last_fetched_tweet_id` を確認する**こと。
+確認せずに動かすと、取得範囲が意図せず広がって課金が跳ねる。
