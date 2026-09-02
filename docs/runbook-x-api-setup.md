@@ -37,12 +37,13 @@ X API の料金体系は **2026-02-06 に従量課金（pay-per-usage）へ移�
 ### 0.2 着手前に決めておくこと
 
 以下は本手順の中で値が必要になる。**未決定のまま進めると手順 5 で止まる。**
+2026-09-02 時点ですべて決着している。
 
 | # | 決めること | 参照 | 状態 |
 | --- | --- | --- | --- |
-| 1 | 情報源アカウントの X ハンドル | [requirements.md](requirements.md) 未決定事項 5 | **未決定** |
-| 2 | 月あたりの支出上限（ガードレールに設定する値） | 本書 手順 3 | 本書で $5 を提案 |
-| 3 | 課金に使う支払い方法 | — | 要準備 |
+| 1 | 情報源アカウントの X ハンドル | [requirements.md](requirements.md) FR-40 | **確定**: `@xinxin_official` |
+| 2 | 月あたりの支出上限（ガードレールに設定する値） | 本書 手順 3 | **確定**: $5 |
+| 3 | 課金に使う支払い方法 | — | **確定** |
 
 ### 0.3 未実装のため手順で代替している箇所
 
@@ -305,7 +306,7 @@ curl -s -H "Authorization: Bearer $X_BEARER_TOKEN" \
 
 ```sql
 INSERT INTO source_account (username, x_user_id)
-VALUES ('<ハンドル。@ は含めない>', <上で得た数値 ID>);
+VALUES ('xinxin_official', 1907616831361396737);
 ```
 
 `last_fetched_tweet_id` は **`NULL` のままにする**。
@@ -315,8 +316,10 @@ VALUES ('<ハンドル。@ は含めない>', <上で得た数値 ID>);
 ローカルの実行例:
 
 ```bash
-docker compose up -d --wait
-docker compose exec -T db psql -U hatenacal -d hatenacal -c "INSERT INTO ..."
+docker compose up -d --wait     # Docker Desktop を先に起動しておく
+docker compose exec -T db psql -U hatenacal -d hatenacal \
+  -c "INSERT INTO source_account (username, x_user_id) \
+      VALUES ('xinxin_official', 1907616831361396737);"
 ```
 
 ### 5.4 投稿の取得を確認する（最大 $0.025）
@@ -469,7 +472,14 @@ fly secrets list     # 名前とダイジェストだけが出る。値は表示
 | 2026-09-02 | 手順 3 課金ガードレール | **完了。** 下表のとおり、推奨値どおりに設定した |
 | 2026-09-02 | 手順 4 Bearer Token | **完了。** App 作成時に控えたトークンを `.env` に格納した（116 文字 / `AAAAAAAAAA` 始まり） |
 | 2026-09-02 | 手順 5.1 トークンの有効性 | **完了。** `GET /2/usage/tweets` が `200`。課金なし |
+| 2026-09-02 | 手順 5.2 ユーザー ID の解決 | **完了。$0.010 を消費。** 下の C.3 に結果を記録した |
+| 2026-09-02 | 手順 5.3 `source_account` の投入 | **完了。** ローカル DB に 1 行。`last_fetched_tweet_id` は `NULL` |
+| 2026-09-02 | 手順 5.4 投稿の取得 | **完了。$0.025 を消費。** 5 件取得。`note_tweet` を確認 |
+| 2026-09-02 | 手順 5.5 課金の照合 | **完了。** `project_usage` が 0 → 5。返却件数と一致 |
+| — | 手順 6 Fly.io | 未着手。デプロイ時に行う |
 
+**ここまでの実費は $0.035**（User Read $0.010 + Post Read 5 件 $0.025）。
+手順書の事前見積もりと一致した。
 手順 3 の設定値（`console.x.com` → 請求書作成 → クレジット）:
 
 | 設定 | 値 | 推奨値との一致 |
@@ -505,6 +515,24 @@ fly secrets list     # 名前とダイジェストだけが出る。値は表示
 
 この結果、手順 7 の「日次内訳を見る」は**現状できない**。
 当サイクルの累計と、コンソールのクレジット残高で追う。
+
+### C.3 情報源アカウント
+
+`GET /2/users/by/username/xinxin_official` の結果（HTTP 200、$0.010）:
+
+| 項目 | 値 |
+| --- | --- |
+| `username` | `xinxin_official` |
+| `name` | `XINXIN【公式】` |
+| `id` | `1907616831361396737` |
+
+**この呼び出しは二度と行わない**（FR-40 /
+[x-integration.md](x-integration.md) 第 3.1 節）。ID は
+`source_account.x_user_id` に永続化し、以降はそこから読む。
+再取得すればそのたびに $0.010 が課金される。
+
+`BIGINT` の上限（約 9.22 × 10^18）に対して 1.91 × 10^18 なので、
+[data-model.md](data-model.md) の型定義で収まっている。
 
 ### C.1 提出したユースケース説明
 
