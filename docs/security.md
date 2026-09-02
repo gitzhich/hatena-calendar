@@ -191,6 +191,47 @@ LR-02（投稿本文を転載しない）は**公開されるアプリ**に対�
 | レスポンスヘッダ | CSP / HSTS / `X-Content-Type-Options: nosniff` / `Referrer-Policy` |
 | ログ | トークン・パスワードのマスク |
 
+### 4.1 セキュリティヘッダの構成と検証
+
+**CSP は 2 系統ある**（[ADR-0016](adr/0016-static-csp-public-nonce-admin.md)）。
+
+| 対象 | 方式 | 理由 |
+| --- | --- | --- |
+| 公開ページ | 静的 CSP（`script-src` に `'unsafe-inline'`） | nonce はページを動的レンダリングにし、**ISR を無効化する**。ISR は T-04 の主防御 |
+| `/admin` 配下 | nonce ベース（`'nonce-…' 'strict-dynamic'`） | もともと動的レンダリングなので、nonce の代償がない |
+
+**公開ページで緩むのは `script-src` だけ**で、`frame-ancestors` / `connect-src` /
+`form-action` / `base-uri` / `object-src` は同じ強さで効く。
+公開ページ側の実害は**セッション Cookie の `path` を `/admin` に絞ることで打ち消している**
+（T-02）。
+
+置き場所を分けている。**CSP は `proxy.ts` で 1 度だけ付ける。**
+`next.config.ts` からも出すと `Content-Security-Policy` が 2 本になり、
+ブラウザは両方を同時に適用する（許可の積集合）。
+常時付けるヘッダは `next.config.ts` 側で、あちらは静的アセットにも届く。
+
+**検証手順。** 本番ビルドを起動して実際のレスポンスヘッダを見る。
+開発サーバとは値が違う（`'unsafe-eval'` の有無、`upgrade-insecure-requests` の有無）ため、
+`npm run dev` では確認にならない。
+
+```bash
+cd frontend
+npm run build && npm start
+
+# 公開ページ: 静的 CSP と常時ヘッダ
+curl -sI http://localhost:3000/ | grep -iE 'content-security-policy|strict-transport|x-content-type|referrer-policy'
+
+# 管理画面: nonce があること
+curl -sI http://localhost:3000/admin/login | grep -i content-security-policy
+
+# 静的アセット: nosniff が届くこと
+curl -sI http://localhost:3000/_next/static/... | grep -i x-content-type-options
+```
+
+**nonce が実際にスクリプトへ付いているかまで見る。** ヘッダだけ確認しても、
+Next.js が nonce を付け損ねていれば管理画面は動かない。
+`/admin/login` の HTML で、`<script` の数と `nonce=` を持つ数が一致することを確かめる。
+
 ---
 
 ## 5. 実装チェックリスト
@@ -239,8 +280,9 @@ LR-02（投稿本文を転載しない）は**公開されるアプリ**に対�
 
 **ヘッダ・通信**
 
-- [ ] CSP / HSTS / `nosniff` / `Referrer-Policy` を設定した
-      — **未設定。`frontend/next.config.ts` が空のまま**
+- [x] CSP / HSTS / `nosniff` / `Referrer-Policy` を設定した
+      — CSP は `proxy.ts`、他は `next.config.ts`（[ADR-0016](adr/0016-static-csp-public-nonce-admin.md)）。
+      本番ビルドをローカルで起動して実測済み（第 4.1 節に手順）
 - [ ] 本番が HTTPS のみで動作する — 未デプロイのため未確認
 - [x] CORS の許可オリジンにワイルドカードを使っていない
       — **CORS 設定そのものを持たない。** ブラウザから Spring Boot を直接呼ばない
@@ -342,10 +384,6 @@ LR-02（投稿本文を転載しない）は**公開されるアプリ**に対�
 1. **DB の論理バックアップ**。Neon の自動バックアップに依存しており、
    アカウント停止や事業者側の障害でデータを失う可能性がある。
    定期的な `pg_dump` を別の場所に保存するかを決める
-2. **CSP の具体的な内容**。Next.js のインラインスクリプトとの兼ね合いで
-   `nonce` の設定が必要になる。実装時に詰める
-3. **レート制限の具体値**（公開 API、ログイン試行）。実運用のアクセス量を見て決める
-4. **取り込みジョブの停止スイッチ**（第 6.4 節）。環境変数で無効化する想定だが、
+2. **レート制限の具体値**（公開 API、ログイン試行）。実運用のアクセス量を見て決める
+3. **取り込みジョブの停止スイッチ**（第 6.4 節）。環境変数で無効化する想定だが、
    反映にデプロイが必要になる。管理画面から止められるようにするかを決める
-5. **セキュリティヘッダの検証方法**。デプロイ後に実際のレスポンスヘッダを
-   確認する手順を用意する

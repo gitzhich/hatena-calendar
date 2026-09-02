@@ -22,6 +22,21 @@
  */
 
 export const SESSION_COOKIE = "admin_session";
+
+/**
+ * セッション Cookie を送る範囲（NFR-03 / docs/security.md T-02）。
+ *
+ * **公開ページに送らない。** ルート全体に配ると、公開ページで XSS が成立した場合に
+ * 同一オリジンで `/admin` を読み、CSRF トークンを取り出して管理操作を実行できる
+ * 経路が残る。HttpOnly は「JS から値を読めない」だけで、
+ * **ブラウザが自動で付けて送ることは止められない**。
+ *
+ * 公開ページはセッションを読まないため、絞っても失うものがない。
+ *
+ * **set と delete で同じ値を使うこと。** path が食い違うと削除できず、
+ * ログアウトしたつもりで Cookie が残る。
+ */
+export const SESSION_COOKIE_PATH = "/admin";
 export const SESSION_TTL_SECONDS = 8 * 60 * 60;
 
 export type Session = {

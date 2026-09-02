@@ -18,6 +18,7 @@ import {
 } from "@/lib/login-rate-limit";
 import {
   SESSION_COOKIE,
+  SESSION_COOKIE_PATH,
   SESSION_TTL_SECONDS,
   csrfMatches,
   newSession,
@@ -77,7 +78,8 @@ export async function login(_prev: ActionState, formData: FormData): Promise<Act
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    path: "/",
+    // 公開ページには送らない（lib/session.ts の SESSION_COOKIE_PATH を参照）
+    path: SESSION_COOKIE_PATH,
     maxAge: SESSION_TTL_SECONDS,
   });
   redirect("/admin");
@@ -85,7 +87,9 @@ export async function login(_prev: ActionState, formData: FormData): Promise<Act
 
 export async function logout(): Promise<void> {
   const store = await cookies();
-  store.delete(SESSION_COOKIE);
+  // path を省くと「/」の Cookie を消しにいってしまい、
+  // /admin に付いた Cookie が残る（set と同じ path を渡す）
+  store.delete({ name: SESSION_COOKIE, path: SESSION_COOKIE_PATH });
   redirect("/admin/login");
 }
 
