@@ -33,6 +33,17 @@
 ``from`` は対象ファイル内で**ちょうど 1 回**現れなければならない。
 0 回でも 2 回以上でも、その変異は失敗として扱う（黙って何もしないのを防ぐ）。
 
+``from`` の代わりに ``### regex:`` で 1 行を指す書き方もできる。
+``\u3000`` や ``\t`` のようなエスケープを含む行は、ヒアドキュメントを
+通る間に変質しやすい。正規表現で指せばリテラルを写す必要がない。
+
+    ### desc: 空白の許容を外す
+    ### file: backend/src/main/java/.../PostParser.java
+    ### tests: *PostParser*
+    ### regex: private static final String SP = "[^"]*";
+    --- to
+        private static final String SP = "";
+
 終了コード: 生き残った変異が 1 つでもあれば 1。
 """
 
@@ -41,6 +52,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -55,8 +67,15 @@ class Mutation:
     desc: str
     file: pathlib.Path
     tests: str
-    old: str
     new: str
+    old: str | None = None
+    regex: str | None = None
+
+    def apply(self, source: str) -> tuple[str, int]:
+        """変異後の中身と、置換した件数を返す。"""
+        if self.regex is not None:
+            return re.subn(self.regex, lambda _: self.new, source, count=2)
+        return source.replace(self.old, self.new), source.count(self.old)
 
 
 def parse(text: str) -> list[Mutation]:
@@ -72,11 +91,14 @@ def parse(text: str) -> list[Mutation]:
         missing = {"desc", "file", "tests"} - meta.keys()
         if missing:
             sys.exit(f"仕様に {sorted(missing)} がありません: {meta}")
+        if ("regex" in meta) == bool(buf["from"]):
+            sys.exit(f"from と regex はどちらか一方だけ指定します: {meta['desc']}")
         mutations.append(Mutation(
             desc=meta["desc"],
             file=REPO / meta["file"],
             tests=meta["tests"],
-            old="\n".join(buf["from"]),
+            old="\n".join(buf["from"]) if buf["from"] else None,
+            regex=meta.get("regex"),
             new="\n".join(buf["to"]),
         ))
 
@@ -150,7 +172,7 @@ def main() -> int:
             continue
 
         original = m.file.read_text(encoding="utf-8")
-        hits = original.count(m.old)
+        mutated, hits = m.apply(original)
         if hits != 1:
             # 0 回だと「変異したつもりで素通り」になる。2 回以上は意図が曖昧
             print(f"  !! 置換対象が {hits} 件（1 件であること）: {m.desc}")
@@ -158,7 +180,7 @@ def main() -> int:
             continue
 
         try:
-            m.file.write_text(original.replace(m.old, m.new), encoding="utf-8")
+            m.file.write_text(mutated, encoding="utf-8")
             caught = not run(args.test_cmd.format(tests=m.tests), args.cwd)
         finally:
             # git ではなく退避した中身から戻す。未コミットの変更を巻き込まない
