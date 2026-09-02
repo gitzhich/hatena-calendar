@@ -1,15 +1,17 @@
 import Link from "next/link";
-import { fetchAppearances } from "@/lib/api";
+import { fetchAppearances, fetchStatus } from "@/lib/api";
 import { monthBounds } from "@/lib/calendar-range";
 import { Calendar } from "@/components/Calendar";
 import { AppearanceList } from "@/components/AppearanceList";
 import { Disclaimer } from "@/components/Disclaimer";
+import { LastUpdated } from "@/components/LastUpdated";
 
 /** 当月ページと指定月ページで共有する本体。 */
 export async function CalendarPage({ year, month }: { year: number; month: number }) {
   const { from, to } = monthBounds(year, month);
-  // 1 か月分を 1 リクエストで取る。日付ごとに分割しない（NFR-01）
-  const result = await fetchAppearances(from, to);
+  // 1 か月分を 1 リクエストで取る。日付ごとに分割しない（NFR-01）。
+  // 鮮度の取得は並行に走らせる。直列にすると再生成のたびに往復が 1 回増える
+  const [result, status] = await Promise.all([fetchAppearances(from, to), fetchStatus()]);
   const appearances = result.ok ? result.appearances : [];
 
   return (
@@ -39,6 +41,8 @@ export async function CalendarPage({ year, month }: { year: number; month: numbe
 
       <h2 className="mt-8 mb-3 text-base font-bold">出演一覧</h2>
       {result.ok && <AppearanceList appearances={appearances} />}
+
+      {status.ok && <LastUpdated status={status.status} />}
 
       <Disclaimer />
     </main>
