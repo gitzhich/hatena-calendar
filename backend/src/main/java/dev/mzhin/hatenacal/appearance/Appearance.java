@@ -110,6 +110,59 @@ public class Appearance {
         return a;
     }
 
+    /**
+     * 追加告知による空欄補完（docs/data-model.md 第 7.1 節、FR-41）。
+     *
+     * <p><b>値が入っている列は上書きしない。</b>これにより、管理者が手で直した
+     * 内容が後続の取り込みで巻き戻らない（FR-22）。日程変更や中止の反映は
+     * 自動では行わず、管理者が手で対応する。
+     *
+     * <p>補完が起きたときは {@code sourceUrl} と {@code ingestedPostId} を
+     * <b>その告知のものへ更新する</b>。出演時刻を載せた告知が出典として
+     * 示されるべきで、時刻の書かれていない最初の告知を指し続けるのは
+     * FR-06 の趣旨に反する。
+     *
+     * <p>{@code sourceType} は変えない。手動登録された行は、後続の取り込みで
+     * 空欄が埋まっても MANUAL のままにする。作ったのは管理者だからである。
+     *
+     * @return 1 つでも埋めたか。何も埋まらなければ出典も更新しない
+     */
+    boolean fillBlanks(String venueName,
+            LocalTime performanceStartTime, LocalTime performanceEndTime,
+            LocalTime merchStartTime, LocalTime merchEndTime,
+            String ticketUrl, String sourceUrl, Long ingestedPostId) {
+        boolean filled = false;
+        if (this.venueName == null && venueName != null) {
+            this.venueName = venueName;
+            filled = true;
+        }
+        if (this.performanceStartTime == null && performanceStartTime != null) {
+            this.performanceStartTime = performanceStartTime;
+            filled = true;
+        }
+        if (this.performanceEndTime == null && performanceEndTime != null) {
+            this.performanceEndTime = performanceEndTime;
+            filled = true;
+        }
+        if (this.merchStartTime == null && merchStartTime != null) {
+            this.merchStartTime = merchStartTime;
+            filled = true;
+        }
+        if (this.merchEndTime == null && merchEndTime != null) {
+            this.merchEndTime = merchEndTime;
+            filled = true;
+        }
+        if (this.ticketUrl == null && ticketUrl != null) {
+            this.ticketUrl = ticketUrl;
+            filled = true;
+        }
+        if (filled) {
+            this.sourceUrl = sourceUrl;
+            this.ingestedPostId = ingestedPostId;
+        }
+        return filled;
+    }
+
     /** 全項目を差し替える。部分更新にしない理由は docs/api.md 第 5.3 節。 */
     void replace(String eventKey, LocalDate appearanceDate, String eventName,
             String venueName, LocalTime performanceStartTime, LocalTime performanceEndTime,

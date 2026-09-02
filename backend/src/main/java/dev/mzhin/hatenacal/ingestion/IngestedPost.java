@@ -55,6 +55,22 @@ public class IngestedPost {
         // JPA 用
     }
 
+    /**
+     * 取り込んだ投稿を記録する。
+     *
+     * <p>抽出に失敗しても<b>破棄せず</b> UNPARSED として残す（FR-25 / FR-41）。
+     * tweet_id の UNIQUE 制約が再処理時の冪等性を担保する。
+     */
+    static IngestedPost record(Long sourceAccountId, long tweetId,
+            OffsetDateTime postedAt, IngestedPostStatus status) {
+        IngestedPost post = new IngestedPost();
+        post.sourceAccountId = sourceAccountId;
+        post.tweetId = tweetId;
+        post.postedAt = postedAt;
+        post.status = status;
+        return post;
+    }
+
     public Long getId() {
         return id;
     }

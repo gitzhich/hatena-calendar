@@ -52,3 +52,14 @@ x:
   read-timeout: 30s
   # 初回バックフィルで遡る月数。無制限に遡ると課金が読めない（第 8 章）
   backfill-months: 3
+
+# 取り込みジョブ（docs/x-integration.md 第 10 章）
+ingestion:
+  # false でスケジューラ自体を作らない。トークンを消す以外の止め方
+  # （docs/security.md 第 9 章）。反映にはデプロイが要る
+  enabled: ${X_INGESTION_ENABLED:true}
+  # 間隔は X API のコストではなく Neon の CU-hours で決まっている
+  # （docs/architecture.md 第 11 章）
+  interval: PT30M
+  # 起動直後には走らせない
+  initial-delay: PT1M
