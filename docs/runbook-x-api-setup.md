@@ -283,10 +283,31 @@ curl -sS -w 'HTTP %{http_code}\n' \
 - `project_usage` は当サイクルの消費数。**このエンドポイント自体は加算されない**
 - `cap_reset_day` は上限がリセットされる日。請求サイクルの起点と一致する
 
-**`GET /2/usage/credits` は使えない。** `docs.x.com` に
-「クレジット残高を返す」として記載があるが、`api.x.com` / `api.twitter.com` の
-いずれでも **404（本文なし）** が返る。残高はコンソールの
-「請求書作成 → クレジット」で見る（第 3.3 節）。
+**日次の内訳が要るときは `usage.fields` を指定する。** 既定では返らない。
+
+```bash
+curl -sS -H "Authorization: Bearer $X_BEARER_TOKEN" \
+  'https://api.x.com/2/usage/tweets?days=7&usage.fields=daily_project_usage'
+```
+
+`days` は 1〜90（既定 7）。`usage.fields` に指定できるのは
+`cap_reset_day` / `daily_client_app_usage` / `daily_project_usage` /
+`project_cap` / `project_id` / `project_usage`。
+
+**`GET /2/usage/credits` はこの環境では 404 が返る（原因未特定）。**
+API 自身の仕様には存在するため、文書の誤りではない。詳細は付録 C.2。
+残高はコンソールの「請求書作成 → クレジット」で見る（第 3.3 節）。
+
+### 5.1.1 API の仕様は API 自身から取れる
+
+```bash
+curl -sS -H "Authorization: Bearer $X_BEARER_TOKEN" \
+     'https://api.x.com/2/openapi.json'
+```
+
+**課金されない。** 稼働中の API と同じバージョンの OpenAPI 仕様が返るため、
+`docs.x.com` の記述と実挙動が食い違ったときの**一次情報**になる。
+パス・パラメータ・認証方式・必須項目が機械可読な形で入っている。
 
 ### 5.2 ユーザー ID を解決する（$0.010）
 
@@ -345,7 +366,7 @@ curl -s -H "Authorization: Bearer $X_BEARER_TOKEN" \
 curl -s -H "Authorization: Bearer $X_BEARER_TOKEN" 'https://api.x.com/2/usage/tweets'
 ```
 
-`daily_project_usage[].tweets_consumed` が、手順 5.4 で返った件数と一致すること。
+`project_usage` が、手順 5.4 で返った件数と一致すること。
 **課金はリクエスト数ではなく返却リソース数に対して発生する**ため、
 ここがずれるなら課金モデルの理解が誤っている。
 
@@ -383,8 +404,8 @@ fly secrets list     # 名前とダイジェストだけが出る。値は表示
 | 頻度 | 見るもの | 判断 |
 | --- | --- | --- |
 | 週次 | 管理画面の当月 `fetched_resource_count` | 想定は月 300 前後。**桁違いなら第三者利用を疑う**（[security.md](security.md) T-01） |
-| 週次 | コンソールの残高（請求書作成 → クレジット） | 想定の減り方（月 $1.5）と合っているか。**API では取れない**（第 5.1 節） |
-| 月次 | `GET /2/usage/tweets` の `project_usage` | 当サイクルの累計。**日次の内訳は返らない**（付録 C.2） |
+| 週次 | コンソールの残高（請求書作成 → クレジット） | 想定の減り方（月 $1.5）と合っているか。`/2/usage/credits` は現状 404（付録 C.2） |
+| 月次 | `GET /2/usage/tweets?usage.fields=daily_project_usage` | 日次の内訳。特定日に跳ねていないか |
 | 随時 | `UNPARSED` の滞留件数 | 抽出精度の劣化を示す |
 
 無償枠（`free_grants`）を使っている場合は **`expires_at` を過ぎると
@@ -452,10 +473,11 @@ fly secrets list     # 名前とダイジェストだけが出る。値は表示
 | 従量課金の単価・月間 300 万リソース上限・24 時間 UTC の重複排除・自動チャージ・支出上限 | `docs.x.com/x-api/getting-started/pricing` |
 | App-Only Bearer Token の取得（`POST /oauth2/token`） | `docs.x.com/fundamentals/authentication/oauth-2-0/bearer-tokens` |
 | 使用量エンドポイント（`/2/usage/tweets`） | `docs.x.com/x-api/usage/introduction` |
-| クレジット残高エンドポイント（`/2/usage/credits`） | `docs.x.com/x-api/usage/get-usage-credits`。**記載はあるが実際には 404**（第 5.1 節） |
+| クレジット残高エンドポイント（`/2/usage/credits`） | `docs.x.com/x-api/usage/get-usage-credits`。**この環境では 404**。原因未特定（付録 C.2） |
 | `tweet.fields` が現行のパラメータ名／`note_tweet` の意味 | `docs.x.com/x-api/fundamentals/data-dictionary` |
 | `GET /2/users/{id}/tweets` のパラメータと `max_results` の範囲 | `docs.x.com/x-api/posts/user-posts-timeline-by-user-id` |
 | アクセス取得の手順（`console.x.com`、認証情報の 1 回限りの表示） | `docs.x.com/x-api/getting-started/getting-access` |
+| **稼働中の API の仕様そのもの**（パス / パラメータ / 認証方式） | `GET https://api.x.com/2/openapi.json`（無料）。文書と実挙動が食い違ったときの一次情報 |
 | 支出上限が効かなかった事例 | `devcommunity.x.com`「Billing cycle Spend Cap and negative credit balance not enforced」 |
 | 自動チャージの既定値と閾値の発火条件 | `devcommunity.x.com`「Update to Auto-Recharge Behavior for Free Credits」ほか二次情報 |
 
@@ -503,18 +525,52 @@ fly secrets list     # 名前とダイジェストだけが出る。値は表示
 
 `api-version: 2.168` / `x-rate-limit-limit: 50`。
 
-**公式文書と実際の挙動が食い違う点が 2 つある。**
-
-| | 文書の記載 | 実際 |
-| --- | --- | --- |
-| `GET /2/usage/credits` | クレジット残高を返す | **404（本文なし）。** `api.x.com` / `api.twitter.com` の両方で再現 |
-| `GET /2/usage/tweets` のレスポンス | `daily_project_usage[]` に日次の内訳 | 日次の配列は無く、`project_usage` に**累計値**のみ |
-
 **`project_cap` が `3000000` であることが実測で確定した。**
 二次情報の「200 万」は誤りで、公式文書の 300 万が正しい（第 0.1 節）。
 
-この結果、手順 7 の「日次内訳を見る」は**現状できない**。
-当サイクルの累計と、コンソールのクレジット残高で追う。
+#### 日次内訳が返らなかったのは呼び方の誤り
+
+当初「文書にある `daily_project_usage` が返らない」と記録したが、**これは誤りだった。**
+`usage.fields` を指定していなかっただけで、指定すれば返る。
+
+```
+?days=7&usage.fields=daily_project_usage
+→ {"daily_project_usage":{"project_id":"...",
+     "usage":[{"date":"2026-09-02T00:00:00.000Z","usage":"5"}]}}
+```
+
+`daily_client_app_usage` を指定すると App 単位の内訳も返る。
+**文書は正しく、検証が不十分だった。**
+
+#### `/2/usage/credits` の 404 は原因未特定
+
+こちらは呼び方を変えても解消しなかった。
+末尾スラッシュ・単数形・親パス、`api.x.com` と `api.twitter.com` の
+いずれでも **404（本文なし）**。
+
+ただし**「文書が間違っている」とは言えない。**
+稼働中の API 自身が返す OpenAPI 仕様（`GET /2/openapi.json`、v2.168）に
+このエンドポイントは**存在している**。
+
+```
+/2/usage/credits  operationId: getUsageCredits
+                  security: [OAuth2UserToken, BearerToken]
+                  parameters: なし
+```
+
+**App-Only Bearer が許可されているにもかかわらず 404 が返る。**
+考えられる原因（いずれも未確認）:
+
+- 当アカウント / 当プランにまだ展開されていない
+- 仕様には載っているが実装が追いついていない
+- ルーティング側の不具合
+
+X の通常のエラーは JSON のエラーエンベロープを返すのに対し、
+**これは本文が空の 404** である。アプリケーション層ではなく
+経路側で落ちている可能性を示すが、これも推測の域を出ない。
+
+**結論**: 残高は API から取らず、コンソールで見る。
+`docs.x.com` の記述を疑う根拠は無い。
 
 ### C.3 情報源アカウント
 

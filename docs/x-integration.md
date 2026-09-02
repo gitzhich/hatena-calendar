@@ -182,6 +182,10 @@ WHERE started_at >= date_trunc('month', now());
 `project_usage` に加算されない。この差は初回の 1 回だけなので実害はないが、
 **請求額と `project_usage` を突き合わせるときは一致しない**ことを踏まえる。
 
+日次の内訳が要る場合は `usage.fields` を指定する
+（`?days=7&usage.fields=daily_project_usage`。既定では返らない）。
+使用量エンドポイントの呼び出し自体は課金されない。
+
 ### 4.3 想定コスト
 
 1 日 10 投稿として月 300 リソース ≒ **$1.5/月**。
