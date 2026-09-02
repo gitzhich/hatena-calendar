@@ -318,7 +318,7 @@ git checkout main && git pull     # ローカルを追従させる
 ### コマンド
 
 ローカル DB は `compose.yaml`（PostgreSQL 17。Neon と同系）。
-バックエンドの起動前に立ち上げておく。
+**`bootRun` の前に立ち上げておく。テストには要らない。**
 
 ```bash
 docker compose up -d --wait          # PostgreSQL 17 を起動
@@ -337,6 +337,14 @@ npm run lint                         # ESLint
 
 Gradle ラッパーを同梱しているので、Gradle 本体の導入は不要（JDK 21 のみ要る）。
 Flyway はバックエンドの起動時に自動で適用される。
+
+**テストは `compose.yaml` の DB を使わない。** Testcontainers が使い捨ての
+PostgreSQL を実行ごとに立てる（`PostgresContainerListener`）。
+結合テストは各テーブルを削除するため、開発用の DB を共有していると
+`./gradlew test` のたびに `source_account` まで消える。行が消えたことに
+気づかず取り込みを動かすと、`last_fetched_tweet_id` がテストの残した値に
+なっており、**取得範囲が意図せず広がって課金が跳ねる**。
+Docker が動いていればテストは通る。
 - タイムゾーンは **JST 固定**。ただし保存形式を 2 種類に分ける
   - **システムの時刻**（作成日時、取り込み日時など）は `TIMESTAMPTZ` で UTC 保存し、表示時に JST へ変換する
   - **イベントの開催日・開始時刻**は JST のローカル値として `DATE` / `TIME` で保存し、**UTC に変換しない**。

@@ -50,19 +50,9 @@ jobs:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    services:
-      # ローカルの compose.yaml と同じ 17 系。Neon が 16/17 のため
-      # （docs/architecture.md 第 2.2 節）
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: hatenacal
-          POSTGRES_USER: hatenacal
-          POSTGRES_PASSWORD: hatenacal
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U hatenacal -d hatenacal"
-          --health-interval 5s --health-timeout 5s --health-retries 20
+    # DB は service container を使わない。テストは Testcontainers が
+    # 実行ごとに立てる（backend/src/test/java/.../PostgresContainerListener.java）。
+    # ここで用意すると「テストがどの DB を使うか」が 2 か所に散る
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
@@ -73,10 +63,6 @@ jobs:
       - name: build（Flyway 適用 + テスト + コンパイル）
         working-directory: backend
         run: ./gradlew build --no-daemon --console=plain
-        env:
-          DATABASE_URL: jdbc:postgresql://localhost:5432/hatenacal
-          DATABASE_USER: hatenacal
-          DATABASE_PASSWORD: hatenacal
 
   frontend:
     needs: changes
