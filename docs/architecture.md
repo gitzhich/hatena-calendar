@@ -300,7 +300,8 @@ Vercel の egress IP であり、そこで IP 単位に絞ると攻撃者では�
 - Next.js 側（`proxy.ts` または Server Action）なら実クライアントの IP が見える
 - Spring Boot 側のレート制限も残すが、目的が違う。こちらは
   「Vercel からの総量」を守る最後の防波堤で、発動すれば閲覧者全体に影響が出る
-- 具体値は運用のアクセス量を見て決める（[security.md](security.md) 第 9 章）
+- 具体値は **公開ページ 60 req/分（IP 単位）/ 公開 API 300 req/分（総量）**。
+  根拠と限界は [security.md](security.md) 第 4.2 節・第 4.3 節
 
 ---
 
