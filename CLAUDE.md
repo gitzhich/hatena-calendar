@@ -320,6 +320,28 @@ git checkout main && git pull     # ローカルを追従させる
 - 必須チェックは集約ジョブ `ci` のみ。`backend` / `frontend` は
   変更のないディレクトリではスキップされ、チェックを報告しないため直接は指定できない
 
+### デプロイ
+
+**ブランチは `main` 単一。デプロイ用のブランチを作らない**（[ADR-0019](docs/adr/0019-deploy-triggers-and-records.md)）。
+
+| 対象 | 起動 | 記録 |
+| --- | --- | --- |
+| フロントエンド | `main` への push で Vercel が自動デプロイ。**`frontend/` に変更が無ければ飛ばす**（`vercel.json` の `ignoreCommand`） | Vercel が commit SHA 付きで持つ |
+| バックエンド | **`scripts/deploy-backend.sh`** | タグ `backend-deploy-*` と、Fly の image label |
+
+```bash
+scripts/deploy-backend.sh          # main / clean / CI 緑を検査してからデプロイする
+fly image show -a hatenacal        # 本番で動いているコミットを見る
+git tag -l 'backend-deploy-*'      # デプロイの履歴
+```
+
+**`fly deploy` を直接叩かない。** `--ha=false` を落とすと予備機がもう 1 台立ち、
+取り込みが多重起動して**課金が倍になる**。`fly.toml` では止められず、
+このフラグが唯一の制御なので、コマンドを記憶に委ねない。
+
+**記録はデプロイの副作用として作る。** 別の操作にすると忘れ、記録と実態がずれる。
+**ずれた記録は無い記録より悪い**（確認しなくなるため）。
+
 ## 開発上の注意
 
 ### コマンド

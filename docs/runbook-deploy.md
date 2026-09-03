@@ -182,19 +182,25 @@ fly secrets list        # 名前とダイジェストだけが出る。値は表
 ### 3.3 デプロイ
 
 ```bash
-cd backend
-fly deploy --local-only --ha=false
+scripts/deploy-backend.sh
 ```
 
-**`--ha=false` を必ず付ける。** 付けないと `fly deploy` が
-**HA 用の予備機をもう 1 台作り、取り込みが二重に走る**（同じ範囲を並行して
-取得して X API の課金が倍になる）。初回デプロイで実際に 2 台立った。
+**`fly deploy` を直接叩かない**（[ADR-0019](adr/0019-deploy-triggers-and-records.md)）。
+スクリプトが次を一続きで行う。
 
-**`fly.toml` では止められない。** 予備機の作成を抑える設定キーは存在せず、
-このフラグが唯一の制御。忘れたときのために、次節で台数を必ず確かめる。
+1. `main` にいて、作業ツリーが clean で、`origin/main` と一致するか検査
+2. **そのコミットの CI が success か検査**（イメージのビルドはテストを走らせないため）
+3. `fly deploy --local-only --ha=false --image-label <短縮 SHA>`
+4. **マシンが 1 台か検査**（複数なら異常として終了）
+5. 成功したときだけ `backend-deploy-<UTC>` タグを打って push
 
-`--local-only` を外すと Fly.io のリモートビルダー（別課金のマシン）が起動する。
-Docker が動いているなら手元で焼くほうが速く、余計なマシンも立たない。
+**`--ha=false` を落とすと予備機がもう 1 台立ち、取り込みが二重に走る**
+（同じ範囲を並行して取得して X API の課金が倍になる）。初回デプロイで実際に起きた。
+**`fly.toml` では止められず、このフラグが唯一の制御**なので、
+コマンドを記憶に委ねない形にしてある。
+
+`--local-only` は手元の Docker でビルドする指定。外すと Fly.io の
+リモートビルダー（別課金のマシン）が起動する。
 
 初回は JDK イメージの取得と依存のダウンロードで 5〜10 分かかる。
 
@@ -366,12 +372,20 @@ curl -sI https://<domain>/ | grep -iE 'content-security-policy|strict-transport|
 
 ```bash
 git checkout main && git pull --ff-only
-gh run list --branch main --limit 1                  # CI が green か
-cd backend && fly deploy --local-only --ha=false     # バックエンドを変えたときだけ
-fly status                                            # **マシンが 1 台か**
+scripts/deploy-backend.sh          # バックエンドを変えたときだけ
 ```
 
-**`--ha=false` を落とさない。** 毎回付ける必要がある（第 3.3 節）。
+**フロントエンドは `main` への push で Vercel が自動デプロイする。**
+ただし **`frontend/` に変更が無ければ飛ばす**（`vercel.json` の `ignoreCommand`）。
+`docs/` や `backend/` だけの変更でデプロイは走らない。
+
+**何が本番で動いているかは次で分かる。**
+
+```bash
+fly image show -a hatenacal                                  # バックエンド：動いているコミット
+git tag -l 'backend-deploy-*'                                # バックエンド：デプロイ履歴
+gh api repos/{owner}/{repo}/deployments?sha=$(git rev-parse main)   # フロント
+```
 
 フロントエンドは `main` への push で Vercel が自動デプロイする。手作業は要らない。
 
