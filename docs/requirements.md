@@ -562,12 +562,16 @@ X API v2 に依存する。料金体系と API 仕様の詳細は [CLAUDE.md](..
       （[api.md](api.md) 第 5.7 節）
 - [ ] **NFR-01〜NFR-09**
   - [x] NFR-02 / NFR-05 / NFR-07
-  - [ ] **NFR-01** 応答時間。Neon のコールドスタートを含むため本番でしか測れない
+  - [x] **NFR-01** 2026-09-03 に本番で実測。ISR 命中が 135ms 前後（目標 p95 300ms）、
+        キャッシュに無い月の初回が 144ms / 324ms（目標 p95 3 秒）。
+        **Neon のコールドスタートは踏めていない** — 取り込みジョブが 30 分ごとに
+        DB を触るため起きたままになる（[architecture.md](architecture.md) 第 11 章が
+        副次効果として予期していた挙動）。取り込みを止めた状態で再測する余地がある
   - [x] **NFR-03** セキュリティヘッダ（[ADR-0016](adr/0016-static-csp-public-nonce-admin.md)）と
         レート制限（[security.md](security.md) 第 4.2 節）を実装済み
-  - [ ] **NFR-04** 消費リソース数は `/admin/ingestion` で確認できるようになった。
+  - [ ] **NFR-04** 消費リソース数は `/admin/ingestion` で確認できる。
         想定額（月 $5）を超えると画面に警告が出る。
-        残るのは **Neon の CU-hours の計測**で、デプロイ後にしか測れない
+        残るのは **Neon の CU-hours の計測**で、1 週間動かしてから見る
   - [ ] **NFR-06 / NFR-08** タップ対象 44px は確保済み。
         幅 360px での横スクロールとコントラスト比 4.5:1 が未実測
   - [x] **NFR-09** 連続失敗を `/admin` と `/admin/ingestion` に警告として出す。
@@ -580,7 +584,8 @@ X API v2 に依存する。料金体系と API 仕様の詳細は [CLAUDE.md](..
       **LR-01 は「全ページ」を満たしていなかったのを併せて直した** —
       `Disclaimer` が `CalendarPage` の中にしかなく、`/unavailable` には出ていなかった
 - [ ] `docs/security.md` 第 5 章の実装チェックリストをすべて満たす
-      （残っているのはデプロイ後にしか確認できない本番 HTTPS・Neon の autoscaling 下限）
+      （**本番 HTTPS は 2026-09-03 に確認済み。**
+      残るのは Neon の autoscaling 下限の最終確認のみ）
 - [x] 日付境界（月またぎ・日またぎ・深夜帯）のテストが通る（NFR-05）
 - [x] X API を実際に叩くテストが CI に含まれていない
       （`IngestionGuardrailTest` が規約として検査する。[CLAUDE.md](../CLAUDE.md) 開発上の注意）

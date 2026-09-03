@@ -321,7 +321,10 @@ Vercel で実行環境が変われば数え直しになる。外部ストア（R
 - [x] CSP / HSTS / `nosniff` / `Referrer-Policy` を設定した
       — CSP は `proxy.ts`、他は `next.config.ts`（[ADR-0016](adr/0016-static-csp-public-nonce-admin.md)）。
       本番ビルドをローカルで起動して実測済み（第 4.1 節に手順）
-- [ ] 本番が HTTPS のみで動作する — 未デプロイのため未確認
+- [x] 本番が HTTPS のみで動作する
+      — 2026-09-03 に確認。`http://` は Vercel が **308**、Fly.io が **301** で
+      `https://` へ飛ばす。HSTS（`max-age=63072000; includeSubDomains; preload`）が
+      公開ページと `/_next/static/` の両方に付く
 - [x] CORS の許可オリジンにワイルドカードを使っていない
       — **CORS 設定そのものを持たない。** ブラウザから Spring Boot を直接呼ばない
       BFF 構成のため不要（第 2 章）。将来 CORS を有効化するならこの項目を見直す
@@ -336,7 +339,11 @@ Vercel で実行環境が変われば数え直しになる。外部ストア（R
       （`proxy.ts` / `lib/rate-limit.ts`。60 req/分。第 4.2 節）
 - [x] 公開 API にレート制限がある（Vercel からの総量を守る目的）
       （`PublicApiRateLimitFilter`。300 req/分の総量。第 4.2 節）
-- [ ] Neon の autoscaling 下限が `0.25 CU` に固定されている — 未デプロイのため未設定
+- [ ] Neon の autoscaling を `0.25 CU` に固定する（下限と**上限の両方**）
+      — 2026-09-03 に設定したとの報告あり。**ダッシュボードのブランチ一覧が
+      `.25 ↔ .25` と表示されることで確認する**（既定は `.25 ↔ 2 CU`）。
+      上限が 2 のままだと、同じ時間で **8 倍の速さで CU-hours を消費**し、
+      公開ページの連打で無料枠を溶かされる余地が残る（T-04）
 - [x] X API の消費リソース数を管理画面で確認できる
       — 2026-09-03 にブラウザで確認。`/admin/ingestion` が当月の消費リソース数と
       概算コストを表示し、想定額（月 $5、NFR-04）を超えると警告を出す。
