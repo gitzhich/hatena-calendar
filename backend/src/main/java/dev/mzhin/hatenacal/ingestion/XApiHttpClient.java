@@ -4,6 +4,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
@@ -75,12 +78,30 @@ public class XApiHttpClient implements XApiClient {
 
         switch (window) {
             case FetchWindow.Since since -> b.queryParam("since_id", since.sinceId());
-            case FetchWindow.From from -> b.queryParam("start_time", from.startTime());
+            case FetchWindow.From from ->
+                    b.queryParam("start_time", rfc3339(from.startTime()));
         }
         if (paginationToken != null && !paginationToken.isBlank()) {
             b.queryParam("pagination_token", paginationToken);
         }
         return b.build(xUserId);
+    }
+
+    /**
+     * X API が受け付ける RFC3339 の形（{@code 2026-06-03T06:47:04Z}）にする。
+     *
+     * <p><b>秒未満を落とす。</b> {@link OffsetDateTime#toString()} をそのまま渡すと
+     * {@code 2026-06-03T06:47:04.021243663Z} のようにナノ秒が付き、X API が
+     * <b>HTTP 400 で拒否する</b>（{@code is not a valid RFC3339 date-time}）。
+     * 実際に本番の初回バックフィルがこれで失敗した。
+     *
+     * <p>UTC に寄せてから整形する。オフセット付きの表記（{@code +09:00}）も
+     * RFC3339 としては正しいが、送る形を 1 つに固定しておくほうが読み違えがない。
+     */
+    static String rfc3339(OffsetDateTime value) {
+        return value.withOffsetSameInstant(ZoneOffset.UTC)
+                .truncatedTo(ChronoUnit.SECONDS)
+                .format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
     }
 
     private String getWithRetry(URI uri) {
