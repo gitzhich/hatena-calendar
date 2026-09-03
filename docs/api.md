@@ -312,6 +312,16 @@ PUT /api/admin/appearances/{id}
 （`PATCH` にすると「未指定」と「`null` にしたい」を区別できず、
 値の消去が意図せず無視される）。
 
+**ただし `ingestedPostId` は読み取り専用で、送っても無視される。**
+この値は「最後に内容を反映した告知」を指す導出値であり、
+`sourceUrl` と常に同じ投稿を指す（[data-model.md](data-model.md) 第 7.1 節）。
+編集で付け替えられるようにすると、2 つが別の投稿を指せてしまう。
+400 で弾かずに無視するのは、`GET`（第 5.1 節）で受け取った値を
+そのまま返す往復を壊さないため。
+
+紐付けを直したいときは削除して作り直す。手順は
+[data-model.md](data-model.md) 第 7.2 節。
+
 - `eventName` を変更した場合、`eventKey` はサーバ側で再計算する
 - 変更後の `appearanceDate` / `eventKey` / `performanceStartTime` が他の行と衝突する場合は `409`
 - 成功時は `200` と更新後のリソースを返す
@@ -323,8 +333,8 @@ DELETE /api/admin/appearances/{id}
 ```
 
 - 成功時は `204 No Content`
-- `ingested_post` の記録は削除しない。同じ投稿から再登録されるのを防ぐため
-  （[data-model.md](data-model.md) 第 7.2 節）
+- `ingested_post` の記録は削除しない。`status` も `REGISTERED` のまま動かさない。
+  **削除した投稿は未処理一覧に戻らない**（[data-model.md](data-model.md) 第 7.2 節）
 - 存在しない ID は `404`
 
 ### 5.5 未処理投稿の一覧

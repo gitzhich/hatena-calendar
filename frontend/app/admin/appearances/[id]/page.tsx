@@ -33,9 +33,10 @@ export default async function EditAppearancePage({
 
       <ActionForm action={updateAppearanceAction} csrf={csrf} submitLabel="保存する">
         <input type="hidden" name="id" value={appearance.id} />
-        {appearance.ingestedPostId !== null && (
-          <input type="hidden" name="ingestedPostId" value={appearance.ingestedPostId} />
-        )}
+        {/*
+          ingestedPostId は送らない。編集では変更できない導出値で、サーバが無視する
+          （docs/api.md 第 5.3 節）。送ると「変えられる」と読める
+        */}
         <Field label="開催日" name="appearanceDate" type="date" required
                defaultValue={appearance.appearanceDate} />
         <Field label="イベント名" name="eventName" required
