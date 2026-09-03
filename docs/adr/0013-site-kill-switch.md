@@ -60,8 +60,9 @@ proxy.ts
 - `frontend/proxy.ts` と停止中の案内ページ `app/unavailable/` が
   ルーティングに加わった（同 第 5.1 節）。
   Next.js 16 で `middleware.ts` は非推奨になり `proxy.ts` に改称された
-- **停止ページに載せる連絡先が未確定。** 連絡手段そのものは
-  [requirements.md](../requirements.md) 第 12 章の未決定事項として残っている
+- 停止ページに載せる連絡先は[ADR-0017](0017-contact-channel.md)で決着した。
+  **停止中に到達できるのがこのページと `/admin` だけであることが、
+  そちらの決定を縛っている**（サイト内のフォームは窓口にできない）
 - ISR キャッシュを外す変更を入れる場合、本 ADR の前提（キャッシュ済みページが
   残る）は変わるが、`proxy.ts` で止める方式はそのまま成立する
 
@@ -70,3 +71,8 @@ proxy.ts
 - [docs/requirements.md](../requirements.md) LR-05
 - [docs/architecture.md](../architecture.md) 第 5.4 節
 - [docs/security.md](../security.md) 第 6.3 節 / T-04
+
+## 更新履歴
+
+- 2026-09-03: 「停止ページに載せる連絡先が未確定」を、[ADR-0017](0017-contact-channel.md)
+  で決着した旨に差し替えた。**決定内容は変えていない。**

@@ -3,7 +3,6 @@ import { fetchAppearances, fetchStatus } from "@/lib/api";
 import { monthBounds } from "@/lib/calendar-range";
 import { Calendar } from "@/components/Calendar";
 import { AppearanceList } from "@/components/AppearanceList";
-import { Disclaimer } from "@/components/Disclaimer";
 import { LastUpdated } from "@/components/LastUpdated";
 
 /** 当月ページと指定月ページで共有する本体。 */
@@ -43,8 +42,6 @@ export async function CalendarPage({ year, month }: { year: number; month: numbe
       {result.ok && <AppearanceList appearances={appearances} />}
 
       {status.ok && <LastUpdated status={status.status} />}
-
-      <Disclaimer />
     </main>
   );
 }
