@@ -173,10 +173,31 @@ class PublicAppearanceApiIT {
     }
 
     @Test
+    @DisplayName("必須パラメータの欠落は 400（docs/api.md 第 3.3 節）")
+    void missingParameterIsBadRequest() throws Exception {
+        assertThat(get("/api/public/appearances?to=2026-09-30", KEY).statusCode())
+                .isEqualTo(400);
+        assertThat(get("/api/public/appearances?from=2026-09-01", KEY).statusCode())
+                .isEqualTo(400);
+    }
+
+    @Test
+    @DisplayName("パラメータの形式不正は 400。500 にしない（docs/api.md 第 3.3 節）")
+    void malformedParameterIsBadRequest() throws Exception {
+        assertThat(get("/api/public/appearances?from=abc&to=2026-09-30", KEY).statusCode())
+                .isEqualTo(400);
+        assertThat(get("/api/public/appearances?from=2026-09-01&to=2026-13-99", KEY).statusCode())
+                .isEqualTo(400);
+    }
+
+    @Test
     @DisplayName("エラー応答に内部構造を含めない（NFR-03）")
     void errorHidesInternals() throws Exception {
-        String body = get("/api/public/appearances?from=9999-12-01&to=9999-12-31", KEY).body();
-        assertThat(body).doesNotContain("dev.mzhin", "SELECT", "Exception", "\tat ");
+        assertThat(get("/api/public/appearances?from=9999-12-01&to=9999-12-31", KEY).body())
+                .doesNotContain("dev.mzhin", "SELECT", "Exception", "\tat ");
+        // 形式不正では変換先の型名とメソッドのシグネチャが漏れやすい
+        assertThat(get("/api/public/appearances?from=abc&to=2026-09-30", KEY).body())
+                .doesNotContain("dev.mzhin", "LocalDate", "java.", "Exception", "\tat ");
     }
 
     @Test

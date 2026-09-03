@@ -261,5 +261,29 @@ class AdminApiIT {
             String body = send("POST", PATH, ADMIN_KEY, "{}").body();
             assertThat(body).doesNotContain("dev.mzhin", "SELECT", "Exception", "\\tat ");
         }
+
+        @Test
+        @DisplayName("壊れたボディは 400。500 にしない（docs/api.md 第 3.3 節）")
+        void malformedBodyIsBadRequest() throws Exception {
+            assertThat(send("POST", PATH, ADMIN_KEY, "{ not json").statusCode())
+                    .isEqualTo(400);
+            assertThat(send("POST", PATH, ADMIN_KEY, null).statusCode())
+                    .isEqualTo(400);
+        }
+
+        @Test
+        @DisplayName("壊れたボディの応答にも内部構造を含めない（NFR-03）")
+        void malformedBodyHidesInternals() throws Exception {
+            String body = send("POST", PATH, ADMIN_KEY, "{ not json").body();
+            assertThat(body).doesNotContain("dev.mzhin", "JsonParseException", "com.fasterxml",
+                    "tools.jackson", "Exception", "\\tat ");
+        }
+
+        @Test
+        @DisplayName("パス変数の形式不正は 400（docs/api.md 第 3.3 節）")
+        void malformedPathVariableIsBadRequest() throws Exception {
+            assertThat(send("GET", PATH + "/abc", ADMIN_KEY, null).statusCode())
+                    .isEqualTo(400);
+        }
     }
 }
