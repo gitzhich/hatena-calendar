@@ -88,40 +88,60 @@ git status --short                       # 作業ツリーが汚れていない�
 
 **suspend までの時間は既定（5 分）のままでよい。** 第 11 章の試算はこれが前提。
 
-### 2.3 接続文字列を JDBC の形に直す
+### 2.3 接続文字列を JDBC の形で取る
 
-**ここが初回デプロイで最も踏みやすい落とし穴。**
+**Connect ダイアログでスニペットの種類を `Java` にする。** これで JDBC の形が
+そのまま出るので、手で直す必要はない。**プーリングは有効にする**（ホスト名に
+`-pooler` が入る。[architecture.md](architecture.md) 第 8 章）。
 
-Neon が配るのは libpq 形式で、そのままでは Spring から使えない。
+出てくるのはこの形。
 
 ```
-postgresql://myuser:mypassword@ep-xxx-pooler.ap-northeast-1.aws.neon.tech/hatenacal?sslmode=require
+jdbc:postgresql://ep-xxx-pooler.ap-southeast-1.aws.neon.tech/hatenacal?user=myuser&password=mypassword&sslmode=require
 ```
 
-**pgjdbc は `user:password@host` の形を受け付けない。** 認証情報は
-`user=` / `password=` のクエリパラメータで渡す
+**次の 5 つが揃っていることを確かめる。**
+
+| 見るもの | 期待 |
+| --- | --- |
+| 先頭 | `jdbc:postgresql://` |
+| ホスト | **`-pooler` が入っている** |
+| 認証情報 | `user=` と `password=` の**両方**がクエリにある |
+| SSL | `sslmode=require` がある |
+| DB 名 | `hatenacal` |
+
+**ポート番号は無くてよい。** pgjdbc は省略時に 5432 を使い、Neon も 5432 で待つ。
+
+#### `Java` のスニペットが選べない場合
+
+libpq 形式（`postgresql://user:pass@host/db`）から自分で変換する。
+**pgjdbc は `user:password@host` の形を受け付けない**
 （[architecture.md](architecture.md) 第 7.2 節）。
 
-変換後：
+**手で書き換えない。** `?` と `&` の付け替えと、記号のパーセントエンコードを間違える。
 
+```bash
+python3 - <<'EOF'
+import getpass, urllib.parse as u
+raw = getpass.getpass("Neon の接続文字列を貼り付け（画面には出ません）: ").strip()
+p = u.urlparse(raw)
+q = dict(u.parse_qsl(p.query))
+q["user"] = u.unquote(p.username or "")
+q["password"] = u.unquote(p.password or "")
+q.setdefault("sslmode", "require")
+host, db = p.hostname or "", p.path.lstrip("/")
+print()
+print("プーリング有効:", "はい" if "-pooler" in host else "★いいえ（取り直す）")
+print("DB 名        :", db)
+print()
+print("jdbc:postgresql://%s/%s?%s" % (host, db, u.urlencode(q)))
+EOF
 ```
-jdbc:postgresql://ep-xxx-pooler.ap-northeast-1.aws.neon.tech:5432/hatenacal?sslmode=require&user=myuser&password=mypassword
-```
 
-直すのは 4 点。
+`getpass` を使うので、**貼り付けた文字列は画面にもシェル履歴にも残らない。**
+`urlencode` がパスワードの記号を正しくエンコードする。
 
-| | 変換 |
-| --- | --- |
-| スキーム | `postgresql://` → **`jdbc:postgresql://`** |
-| 認証情報 | `user:pass@` を削り、末尾に `&user=...&password=...` を足す |
-| ポート | `:5432` を明示する |
-| ホスト | **`-pooler` が付いたものを選ぶ**（[architecture.md](architecture.md) 第 8 章） |
-
-**パスワードに `/ : @ ( ) [ ] & # = ? ` や空白が含まれていたらパーセントエンコードする。**
-生のまま入れるとクエリの区切りとして解釈され、認証に失敗する。
-Neon のパスワードを作り直せば済むことも多い。
-
-**`sslmode=require` を落とさない。** Neon は SSL を要求する。
+**出力はパスワードを含む。** 扱いは他のシークレットと同じにする。
 
 ### 2.4 確認
 
