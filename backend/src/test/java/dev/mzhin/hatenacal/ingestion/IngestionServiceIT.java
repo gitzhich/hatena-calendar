@@ -202,8 +202,52 @@ class IngestionServiceIT {
         service.run();
 
         assertThat(client.calls)
-                .as("既定のページ上限は 10。次回に持ち越す")
+                .as("既定のページ上限は 10")
                 .isEqualTo(10);
+    }
+
+    @Test
+    @DisplayName("打ち切っても取得位置は最大 ID へ進む。進めないと滞留が解消しない（ADR-0020）")
+    void advancesEvenWhenTruncated() {
+        for (int i = 0; i < 30; i++) {
+            client.responses.add(page("next-token",
+                    post(3000 + i, "お礼投稿", at(2026, 9, 1))));
+        }
+
+        service.run();
+
+        assertThat(((Number) column(
+                "SELECT last_fetched_tweet_id FROM source_account")).longValue())
+                .as("進めないと次回も同じ最新 1,000 件を取り直し、位置が永久に動かない")
+                .isEqualTo(3009);
+    }
+
+    @Test
+    @DisplayName("打ち切りを実行の記録に残す。SUCCESS のままにする（NFR-09 / ADR-0020）")
+    void recordsTruncationOnTheRun() {
+        for (int i = 0; i < 30; i++) {
+            client.responses.add(page("next-token",
+                    post(3000 + i, "お礼投稿", at(2026, 9, 1))));
+        }
+
+        service.run();
+
+        assertThat((Boolean) column("SELECT truncated FROM ingestion_run"))
+                .as("ログだけでは、取りこぼしたことに管理者が気づけない")
+                .isTrue();
+        assertThat(column("SELECT status FROM ingestion_run"))
+                .as("取りこぼしは失敗ではない。連続失敗の判定を巻き込まない")
+                .isEqualTo("SUCCESS");
+    }
+
+    @Test
+    @DisplayName("打ち切っていなければ truncated は false のまま")
+    void doesNotFlagTruncationWhenAllPagesFit() {
+        client.responses.add(page(null, post(3100, "お礼投稿", at(2026, 9, 1))));
+
+        service.run();
+
+        assertThat((Boolean) column("SELECT truncated FROM ingestion_run")).isFalse();
     }
 
     // ------------------------------------------------------------ 処理順

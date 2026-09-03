@@ -71,6 +71,7 @@ erDiagram
         text        status "RUNNING / SUCCESS / FAILED"
         integer     fetched_resource_count "課金対象リソース数"
         integer     new_appearance_count
+        boolean     truncated "ページ上限で打ち切ったか"
         text        error_summary
     }
 ```
@@ -405,6 +406,7 @@ CREATE TABLE ingestion_run (
                                        CHECK (status IN ('RUNNING', 'SUCCESS', 'FAILED')),
     fetched_resource_count INTEGER     NOT NULL DEFAULT 0 CHECK (fetched_resource_count >= 0),
     new_appearance_count   INTEGER     NOT NULL DEFAULT 0 CHECK (new_appearance_count >= 0),
+    truncated              BOOLEAN     NOT NULL DEFAULT false,
     error_summary          TEXT        CHECK (error_summary IS NULL OR length(error_summary) <= 500)
 );
 ```
@@ -412,7 +414,12 @@ CREATE TABLE ingestion_run (
 | 列 | 説明 |
 | --- | --- |
 | `fetched_resource_count` | **レスポンスで返ってきたリソース数**。X API の課金単位そのもの。これを期間で合計すれば消費額を算出できる |
+| `truncated` | ページ数の上限で打ち切ったか（[x-integration.md](x-integration.md) 第 3.4 節 / [ADR-0020](adr/0020-drop-posts-beyond-page-limit.md)）。**取りこぼしが確定した実行**を後から特定できるようにする |
 | `error_summary` | 失敗理由の要約。**スタックトレースやトークンを入れない**（NFR-03, NFR-09） |
+
+**`truncated` を `status` に足さない。** `SUCCESS` / `FAILED` / `RUNNING` は
+連続失敗の判定（`IngestionHaltRule`）に使われており、値を増やすと打ち切りの判定まで
+巻き込む。取りこぼしは失敗ではなく、成功した実行に付く注記である。
 
 FR-08 の「最後に取り込みが成功した日時」は
 `SELECT max(finished_at) FROM ingestion_run WHERE status = 'SUCCESS'` で得る。
@@ -633,7 +640,8 @@ FR-23 の「削除しても同じ投稿から再び出演情報が作られな�
 
 ```
 backend/src/main/resources/db/migration/
-└── V1__init_schema.sql      # 上記 4 テーブル + インデックス
+├── V1__init_schema.sql              # 上記 4 テーブル + インデックス
+└── V2__ingestion_run_truncated.sql  # ingestion_run.truncated（ADR-0020）
 ```
 
 - 適用済みのマイグレーションファイルを**後から編集しない**。

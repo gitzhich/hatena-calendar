@@ -12,6 +12,9 @@ import java.time.ZoneOffset;
  *
  * <p>{@code errorSummary} には<b>スタックトレースとトークンが入らない</b>（NFR-03）。
  * 入れないことは {@link IngestionRun#fail} の呼び出し側が担保する。
+ *
+ * <p>{@code truncated} は<b>成功した実行に付く注記</b>。ページ上限で打ち切ったため
+ * 古い投稿を取りこぼしたことを表す（docs/x-integration.md 第 3.4 節 / ADR-0020）。
  */
 public record IngestionRunDto(
         Long id,
@@ -20,6 +23,7 @@ public record IngestionRunDto(
         IngestionRunStatus status,
         int fetchedResourceCount,
         int newAppearanceCount,
+        boolean truncated,
         String errorSummary) {
 
     public IngestionRunDto {
@@ -39,6 +43,7 @@ public record IngestionRunDto(
                 run.getStatus(),
                 run.getFetchedResourceCount(),
                 run.getNewAppearanceCount(),
+                run.isTruncated(),
                 run.getErrorSummary());
     }
 }

@@ -82,17 +82,23 @@ class AdminIngestionRunApiIT {
 
     /** 実行記録を 1 件入れる。{@code startedAt} は ISO-8601（オフセット付き）。 */
     private void insertRun(String startedAt, String status, int resources, String errorSummary) {
+        insertRun(startedAt, status, resources, errorSummary, false);
+    }
+
+    private void insertRun(String startedAt, String status, int resources,
+            String errorSummary, boolean truncated) {
         tx.executeWithoutResult(s -> em.createNativeQuery("""
                 INSERT INTO ingestion_run
                     (started_at, finished_at, status, fetched_resource_count,
-                     new_appearance_count, error_summary)
-                VALUES (?, ?, ?, ?, 0, ?)
+                     new_appearance_count, truncated, error_summary)
+                VALUES (?, ?, ?, ?, 0, ?, ?)
                 """)
                 .setParameter(1, OffsetDateTime.parse(startedAt))
                 .setParameter(2, OffsetDateTime.parse(startedAt).plusSeconds(3))
                 .setParameter(3, status)
                 .setParameter(4, resources)
-                .setParameter(5, errorSummary)
+                .setParameter(5, truncated)
+                .setParameter(6, errorSummary)
                 .executeUpdate());
     }
 
@@ -151,6 +157,23 @@ class AdminIngestionRunApiIT {
         assertThat(get("").get("cycleStartAt").asString())
                 .as("JST 2026-09-02 00:00 は UTC では 2026-09-01T15:00")
                 .startsWith("2026-09-01T15:00");
+    }
+
+    @Test
+    @DisplayName("打ち切った実行を truncated で返す（NFR-09 / ADR-0020）")
+    void reportsTruncatedRuns() throws Exception {
+        insertRun("2026-09-10T01:00:00Z", "SUCCESS", 1000, null, true);
+        insertRun("2026-09-11T01:00:00Z", "SUCCESS", 4, null);
+
+        JsonNode items = get("").get("items");
+
+        assertThat(items.get(0).get("truncated").asBoolean())
+                .as("新しい順。打ち切っていない実行")
+                .isFalse();
+        assertThat(items.get(1).get("truncated").asBoolean())
+                .as("status は SUCCESS のままなので、これが無いと取りこぼしが画面に出ない")
+                .isTrue();
+        assertThat(items.get(1).get("status").asString()).isEqualTo("SUCCESS");
     }
 
     @Test

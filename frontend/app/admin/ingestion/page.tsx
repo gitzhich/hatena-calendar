@@ -136,6 +136,20 @@ function RunItem({ run }: { run: IngestionRun }) {
       <p className="mt-1 text-xs tabular-nums text-neutral-600 dark:text-neutral-400">
         取得 {run.fetchedResourceCount} リソース・新規 {run.newAppearanceCount} 件
       </p>
+      {run.truncated && (
+        /*
+          打ち切りは status が SUCCESS のままなので、状態バッジには出ない。
+          ここで出さないと取りこぼしに気づけない（NFR-09 / ADR-0020）
+        */
+        <p
+          role="alert"
+          className="mt-2 rounded border border-amber-500 bg-amber-50 dark:bg-amber-950 p-2 text-xs"
+        >
+          <strong>1 回の上限に達したため打ち切りました。</strong>
+          この実行より古い投稿は取り込まれず、取り直しもされません。
+          抜けている出演情報は手動で登録してください。
+        </p>
+      )}
       {run.errorSummary && (
         // 要約のみで、スタックトレースとトークンは含まれない（NFR-03）
         <p className="mt-2 text-xs break-words">{run.errorSummary}</p>

@@ -28,7 +28,7 @@ class IngestionHaltRuleTest {
 
     private static IngestionRun succeeded() {
         IngestionRun run = IngestionRun.start(NOW);
-        run.succeed(NOW, 0, 0);
+        run.succeed(NOW, 0, 0, false);
         return run;
     }
 
