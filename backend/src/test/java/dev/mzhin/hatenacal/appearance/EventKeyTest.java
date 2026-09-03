@@ -62,4 +62,54 @@ class EventKeyTest {
         assertThat(EventKey.of("！？＃")).isNotEmpty();
         assertThat(EventKey.of("---")).isNotEmpty();
     }
+
+    @ParameterizedTest(name = "{0} → {1}")
+    @CsvSource(delimiter = '|', value = {
+        // 残す
+        "代々木公演   | 代々木公演",
+        "自由ヶ丘     | 自由ヶ丘",
+        "ヴィヴィッド | ヴィヴィッド",
+        "AーB         | aーb",
+        // 落とす
+        "〆切ライブ   | 切ライブ",
+        "ア・イ       | アイ",
+        "波〜線       | 波線",
+        "祭🎤         | 祭",
+        "a b          | ab",
+        "『A』「B」   | ab",
+    })
+    @DisplayName("保持する文字集合（docs/data-model.md 第 4.3.2 節）")
+    void characterSet(String eventName, String expected) {
+        /*
+         * 集合を文書と実装の両方に書くと必ずずれる。ここで固定しておき、
+         * 文書はこの表を写す。別の実装者が正規表現を書き直したとき、
+         * 「ラーメン → ラメン」のようにキーが変わって照合が静かに壊るのを防ぐ。
+         */
+        assertThat(EventKey.of(eventName.trim())).isEqualTo(expected.trim());
+    }
+
+    @ParameterizedTest(name = "{0} → {1}")
+    @CsvSource(delimiter = '|', value = {
+        "Ⅳ     | iv",
+        "①     | 1",
+        "㈱テスト | 株テスト",
+        "０１２ | 012",
+        "Ａｂ   | ab",
+    })
+    @DisplayName("NFKC は文字そのものを変える。互換文字は展開されてから除去される")
+    void nfkcExpandsCompatibilityCharacters(String eventName, String expected) {
+        assertThat(EventKey.of(eventName.trim())).isEqualTo(expected.trim());
+    }
+
+    @Test
+    @DisplayName("記号だけの名前は原文の小文字化を返す。除去した結果ではない")
+    void symbolOnlyNameFallsBackToTheOriginal() {
+        /*
+         * 「・」が残っているように見えるのはフォールバックであって、
+         * 保持する集合に入っているからではない。event_key は NOT NULL のため、
+         * 除去した結果が空なら原文を返す。
+         */
+        assertThat(EventKey.of("ア・イ")).as("中黒は落ちる").isEqualTo("アイ");
+        assertThat(EventKey.of("・")).as("空になるので原文が返る").isEqualTo("・");
+    }
 }
