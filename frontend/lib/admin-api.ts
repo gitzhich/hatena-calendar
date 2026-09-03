@@ -78,7 +78,11 @@ export type IngestionRun = {
   id: number;
   startedAt: string;
   finishedAt: string | null;
-  status: "RUNNING" | "SUCCESS" | "FAILED";
+  /**
+   * `CANCELLED` は**管理者が原因を確認し、打ち切りカウントから外した失敗**
+   * （docs/runbook-x-api-setup.md 第 9 章）。アプリからは遷移させない。
+   */
+  status: "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
   fetchedResourceCount: number;
   newAppearanceCount: number;
   /**

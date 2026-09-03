@@ -212,6 +212,24 @@ class AdminIngestionRunApiIT {
     }
 
     @Test
+    @DisplayName("CANCELLED は連続失敗を切る。警告が消える（runbook 第 9 章）")
+    void cancelledRunBreaksTheFailureStreak() throws Exception {
+        insertFailures(IngestionHaltRule.MAX_CONSECUTIVE_FAILURES);
+        // 管理者が最新の失敗を確認済みにした状態（記録は消さない）
+        insertRun("2026-09-20T01:00:00Z", "CANCELLED", 0, "取得に失敗");
+
+        JsonNode body = get("");
+
+        assertThat(body.get("consecutiveFailureCount").asInt())
+                .as("先頭が FAILED でなくなれば連続は 0")
+                .isZero();
+        assertThat(body.get("halted").asBoolean()).isFalse();
+        assertThat(body.get("items").get(0).get("status").asString())
+                .as("失敗した事実は残す。画面に出せること")
+                .isEqualTo("CANCELLED");
+    }
+
+    @Test
     @DisplayName("警告の判定は表示中のページに引きずられない")
     void haltedIsJudgedFromLatestRunsNotTheShownPage() throws Exception {
         insertFailures(IngestionHaltRule.MAX_CONSECUTIVE_FAILURES);

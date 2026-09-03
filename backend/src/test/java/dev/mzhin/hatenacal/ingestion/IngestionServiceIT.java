@@ -454,6 +454,32 @@ class IngestionServiceIT {
         assertThat(service.run()).isEqualTo(IngestionService.Result.COMPLETED);
     }
 
+    @Test
+    @DisplayName("最新の失敗を CANCELLED にすれば打ち切りから戻る（runbook 第 9 章）")
+    void cancellingTheLatestFailureResumesIngestion() {
+        /*
+         * 打ち切られると新しい実行記録が作られないため、直近 10 件は永久に FAILED の
+         * ままになる。SUCCESS への書き換え（走っていない実行を成功と記録する）も
+         * DELETE（記録が消える）も記録を歪めるので、CANCELLED で連続を切る。
+         * runbook が案内する UPDATE 文をそのまま再現している。
+         */
+        for (int i = 0; i < 10; i++) {
+            insertRun("FAILED", OffsetDateTime.now(ZoneOffset.UTC).minusHours(10 - i));
+        }
+        assertThat(service.run())
+                .as("前提の確認：この状態では止まっている")
+                .isEqualTo(IngestionService.Result.HALTED);
+
+        tx.executeWithoutResult(s -> em.createNativeQuery("""
+                UPDATE ingestion_run SET status = 'CANCELLED'
+                 WHERE id = (SELECT id FROM ingestion_run ORDER BY started_at DESC LIMIT 1)
+                """).executeUpdate());
+
+        assertThat(service.run())
+                .as("FAILED 以外が 1 件入れば連続が切れる。判定側の変更は要らない")
+                .isEqualTo(IngestionService.Result.COMPLETED);
+    }
+
     // ------------------------------------------------------------ 補完
 
     /** 手動登録された行を 1 件置く。event_key は EventKey.of("テストイベント")。 */
