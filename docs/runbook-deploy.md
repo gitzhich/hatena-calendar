@@ -88,40 +88,40 @@ git status --short                       # 作業ツリーが汚れていない�
 
 **suspend までの時間は既定（5 分）のままでよい。** 第 11 章の試算はこれが前提。
 
-### 2.3 接続文字列を JDBC の形に直す
+### 2.3 接続文字列を JDBC の形で取る
 
-**ここが初回デプロイで最も踏みやすい落とし穴。**
+**接続文字列は画面上で編集できない。** 編集する代わりに、
+**スニペットの種類を `Java` にする**と JDBC の形で出てくる。
 
-Neon が配るのは libpq 形式で、そのままでは Spring から使えない。
+1. **Connect** を押す（サイドバー上部、または「Connection string」カード）
+2. スニペットの種類を **`Java`** にする
+3. **プーリングが有効**であることを確かめる。ホスト名に `-pooler` が入っていればよい
+   （[architecture.md](architecture.md) 第 8 章）
+4. コピーして `DATABASE_URL` に使う
 
-```
-postgresql://myuser:mypassword@ep-xxx-pooler.ap-northeast-1.aws.neon.tech/hatenacal?sslmode=require
-```
-
-**pgjdbc は `user:password@host` の形を受け付けない。** 認証情報は
-`user=` / `password=` のクエリパラメータで渡す
-（[architecture.md](architecture.md) 第 7.2 節）。
-
-変換後：
+出てくるのはこの形。
 
 ```
-jdbc:postgresql://ep-xxx-pooler.ap-northeast-1.aws.neon.tech:5432/hatenacal?sslmode=require&user=myuser&password=mypassword
+jdbc:postgresql://ep-xxx-pooler.ap-southeast-1.aws.neon.tech/hatenacal?user=myuser&password=mypassword&sslmode=require
 ```
 
-直すのは 4 点。
+**次の 5 つが揃っていることを確かめる。**
 
-| | 変換 |
+| 見るもの | 期待 |
 | --- | --- |
-| スキーム | `postgresql://` → **`jdbc:postgresql://`** |
-| 認証情報 | `user:pass@` を削り、末尾に `&user=...&password=...` を足す |
-| ポート | `:5432` を明示する |
-| ホスト | **`-pooler` が付いたものを選ぶ**（[architecture.md](architecture.md) 第 8 章） |
+| 先頭 | `jdbc:postgresql://` |
+| ホスト | **`-pooler` が入っている** |
+| 認証情報 | `user=` と `password=` の**両方**がクエリにある |
+| SSL | `sslmode=require` がある |
+| DB 名 | `hatenacal` |
 
-**パスワードに `/ : @ ( ) [ ] & # = ? ` や空白が含まれていたらパーセントエンコードする。**
-生のまま入れるとクエリの区切りとして解釈され、認証に失敗する。
-Neon のパスワードを作り直せば済むことも多い。
+**要点は 3 つ目。** pgjdbc は `user:password@host` の形を受け付けない
+（[architecture.md](architecture.md) 第 7.2 節）。`Java` 以外のスニペット
+（`psql` など）はその形で出るため、**そのままでは使えない**。
 
-**`sslmode=require` を落とさない。** Neon は SSL を要求する。
+**ポート番号は無くてよい。** pgjdbc は省略時に 5432 を使い、Neon も 5432 で待つ。
+
+**この文字列はパスワードを含む。** 扱いは他のシークレットと同じにする。
 
 ### 2.4 確認
 
