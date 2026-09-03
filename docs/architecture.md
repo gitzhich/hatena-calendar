@@ -506,6 +506,28 @@ URL に埋めて渡す。テストだけ別の渡し方にすると、URL に埋
   ことで担保する（[runbook-deploy.md](runbook-deploy.md) 第 1.2 節）
 - デプロイの順番は **Neon → Fly.io → Vercel**。後ろが前の値を要求するため
 
+### CI
+
+`.github/workflows/ci.yml`。`main` への push と PR で走る。
+
+| ジョブ | 内容 | 実行条件 |
+| --- | --- | --- |
+| `changes` | `git diff` で変更ディレクトリを判定する | 常に |
+| `backend` | `./gradlew build`（Testcontainers を使う結合テスト込み） | `backend/` に変更があるとき |
+| `frontend` | `npm run lint` / `npm run build` | `frontend/` に変更があるとき |
+| `ci` | 上 2 つの結果を集約する | **常に**（`if: always()`） |
+
+- **必須チェックは集約ジョブ `ci` のみ。** `backend` / `frontend` は変更のない
+  ディレクトリでスキップされ、**スキップされたジョブはチェックを報告しない**ため、
+  直接指定すると保護ルールが永久に待つ
+- **変更判定に第三者アクションを使わない**（`git diff` で済ませる）。
+  依存を増やさない方針（[ADR-0001](adr/0001-monorepo.md)）。
+  ワークフロー自体を変えたときは両方走らせる
+- **X API を叩くテストを CI に置かない**（実行のたびに課金される）。
+  `IngestionGuardrailTest` が規約として機械的に検査する（[ADR-0002](adr/0002-official-api-only.md)）
+- **デプロイは CI から行わない**（[ADR-0019](adr/0019-deploy-triggers-and-records.md)）。
+  `scripts/deploy-backend.sh` が「CI が green のコミットか」を検査してから実行する
+
 ### リージョン
 
 | 層 | リージョン | 指定する場所 |
@@ -603,12 +625,11 @@ Neon は最終クエリから 5 分でサスペンドするため、ジョブが
 
 ## 12. 未決定事項
 
+**番号で参照しない**（項目を消すと番号がずれる）。他の文書からは**項目名**で参照する。
+
 1. **セッションの即時失効**（第 3.2 節）。現状は Cookie ベースで
    サーバ側の失効ができない。必要になれば Spring Session + DB へ移す
 2. **取り込み結果の即時反映**（第 5.2 節）。現状は時間ベースの再検証に任せている。
    Spring Boot から Next.js の On-Demand Revalidation を呼ぶ構成も可能
-3. **CI の構成**。GitHub Actions でテストを回す想定だが未定。
-   **X API を叩くテストを CI に含めない**ことだけは確定している
-4. **Fly.io のリージョン**。Neon のリージョンと近い場所を選ぶ
-5. **ログの保存先**。Fly.io の標準出力に流すだけで足りるか、
+3. **ログの保存先**。Fly.io の標準出力に流すだけで足りるか、
    外部に集約するかは運用してから判断する
