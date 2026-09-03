@@ -34,3 +34,4 @@
 | [0014](0014-bounded-calendar-range.md) | 公開カレンダーが受け付ける年月の範囲を有限にする | 承認済み |
 | [0015](0015-private-repository.md) | リポジトリを外部公開しない | 承認済み |
 | [0016](0016-static-csp-public-nonce-admin.md) | 公開ページは静的 CSP、管理画面は nonce ベースの CSP にする | 承認済み |
+| [0017](0017-contact-channel.md) | 削除要請の窓口をサイト専用のメールアドレスにする | 承認済み |
