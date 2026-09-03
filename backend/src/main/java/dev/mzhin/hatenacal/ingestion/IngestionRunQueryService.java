@@ -1,8 +1,8 @@
 package dev.mzhin.hatenacal.ingestion;
 
-import dev.mzhin.hatenacal.appearance.CalendarRange;
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,10 +24,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class IngestionRunQueryService {
 
     private final IngestionRunRepository runs;
+    private final XApiProperties properties;
     private final Clock clock;
 
-    public IngestionRunQueryService(IngestionRunRepository runs, Clock clock) {
+    public IngestionRunQueryService(IngestionRunRepository runs,
+            XApiProperties properties, Clock clock) {
         this.runs = runs;
+        this.properties = properties;
         this.clock = clock;
     }
 
@@ -36,8 +39,13 @@ public class IngestionRunQueryService {
         Page<IngestionRun> page = runs.findAllByOrderByStartedAtDesc(pageable);
         // 打ち切りの判定は常に直近の実行を見る。表示中のページに引きずられない
         List<IngestionRun> recent = runs.findByOrderByStartedAtDesc(IngestionHaltRule.window());
-        long resources = runs.sumFetchedResourceCountSince(
-                currentMonthStart(OffsetDateTime.now(clock)));
+        /*
+         * 集計期間は請求サイクル（NFR-04）。暦月で切ると支出上限のリセット日と
+         * ずれ、「想定を超えたら気づける」が成り立たない（BillingCycle）。
+         */
+        OffsetDateTime cycleStart = BillingCycle.startOf(
+                OffsetDateTime.now(clock), properties.billingCycleStartDay());
+        long resources = runs.sumFetchedResourceCountSince(cycleStart);
 
         return new IngestionRunListResponse(
                 page.getContent().stream().map(IngestionRunDto::from).toList(),
@@ -45,25 +53,8 @@ public class IngestionRunQueryService {
                 page.getSize(),
                 page.getTotalElements(),
                 resources,
+                cycleStart.withOffsetSameInstant(ZoneOffset.UTC),
                 IngestionHaltRule.consecutiveFailures(recent),
                 IngestionHaltRule.halted(recent));
-    }
-
-    /**
-     * 当月の起点（NFR-04）。
-     *
-     * <p><b>暦月の境界は JST で切る</b>（NFR-05）。管理者が見る「今月」は JST の暦月であり、
-     * UTC で切ると月初 9 時間分が前月に混じる。
-     *
-     * <p>これは<b>概算のための区切りであって請求期間ではない</b>。X API の請求サイクルは
-     * クレジットの購入日を起点に切られ、暦月と一致しない
-     * （docs/runbook-x-api-setup.md 第 3.3 節）。正確な請求額は X の管理画面で確認する。
-     */
-    static OffsetDateTime currentMonthStart(OffsetDateTime now) {
-        return now.atZoneSameInstant(CalendarRange.JST)
-                .toLocalDate()
-                .withDayOfMonth(1)
-                .atStartOfDay(CalendarRange.JST)
-                .toOffsetDateTime();
     }
 }

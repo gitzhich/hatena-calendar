@@ -38,7 +38,10 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestPropertySource(properties = {
     "INTERNAL_API_KEY=public-key",
-    "INTERNAL_ADMIN_API_KEY=admin-key"
+    "INTERNAL_ADMIN_API_KEY=admin-key",
+    // 暦月と一致しない値を使う。1 のままだと請求サイクルで切っているのか
+    // 暦月で切っているのか区別できない（NFR-04）
+    "x.billing-cycle-start-day=2"
 })
 @Import(AdminIngestionRunApiIT.MovableClockConfig.class)
 class AdminIngestionRunApiIT {
@@ -128,17 +131,26 @@ class AdminIngestionRunApiIT {
     }
 
     @Test
-    @DisplayName("当月の合計は JST の暦月で切る。UTC で切ると月初 9 時間分が漏れる")
-    void currentMonthIsBoundedByJstCalendarMonth() throws Exception {
-        // JST 8/31 23:00。前月なので数えない
-        insertRun("2026-08-31T14:00:00Z", "SUCCESS", 100, null);
-        // JST 9/1 00:30。当月に入る。UTC で切るとここが落ちる
-        insertRun("2026-08-31T15:30:00Z", "SUCCESS", 7, null);
+    @DisplayName("合計は請求サイクルで切る。暦月で切ると起点前の分が混じる")
+    void currentCycleIsBoundedByTheBillingCycle() throws Exception {
+        // JST 9/1 23:00。起点（9/2）より前なので数えない。
+        // 暦月で切るとここが入ってしまう
+        insertRun("2026-09-01T14:00:00Z", "SUCCESS", 100, null);
+        // JST 9/2 00:30。サイクルに入る。UTC で切るとここが落ちる
+        insertRun("2026-09-01T15:30:00Z", "SUCCESS", 7, null);
         insertRun("2026-09-10T01:00:00Z", "SUCCESS", 4, null);
 
-        assertThat(get("").get("currentMonthResourceCount").asInt())
-                .as("100 が入れば前月を数えており、4 なら JST の月初 9 時間分を落としている")
+        assertThat(get("").get("currentCycleResourceCount").asInt())
+                .as("100 が入れば暦月で切っており、4 なら JST の起点 9 時間分を落としている")
                 .isEqualTo(11);
+    }
+
+    @Test
+    @DisplayName("集計期間の開始を UTC で返す。何を合計した値かが画面から分かる")
+    void reportsTheCycleStart() throws Exception {
+        assertThat(get("").get("cycleStartAt").asString())
+                .as("JST 2026-09-02 00:00 は UTC では 2026-09-01T15:00")
+                .startsWith("2026-09-01T15:00");
     }
 
     @Test
@@ -147,7 +159,7 @@ class AdminIngestionRunApiIT {
         JsonNode body = get("");
 
         assertThat(body.get("items")).isEmpty();
-        assertThat(body.get("currentMonthResourceCount").asInt()).isZero();
+        assertThat(body.get("currentCycleResourceCount").asInt()).isZero();
         assertThat(body.get("consecutiveFailureCount").asInt()).isZero();
         assertThat(body.get("halted").asBoolean()).isFalse();
     }

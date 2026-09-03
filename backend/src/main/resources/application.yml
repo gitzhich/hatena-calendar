@@ -61,6 +61,11 @@ x:
   read-timeout: 30s
   # 初回バックフィルで遡る月数。無制限に遡ると課金が読めない（第 8 章）
   backfill-months: 3
+  # 請求サイクルの起点日（1〜31）。X はクレジットの購入日を起点に切るため
+  # 暦月ではない（docs/runbook-x-api-setup.md 第 3.3 節）。
+  # 現在の値は GET /2/usage/tweets の cap_reset_day で確認できる。
+  # 1 にすると暦月と一致する
+  billing-cycle-start-day: 2
 
 # 取り込みジョブ（docs/x-integration.md 第 10 章）
 ingestion:

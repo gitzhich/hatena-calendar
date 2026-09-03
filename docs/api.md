@@ -390,7 +390,8 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
   "page": 0,
   "size": 20,
   "totalElements": 2880,
-  "currentMonthResourceCount": 287,
+  "currentCycleResourceCount": 287,
+  "cycleStartAt": "2026-09-01T15:00:00Z",
   "consecutiveFailureCount": 0,
   "halted": false
 }
@@ -401,14 +402,22 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
 | `items` | 実行記録を**開始日時の降順**で返す。日時は UTC |
 | `finishedAt` | 実行中（`status` が `RUNNING`）なら `null` |
 | `errorSummary` | 失敗理由の要約。**スタックトレースとトークンを含まない**（NFR-03） |
-| `currentMonthResourceCount` | 当月の `fetchedResourceCount` 合計。`× $0.005` が概算コスト（NFR-04） |
+| `currentCycleResourceCount` | 現在の請求サイクルの `fetchedResourceCount` 合計。`× $0.005` が概算コスト（NFR-04） |
+| `cycleStartAt` | 集計期間の開始（UTC）。何を合計した値かを画面が示せるようにする |
 | `consecutiveFailureCount` | 直近で失敗が連続している回数。成功が 1 件でも挟まれば 0 に戻る |
 | `halted` | 連続失敗で取り込みが打ち切られているか（FR-43 / NFR-09） |
 
-**当月は JST の暦月で切る**（NFR-05）。管理者が見る「今月」は JST の暦月であり、
-UTC で切ると月初 9 時間分が前月に混じる。ただしこれは**概算のための区切りであって
-請求期間ではない**。X API の請求サイクルはクレジットの購入日を起点に切られ、
-暦月と一致しない（[runbook-x-api-setup.md](runbook-x-api-setup.md) 第 3.3 節）。
+**集計期間は請求サイクルで切る。暦月ではない。** X API の請求サイクルは
+クレジットの購入日を起点に切られる（例: `Sep 2 - Oct 2`。
+[runbook-x-api-setup.md](runbook-x-api-setup.md) 第 3.3 節）。暦月で切ると
+支出上限のリセット日と集計期間がずれ、NFR-04 の「想定を超えたら気づける」が
+成り立たない。
+
+- 起点の日は設定値 `x.billing-cycle-start-day`（1〜31）で持つ。
+  **`1` を指定すると暦月と一致する**ので、暦月は特殊ケースであって別の分岐ではない
+- その日が無い月（31 起点の 2 月）は**月末に丸める**
+- **境界は JST で切る**（NFR-05）。UTC で切ると 9 時間分が前のサイクルに混じる
+- 正確な請求額は X の管理画面で確認する。ここに出すのは概算
 
 **`halted` と `consecutiveFailureCount` はサーバ側で判定する。** 打ち切りの条件を
 画面側で書き直すと、実際に取り込みを止めている条件とずれても誰も気づけない。

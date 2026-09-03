@@ -131,8 +131,8 @@ GUI はこの 2 つを見た目で区別しないため、同じ物差しで読�
 | `source_account` | **`last_fetched_tweet_id` が課金に直結する。触らない** |
 | `flyway_schema_history` | マイグレーションの適用履歴 |
 
-当月の課金額の目安は次で出せる（請求サイクルは購入日起点で暦月と一致しないため、
-期間は自分で指定する）。
+課金額の目安は次で出せる（請求サイクルは購入日起点で暦月と一致しないため、
+期間は自分で指定する。アプリ側の起点は `x.billing-cycle-start-day`）。
 
 ```sql
 SELECT sum(fetched_resource_count) AS resources,
