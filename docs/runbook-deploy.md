@@ -1,6 +1,6 @@
 # 手順書 — 本番デプロイ
 
-最終更新: 2026-09-03
+最終更新: 2026-09-04
 
 関連文書: [architecture.md](architecture.md) 第 7 章・第 8 章・第 11 章 /
 [security.md](security.md) / [runbook-x-api-setup.md](runbook-x-api-setup.md) /
@@ -341,12 +341,14 @@ curl -sI https://<domain>/ | grep -iE 'content-security-policy|strict-transport|
 
 [requirements.md](requirements.md) 第 11 章の DoD のうち、ここで初めて埋まるもの。
 
-- [ ] **NFR-01 応答時間** — Neon のコールドスタートを含めて測る。
-      キャッシュ済みの月と、初めて開く月の両方
+- [x] **NFR-01 応答時間** — 2026-09-03 に本番で実測。ISR 命中が 135ms 前後、
+      キャッシュに無い月の初回が 144ms / 324ms（目標は p95 で 300ms / 3 秒）。
+      **Neon のコールドスタートは踏めていない** — 取り込みが 30 分ごとに
+      DB を触るため起きたままになる。踏むには取り込みを止めて測る
 - [ ] **NFR-04 CU-hours** — 1 週間動かしてから Neon の消費を見る。
       月換算で 100 に対して余裕があるか（試算は約 31）
-- [ ] **本番が HTTPS のみで動作する**（[security.md](security.md) 第 5 章）
-- [ ] **Neon の autoscaling 下限が 0.25 CU**（第 2.2 節で設定済みのはず。画面で再確認）
+- [x] **本番が HTTPS のみで動作する** — 2026-09-03 に確認（[security.md](security.md) 第 5 章）
+- [x] **Neon の autoscaling が下限・上限とも 0.25 CU** — 2026-09-03 に画面で確認（第 2.2 節）
 - [ ] **NFR-06 / NFR-08** — 実機の幅 360px で横スクロールが出ないか、
       コントラスト比 4.5:1 を満たすか
 
