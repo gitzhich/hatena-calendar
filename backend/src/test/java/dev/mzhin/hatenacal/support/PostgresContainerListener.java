@@ -41,9 +41,15 @@ public class PostgresContainerListener implements LauncherSessionListener {
         // JVM 終了時に片付ける。Testcontainers の Ryuk も後始末を行う
         Runtime.getRuntime().addShutdownHook(new Thread(container::stop));
 
-        System.setProperty("spring.datasource.url", container.getJdbcUrl());
-        System.setProperty("spring.datasource.username", container.getUsername());
-        System.setProperty("spring.datasource.password", container.getPassword());
+        // **認証情報を URL に含める。** 本番は DATABASE_URL 1 本で渡すため
+        // （docs/architecture.md 第 7.2 節）、テストも同じ経路にする。
+        // username / password を別に渡すと、テストだけが本番と違う渡し方になり、
+        // URL に埋めた認証情報が効くかどうかを一度も検証しないまま出すことになる。
+        String url = container.getJdbcUrl();
+        System.setProperty("spring.datasource.url",
+                url + (url.contains("?") ? "&" : "?")
+                        + "user=" + container.getUsername()
+                        + "&password=" + container.getPassword());
         // 接続プールを絞る。Spring のテストコンテキストは使い回すためにキャッシュされ、
         // 設定の違う結合テストを足すたびに 1 つ増える。それぞれが Hikari のプールを
         // 握ったままなので、既定の 10 本だとコンテキスト 10 個で PostgreSQL の
