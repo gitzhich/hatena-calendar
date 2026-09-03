@@ -115,6 +115,8 @@ const STATUS_LABEL: Record<IngestionRun["status"], string> = {
   RUNNING: "実行中",
   SUCCESS: "成功",
   FAILED: "失敗",
+  // 失敗した事実は消さない。打ち切りカウントから外しただけであることを見せる
+  CANCELLED: "失敗（確認済み）",
 };
 
 function RunItem({ run }: { run: IngestionRun }) {

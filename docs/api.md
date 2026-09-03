@@ -456,6 +456,7 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
 | --- | --- |
 | `items` | 実行記録を**開始日時の降順**で返す。日時は UTC |
 | `finishedAt` | 実行中（`status` が `RUNNING`）なら `null` |
+| `status` | `RUNNING` / `SUCCESS` / `FAILED` / `CANCELLED`。`CANCELLED` は**管理者が原因を確認し、打ち切りカウントから外した失敗**（[runbook-x-api-setup.md](runbook-x-api-setup.md) 第 9 章）。連続失敗の判定はここで切れる |
 | `truncated` | ページ上限で打ち切ったか。`true` なら**古い投稿を取りこぼしている**（[x-integration.md](x-integration.md) 第 3.4 節 / [ADR-0020](adr/0020-drop-posts-beyond-page-limit.md)）。`status` は `SUCCESS` のまま |
 | `errorSummary` | 失敗理由の要約。**スタックトレースとトークンを含まない**（NFR-03） |
 | `currentCycleResourceCount` | 現在の請求サイクルの `fetchedResourceCount` 合計。`× $0.005` が概算コスト（NFR-04） |
@@ -484,6 +485,8 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
 **再開の操作はこのエンドポイントに持たせない。** 打ち切りからの復帰は
 原因を確認してから手で戻す運用であり（FR-43）、押すだけで再開できると
 原因が残ったまま同じ範囲を取り直して課金が積み上がる。
+戻すのは DB を直接触る操作で、手順は
+[runbook-x-api-setup.md](runbook-x-api-setup.md) 第 9 章にある。
 
 ---
 

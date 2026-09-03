@@ -403,7 +403,8 @@ CREATE TABLE ingestion_run (
     started_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
     finished_at            TIMESTAMPTZ,
     status                 TEXT        NOT NULL
-                                       CHECK (status IN ('RUNNING', 'SUCCESS', 'FAILED')),
+                                       CHECK (status IN ('RUNNING', 'SUCCESS',
+                                                         'FAILED', 'CANCELLED')),
     fetched_resource_count INTEGER     NOT NULL DEFAULT 0 CHECK (fetched_resource_count >= 0),
     new_appearance_count   INTEGER     NOT NULL DEFAULT 0 CHECK (new_appearance_count >= 0),
     truncated              BOOLEAN     NOT NULL DEFAULT false,
@@ -415,11 +416,18 @@ CREATE TABLE ingestion_run (
 | --- | --- |
 | `fetched_resource_count` | **レスポンスで返ってきたリソース数**。X API の課金単位そのもの。これを期間で合計すれば消費額を算出できる |
 | `truncated` | ページ数の上限で打ち切ったか（[x-integration.md](x-integration.md) 第 3.4 節 / [ADR-0020](adr/0020-drop-posts-beyond-page-limit.md)）。**取りこぼしが確定した実行**を後から特定できるようにする |
+| `status` | `RUNNING` / `SUCCESS` / `FAILED` と、**`CANCELLED`**（管理者が原因を確認し、打ち切りカウントから外した失敗。[runbook-x-api-setup.md](runbook-x-api-setup.md) 第 9 章）。アプリは `CANCELLED` へ遷移させない |
 | `error_summary` | 失敗理由の要約。**スタックトレースやトークンを入れない**（NFR-03, NFR-09） |
 
-**`truncated` を `status` に足さない。** `SUCCESS` / `FAILED` / `RUNNING` は
-連続失敗の判定（`IngestionHaltRule`）に使われており、値を増やすと打ち切りの判定まで
-巻き込む。取りこぼしは失敗ではなく、成功した実行に付く注記である。
+**`status` に値を足すのは、打ち切りの判定を変えたいときだけ。**
+`RUNNING` / `SUCCESS` / `FAILED` / `CANCELLED` は連続失敗の判定
+（`IngestionHaltRule`）に使われる。判定を巻き込みたくない情報は別の列で持つ。
+
+- `truncated` を `status` に足さなかったのはこのため。取りこぼしは失敗ではなく、
+  成功した実行に付く注記である
+- `CANCELLED` は逆に、**判定を切るためにある**。打ち切られると新しい実行記録が
+  作られず、直近 10 件は永久に `FAILED` のままになる。復帰の手順は
+  [runbook-x-api-setup.md](runbook-x-api-setup.md) 第 9 章
 
 FR-08 の「最後に取り込みが成功した日時」は
 `SELECT max(finished_at) FROM ingestion_run WHERE status = 'SUCCESS'` で得る。
@@ -641,7 +649,8 @@ FR-23 の「削除しても同じ投稿から再び出演情報が作られな�
 ```
 backend/src/main/resources/db/migration/
 ├── V1__init_schema.sql              # 上記 4 テーブル + インデックス
-└── V2__ingestion_run_truncated.sql  # ingestion_run.truncated（ADR-0020）
+├── V2__ingestion_run_truncated.sql  # ingestion_run.truncated（ADR-0020）
+└── V3__ingestion_run_cancelled.sql  # status に CANCELLED（第 4.4 節）
 ```
 
 - 適用済みのマイグレーションファイルを**後から編集しない**。
