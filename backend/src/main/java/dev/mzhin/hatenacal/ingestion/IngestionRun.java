@@ -44,6 +44,19 @@ public class IngestionRun {
     @Column(name = "new_appearance_count", nullable = false)
     private int newAppearanceCount;
 
+    /**
+     * ページ数の上限で打ち切ったか（docs/x-integration.md 第 3.4 節 / ADR-0020）。
+     *
+     * <p>打ち切ると<b>未取得の古い側の投稿は二度と取得されない</b>。意図した仕様だが、
+     * 起きたことを管理者が知らないと手動登録で補う判断ができない（NFR-09）。
+     *
+     * <p><b>status には足さない。</b> 連続失敗の判定（{@link IngestionHaltRule}）が
+     * status を見ており、値を増やすと打ち切りの判定まで巻き込む。
+     * 取りこぼしは失敗ではなく、成功した実行に付く注記である。
+     */
+    @Column(name = "truncated", nullable = false)
+    private boolean truncated;
+
     @Column(name = "error_summary")
     private String errorSummary;
 
@@ -59,11 +72,13 @@ public class IngestionRun {
         return run;
     }
 
-    void succeed(OffsetDateTime now, int fetchedResourceCount, int newAppearanceCount) {
+    void succeed(OffsetDateTime now, int fetchedResourceCount, int newAppearanceCount,
+            boolean truncated) {
         this.status = IngestionRunStatus.SUCCESS;
         this.finishedAt = now;
         this.fetchedResourceCount = fetchedResourceCount;
         this.newAppearanceCount = newAppearanceCount;
+        this.truncated = truncated;
     }
 
     /**
@@ -114,5 +129,9 @@ public class IngestionRun {
 
     public String getErrorSummary() {
         return errorSummary;
+    }
+
+    public boolean isTruncated() {
+        return truncated;
     }
 }

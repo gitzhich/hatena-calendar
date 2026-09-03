@@ -121,9 +121,10 @@ public class IngestionService {
             Long runId = run.getId();
             tx.executeWithoutResult(s -> runs.findById(runId).ifPresent(r ->
                     r.succeed(OffsetDateTime.now(clock),
-                            counters.resources, counters.created)));
-            log.info("取り込み完了: 取得 {} 件 / 新規 {} 件 / 未処理 {} 件",
-                    counters.resources, counters.created, counters.unparsed);
+                            counters.resources, counters.created, counters.truncated)));
+            log.info("取り込み完了: 取得 {} 件 / 新規 {} 件 / 未処理 {} 件{}",
+                    counters.resources, counters.created, counters.unparsed,
+                    counters.truncated ? " / 取りこぼしあり" : "");
             return Result.COMPLETED;
         } catch (RuntimeException e) {
             // 取得位置は進めない。次回同じ範囲を取り直す（第 2.1 節）
@@ -141,8 +142,16 @@ public class IngestionService {
     /**
      * ページングしながら取得する。
      *
-     * <p>1 回の実行で取るページ数に上限を設ける（第 3.4 節）。
-     * 上限に達したら打ち切り、次回に持ち越す。暴走した課金を防ぐため。
+     * <p>1 回の実行で取るページ数に上限を設ける（第 3.4 節）。暴走した課金を防ぐため。
+     *
+     * <p><b>上限に達したら、未取得の古い側は取得を諦める。</b> API は新しい順に返すため、
+     * 打ち切ったときに残るのは古い側であり、取得位置を最新へ進めるとその区間は
+     * 二度と取得されない。位置を進めないほうが安全に見えるが、滞留が上限を超えている
+     * 限り毎回同じ範囲を取り直して<b>位置が永久に進まず</b>、24 時間の重複排除が
+     * 日跨ぎで切れて課金が積み上がる（ADR-0020）。
+     *
+     * <p>諦めたことは {@code ingestion_run.truncated} に残す。管理者が手動登録で
+     * 補う判断をするために要る（NFR-09）。
      */
     private List<SourcePost> fetchAll(SourceAccount account, OffsetDateTime now,
             Counters counters) {
@@ -159,7 +168,9 @@ public class IngestionService {
             }
             token = result.nextToken();
         }
-        log.warn("ページ数の上限 {} に達したため打ち切った。残りは次回に持ち越す",
+        counters.truncated = true;
+        log.warn("ページ数の上限 {} に達したため打ち切った。"
+                + "取得できなかった古い投稿は取り直さない。手動登録で補うこと",
                 properties.maxPages());
         return all;
     }
@@ -272,6 +283,9 @@ public class IngestionService {
      *
      * <p>更新は前進するときだけ成立する（{@code advanceLastFetchedTweetId}）。
      * 後退させると同じ投稿を翌日以降に取り直し、再課金になる（第 2.2 節）。
+     *
+     * <p><b>ページ上限で打ち切った場合も進める</b>（ADR-0020）。進めない実装にすると
+     * 滞留が解消せず、課金だけが積み上がる。
      */
     private void advance(SourceAccount account, List<SourcePost> posts) {
         posts.stream().mapToLong(SourcePost::id).max().ifPresent(maxId ->
@@ -338,6 +352,8 @@ public class IngestionService {
     private static final class Counters {
         private int resources;
         private int created;
+        /** ページ上限で打ち切ったか（第 3.4 節）。取りこぼしが確定した印。 */
+        private boolean truncated;
         private int unparsed;
     }
 }

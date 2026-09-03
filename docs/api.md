@@ -384,6 +384,7 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
       "status": "SUCCESS",
       "fetchedResourceCount": 4,
       "newAppearanceCount": 1,
+      "truncated": false,
       "errorSummary": null
     }
   ],
@@ -400,6 +401,7 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
 | --- | --- |
 | `items` | 実行記録を**開始日時の降順**で返す。日時は UTC |
 | `finishedAt` | 実行中（`status` が `RUNNING`）なら `null` |
+| `truncated` | ページ上限で打ち切ったか。`true` なら**古い投稿を取りこぼしている**（[x-integration.md](x-integration.md) 第 3.4 節 / [ADR-0020](adr/0020-drop-posts-beyond-page-limit.md)）。`status` は `SUCCESS` のまま |
 | `errorSummary` | 失敗理由の要約。**スタックトレースとトークンを含まない**（NFR-03） |
 | `currentMonthResourceCount` | 当月の `fetchedResourceCount` 合計。`× $0.005` が概算コスト（NFR-04） |
 | `consecutiveFailureCount` | 直近で失敗が連続している回数。成功が 1 件でも挟まれば 0 に戻る |

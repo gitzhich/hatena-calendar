@@ -81,6 +81,11 @@ export type IngestionRun = {
   status: "RUNNING" | "SUCCESS" | "FAILED";
   fetchedResourceCount: number;
   newAppearanceCount: number;
+  /**
+   * ページ上限で打ち切ったか。`true` なら**古い投稿を取りこぼしている**
+   * （docs/x-integration.md 第 3.4 節 / ADR-0020）。`status` は `SUCCESS` のまま。
+   */
+  truncated: boolean;
   errorSummary: string | null;
 };
 
