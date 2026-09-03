@@ -36,7 +36,10 @@ export default async function IngestionPage({
         halted={result.halted}
       />
 
-      <CostSummary resources={result.currentMonthResourceCount} />
+      <CostSummary
+        resources={result.currentCycleResourceCount}
+        cycleStartAt={result.cycleStartAt}
+      />
 
       <h2 className="mt-6 mb-2 text-sm font-bold">実行履歴</h2>
       {result.items.length === 0 ? (
@@ -61,11 +64,26 @@ export default async function IngestionPage({
   );
 }
 
-/** 当月の消費と概算コスト（NFR-04）。 */
-function CostSummary({ resources }: { resources: number }) {
+/**
+ * 現在の請求サイクルの消費と概算コスト（NFR-04）。
+ *
+ * <b>期間を明示する。</b> X の請求サイクルはクレジットの購入日を起点に切られ、
+ * 暦月と一致しない（docs/runbook-x-api-setup.md 第 3.3 節）。
+ * 「当月」とだけ書くと、支出上限のリセット日とずれた値を月の合計だと読まれる。
+ */
+function CostSummary({
+  resources,
+  cycleStartAt,
+}: {
+  resources: number;
+  cycleStartAt: string;
+}) {
   return (
     <section className="rounded border border-neutral-300 dark:border-neutral-700 p-3">
-      <h2 className="text-sm font-bold">当月の消費</h2>
+      <h2 className="text-sm font-bold">今の請求サイクルの消費</h2>
+      <p className="text-xs text-neutral-600 dark:text-neutral-400">
+        {formatJst(cycleStartAt) ?? "起点不明"} 以降の合計
+      </p>
       <p className="mt-1 text-sm tabular-nums">
         {resources.toLocaleString("ja-JP")} リソース
         <span className="text-neutral-600 dark:text-neutral-400">
@@ -79,13 +97,15 @@ function CostSummary({ resources }: { resources: number }) {
           role="alert"
           className="mt-2 rounded border border-amber-500 bg-amber-50 dark:bg-amber-950 p-2 text-sm"
         >
-          <strong>想定していた月 ${MONTHLY_BUDGET_USD} を超えています。</strong>
+          <strong>
+            想定していた 1 サイクル ${MONTHLY_BUDGET_USD} を超えています。
+          </strong>
           取得範囲が広がっていないか確認してください。
         </p>
       )}
       <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
-        JST の暦月で集計した概算です。X API の請求はクレジットの購入日を起点に切られるため、
-        請求期間とは一致しません。正確な金額は X の管理画面で確認してください。
+        請求サイクルの起点は設定値（<code>x.billing-cycle-start-day</code>）です。
+        X 側でサイクルが変わったら合わせてください。正確な金額は X の管理画面で確認できます。
       </p>
     </section>
   );

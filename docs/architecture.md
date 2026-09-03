@@ -543,7 +543,7 @@ URL に埋めて渡す。テストだけ別の渡し方にすると、URL に埋
 | 見る値 | 目的 |
 | --- | --- |
 | 直近の取り込み成否 | FR-08 の表示、NFR-09 |
-| 当月の `fetched_resource_count` 合計 | X API のコスト（NFR-04） |
+| 請求サイクルの `fetched_resource_count` 合計 | X API のコスト（NFR-04） |
 | Neon の CU-hours 消費 | 無料枠の上限に近づいていないか |
 | `UNPARSED` の滞留件数 | 抽出精度の劣化 |
 

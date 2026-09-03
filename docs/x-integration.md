@@ -165,13 +165,19 @@ GET /2/users/{id}/tweets
 （`meta.result_count` の合計、ページングした場合は全ページ分）。
 
 ```sql
--- 当月の消費リソース数
+-- 現在の請求サイクルの消費リソース数（起点が毎月 2 日の場合）
 SELECT sum(fetched_resource_count)
 FROM ingestion_run
-WHERE started_at >= date_trunc('month', now());
+WHERE started_at >= timestamptz '2026-09-02 00:00+09';
 ```
 
-概算コストは `リソース数 × $0.005`。月 $5 を超えない想定（NFR-04）。
+**暦月で切らない。** X API の請求サイクルはクレジットの購入日を起点に切られ
+（[runbook-x-api-setup.md](runbook-x-api-setup.md) 第 3.3 節）、暦月で集計すると
+支出上限のリセット日とずれる。アプリ側の起点は設定値
+`x.billing-cycle-start-day`（1〜31。`1` で暦月と一致）で、
+境界は JST で切る（[api.md](api.md) 第 5.7 節）。
+
+概算コストは `リソース数 × $0.005`。1 サイクル $5 を超えない想定（NFR-04）。
 
 **課金がレスポンスのリソース数と一致することは実測済み**（2026-09-02）。
 `max_results=5` で 5 件を取得したところ、`GET /2/usage/tweets` の
@@ -778,7 +784,7 @@ Neon のコンピュートが最低 5 分起動するため、間隔を詰める
 - 実行基盤は Fly.io 上の Spring Boot `@Scheduled`（[architecture.md](architecture.md) 第 4.3 節）
 - 監視すべき値:
   - 直近の実行が成功しているか（FR-08 の表示に直結）
-  - 当月の `fetched_resource_count` 合計（NFR-04）
+  - 現在の請求サイクルの `fetched_resource_count` 合計（NFR-04）
   - `UNPARSED` の滞留件数（抽出精度の劣化を示す）
 - Bearer Token は環境変数で注入する。ログ・エラー・レスポンスに出さない（NFR-03）
 
