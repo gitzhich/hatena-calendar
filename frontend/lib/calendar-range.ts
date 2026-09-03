@@ -6,6 +6,14 @@
  * DB へ到達しない**ため（docs/security.md T-04）。
  * バックエンド側の検証は多層防御として残す。
  */
+/**
+ * **値の正本は docs/requirements.md FR-05 の受入基準。**
+ * バックエンドの `CalendarRange` が同じ値を持つ。片方だけ変えると、
+ * ここが通した年月をバックエンドが 400 で弾く。
+ *
+ * 上限の起点は**現在の月**であってサービス開始月ではない。
+ * 範囲は毎月 1 か月ずつ広がる（docs/security.md 第 4.2 節がこの月数を使う）。
+ */
 export const SERVICE_START = { year: 2026, month: 1 } as const;
 export const MAX_FUTURE_MONTHS = 24;
 

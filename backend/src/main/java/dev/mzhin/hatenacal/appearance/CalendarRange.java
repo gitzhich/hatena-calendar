@@ -17,7 +17,13 @@ public final class CalendarRange {
     /** イベントの暦日は JST で判定する（NFR-05）。 */
     public static final ZoneId JST = ZoneId.of("Asia/Tokyo");
 
-    /** サービス開始月。過去の出演情報は削除せず保持するため、下限は動かさない。 */
+    /**
+     * サービス開始月。過去の出演情報は削除せず保持するため、下限は動かさない。
+     *
+     * <p><b>値の正本は docs/requirements.md FR-05 の受入基準。</b>
+     * frontend/lib/calendar-range.ts が同じ値を持つ。片方だけ変えると、
+     * フロントが通した年月をここが 400 で弾く。
+     */
     public static final YearMonth SERVICE_START = YearMonth.of(2026, 1);
 
     /** 何か月先まで表示できるか。 */

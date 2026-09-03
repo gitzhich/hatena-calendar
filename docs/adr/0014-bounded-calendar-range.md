@@ -80,6 +80,16 @@ ISR が効くのは**同じ URL が繰り返し要求される場合**だけで�
   追加後は `x-nextjs-cache: MISS → HIT` と
   `s-maxage=300, stale-while-revalidate` を確認済み
 
+- 2026-09-03: **サービス開始月の値を文書に置いた**（決定内容の変更なし）。
+  本 ADR は「固定値として持つ」としか書いておらず、実際の値
+  （`2026-01`）は実装だけが持っていた。[security.md](../security.md) 第 4.2 節が
+  この値から「表示できる月数」を導いてレート制限の根拠にしているため、
+  値が無いと検算できない。**正本は [requirements.md](../requirements.md) FR-05 の
+  受入基準**とし、`CalendarRange` と `frontend/lib/calendar-range.ts` が
+  それに従う関係にした。あわせて「サービス開始月 +24 か月」とも読めた
+  FR-05 の記述を「**現在（JST）の月 +24 か月**」に書き切った（本 ADR と実装が
+  元からそうだった）
+
 ## 関連
 
 - [docs/requirements.md](../requirements.md) FR-05 / NFR-01 / NFR-04
