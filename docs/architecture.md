@@ -488,6 +488,22 @@ URL に埋めて渡す。テストだけ別の渡し方にすると、URL に埋
   ことで担保する（[runbook-deploy.md](runbook-deploy.md) 第 1.2 節）
 - デプロイの順番は **Neon → Fly.io → Vercel**。後ろが前の値を要求するため
 
+### リージョン
+
+| 層 | リージョン | 指定する場所 |
+| --- | --- | --- |
+| Neon | Singapore（`aws-ap-southeast-1`） | プロジェクト作成時。**後から変更できない** |
+| Fly.io | Singapore（`sin`） | `backend/fly.toml` の `primary_region` |
+| Vercel Functions | Tokyo（`hnd1`） | `frontend/vercel.json` の `regions` |
+
+**Neon に東京リージョンが無い**ため、どこかで太平洋を跨ぐことは避けられない。
+バックエンドと DB を同居させ、跨ぐのを「クエリごと」ではなく
+「リクエストごと 1 回」に減らしている。理由と代替案は
+[ADR-0018](adr/0018-regions.md)。
+
+**Vercel の既定は `iad1`（ワシントン DC）。** 明示しないと日本からの
+リクエストが毎回アメリカ経由になる。
+
 ---
 
 ## 9. 将来の EAS 対応

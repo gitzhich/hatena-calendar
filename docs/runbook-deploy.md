@@ -69,9 +69,12 @@ git status --short                       # 作業ツリーが汚れていない�
 
 ### 2.1 プロジェクトを作る
 
-- リージョンは **`Asia Pacific (Tokyo)` / `ap-northeast-1`**。
-  Fly.io を `nrt` に置くので、合わせないと毎クエリに往復が乗る（NFR-01）
+- リージョンは **`AWS Asia Pacific 1 (Singapore)`**。
+  **Neon に東京（日本）リージョンは無い**（[ADR-0018](adr/0018-regions.md)）。
+  **作成後に変更できない。** 変えるには別プロジェクトを作ってデータを移行することになる
 - PostgreSQL のバージョンは **17**。ローカルの `compose.yaml` と CI に合わせる
+- Project name は `hatena-calendar`、Database name は **`hatenacal`**（ローカルと揃える）
+- **Neon Auth は off。** 管理者認証は自前で持っている（[architecture.md](architecture.md) 第 3.2 節）
 
 ### 2.2 autoscaling の下限を 0.25 CU に固定する
 
@@ -145,6 +148,10 @@ psql "postgresql://myuser:mypassword@ep-xxx-pooler.../hatenacal?sslmode=require"
 cd backend
 fly apps create hatenacal        # 名前が取られていたら fly.toml の app も直す
 ```
+
+**リージョンは `fly.toml` の `primary_region = "sin"`（Singapore）。**
+Neon と同居させて、バックエンド↔DB の往復を消す（[ADR-0018](adr/0018-regions.md)）。
+`fly launch` の対話で東京を選ばない。
 
 ### 3.2 Secrets を入れる
 
@@ -225,6 +232,15 @@ GitHub 連携で `main` を自動デプロイする（[architecture.md](architec
 
 - **Root Directory を `frontend` にする。** モノレポなのでリポジトリ直下ではない
 - Framework Preset は Next.js（自動で判定される）
+
+**関数のリージョンは `frontend/vercel.json` が `hnd1`（東京）に指定済み。**
+Vercel の既定は **`iad1`（ワシントン DC）**で、**明示しないと日本からの
+リクエストが毎回アメリカ経由になる**（[ADR-0018](adr/0018-regions.md)）。
+コンソールで上書きしないこと。設定をリポジトリに置いているのは、
+コンソール側だと設定漏れに気づけないため。
+
+デプロイ後に `Settings → Functions → Function Regions` が
+`Tokyo, Japan (hnd1)` になっていることを確認する。
 
 ### 5.2 環境変数
 
