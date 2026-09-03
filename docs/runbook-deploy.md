@@ -284,7 +284,30 @@ PR ごとに作られる**プレビュー環境（公開 URL を持つ）から�
 （`BACKEND_BASE_URL` は未設定なら既定値へ落ち、`SESSION_SECRET` は
 `/admin` へのアクセス時にしか検証されない）。
 
-### 5.3 確認
+### 5.3 プレビューデプロイは作らない
+
+`frontend/vercel.json` が `main` 以外のブランチのデプロイを無効にしている。
+
+```json
+"git": { "deploymentEnabled": { "main": true, "**": false } }
+```
+
+**`main` を明示しているのは本番を必ずデプロイさせるため。** 複数の規則に
+当てはまるブランチは、**1 つでも `true` があればデプロイされる**（Vercel の仕様）。
+
+理由は 2 つ。
+
+- **使わない。** 環境変数を Production だけにしているため、プレビューは
+  バックエンドに繋がらず、確認の役に立たない
+- **公開 URL を持つ。** private リポジトリの変更が、URL を知る誰にでも見える
+
+**Hobby プランでは、そもそもプレビューがブロックされる。** private リポジトリでは
+Vercel が**コミット作者を Hobby アカウント所有者と照合**し、GitHub ユーザーに
+紐づかないコミットを拒否する（`Deployment was blocked`）。ローカルの
+`git config user.email` が GitHub の検証済みメールでない場合がこれに当たる。
+**本番は影響を受けない** — マージコミットは GitHub がアカウント名義で作るため。
+
+### 5.4 確認
 
 - [ ] `/` が表示され、**カレンダーに出演情報が出る**（バックエンドまで繋がっている）
 - [ ] `/2020/01` が **404**（範囲外。[ADR-0014](adr/0014-bounded-calendar-range.md)）
@@ -299,7 +322,7 @@ curl -sI https://<domain>/ | grep -iE 'content-security-policy|strict-transport|
 
 ---
 
-### 5.4 本番の所在
+### 5.5 本番の所在
 
 | | URL |
 | --- | --- |
