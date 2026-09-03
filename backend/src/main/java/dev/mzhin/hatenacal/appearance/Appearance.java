@@ -163,7 +163,15 @@ public class Appearance {
         return filled;
     }
 
-    /** 全項目を差し替える。部分更新にしない理由は docs/api.md 第 5.3 節。 */
+    /**
+     * 全項目を差し替える。部分更新にしない理由は docs/api.md 第 5.3 節。
+     *
+     * <p><b>{@code ingestedPostId} と {@code sourceType} は引数に取らない。</b>
+     * どちらも「誰が作ったか」の記録で、管理者が編集で選ぶ値ではない。
+     * とくに {@code ingestedPostId} は {@code sourceUrl} と<b>常に同じ投稿を指す</b>
+     * 導出値であり（docs/data-model.md 第 7.1 節）、ここで差し替えられるようにすると
+     * 2 つが別の投稿を指せてしまう。
+     */
     void replace(String eventKey, LocalDate appearanceDate, String eventName,
             String venueName, LocalTime performanceStartTime, LocalTime performanceEndTime,
             LocalTime merchStartTime, LocalTime merchEndTime,
