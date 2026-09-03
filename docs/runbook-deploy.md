@@ -253,6 +253,17 @@ Vercel の既定は **`iad1`（ワシントン DC）**で、**明示しないと
 
 ### 5.2 環境変数
 
+**Vercel が自動検出した変数をそのまま使わない。** インポート画面は
+「Environment Variables 5 Detected」として候補を出すが、**これは
+リポジトリ直下の `.env.example`（Spring Boot 用）を読んだもの**で、
+Root Directory を `frontend` にしても変わらない。
+`X_BEARER_TOKEN` など**バックエンドの変数が並ぶので、全部消してから
+下の 4 つを手で足す**。
+
+**とくに `X_BEARER_TOKEN` を Vercel に入れない。** 課金に直結するシークレットで、
+Next.js は一切使わない。置き場所を増やすほど漏洩面が広がるだけ
+（[security.md](security.md) T-01）。
+
 [architecture.md](architecture.md) 第 7 章が正本。**`NEXT_PUBLIC_` を付けない。**
 付けるとブラウザに露出する。
 
@@ -267,6 +278,12 @@ Vercel の既定は **`iad1`（ワシントン DC）**で、**明示しないと
 **左右で変数名が違い、値は同じ**という対応を取り違えやすい。
 [architecture.md](architecture.md) 第 7.1 節の対応表を見ながら入れる。
 
+**スコープは `Production` だけにする。** 既定の「Production and Preview」のままだと、
+PR ごとに作られる**プレビュー環境（公開 URL を持つ）から本番のバックエンドと
+管理画面に到達できる**。Preview を外してもビルドは通る
+（`BACKEND_BASE_URL` は未設定なら既定値へ落ち、`SESSION_SECRET` は
+`/admin` へのアクセス時にしか検証されない）。
+
 ### 5.3 確認
 
 - [ ] `/` が表示され、**カレンダーに出演情報が出る**（バックエンドまで繋がっている）
@@ -279,6 +296,15 @@ Vercel の既定は **`iad1`（ワシントン DC）**で、**明示しないと
 # セキュリティヘッダ（NFR-03 / ADR-0016）
 curl -sI https://<domain>/ | grep -iE 'content-security-policy|strict-transport|x-content-type|referrer'
 ```
+
+---
+
+### 5.4 本番の所在
+
+| | URL |
+| --- | --- |
+| 公開サイト | `https://hatena-calendar.vercel.app` |
+| バックエンド | `https://hatenacal.fly.dev`（ブラウザから直接叩かない） |
 
 ---
 
