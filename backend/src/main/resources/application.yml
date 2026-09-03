@@ -10,8 +10,9 @@ spring:
     #
     # pgjdbc は user:password@host の形を受け付けない。
     # 必ず user= / password= のクエリパラメータで渡す
-    # （Neon が配る postgresql:// の文字列はそのままでは使えない。
-    #  変換手順は docs/runbook-deploy.md 第 2.3 節）。
+    # （Neon は Connect ダイアログのスニペットを Java にすればこの形で出る。
+    #  psql などのスニペットは postgresql://user:pass@host の形で、そのままでは
+    #  使えない。取得手順は docs/runbook-deploy.md 第 2.3 節）。
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/hatenacal?user=hatenacal&password=hatenacal}
   jpa:
     # docs/data-model.md 第 8 章：update は消した列が残るため本番でもローカルでも使わない

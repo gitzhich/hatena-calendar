@@ -90,9 +90,14 @@ git status --short                       # 作業ツリーが汚れていない�
 
 ### 2.3 接続文字列を JDBC の形で取る
 
-**Connect ダイアログでスニペットの種類を `Java` にする。** これで JDBC の形が
-そのまま出るので、手で直す必要はない。**プーリングは有効にする**（ホスト名に
-`-pooler` が入る。[architecture.md](architecture.md) 第 8 章）。
+**接続文字列は画面上で編集できない。** 編集する代わりに、
+**スニペットの種類を `Java` にする**と JDBC の形で出てくる。
+
+1. **Connect** を押す（サイドバー上部、または「Connection string」カード）
+2. スニペットの種類を **`Java`** にする
+3. **プーリングが有効**であることを確かめる。ホスト名に `-pooler` が入っていればよい
+   （[architecture.md](architecture.md) 第 8 章）
+4. コピーして `DATABASE_URL` に使う
 
 出てくるのはこの形。
 
@@ -110,38 +115,13 @@ jdbc:postgresql://ep-xxx-pooler.ap-southeast-1.aws.neon.tech/hatenacal?user=myus
 | SSL | `sslmode=require` がある |
 | DB 名 | `hatenacal` |
 
+**要点は 3 つ目。** pgjdbc は `user:password@host` の形を受け付けない
+（[architecture.md](architecture.md) 第 7.2 節）。`Java` 以外のスニペット
+（`psql` など）はその形で出るため、**そのままでは使えない**。
+
 **ポート番号は無くてよい。** pgjdbc は省略時に 5432 を使い、Neon も 5432 で待つ。
 
-#### `Java` のスニペットが選べない場合
-
-libpq 形式（`postgresql://user:pass@host/db`）から自分で変換する。
-**pgjdbc は `user:password@host` の形を受け付けない**
-（[architecture.md](architecture.md) 第 7.2 節）。
-
-**手で書き換えない。** `?` と `&` の付け替えと、記号のパーセントエンコードを間違える。
-
-```bash
-python3 - <<'EOF'
-import getpass, urllib.parse as u
-raw = getpass.getpass("Neon の接続文字列を貼り付け（画面には出ません）: ").strip()
-p = u.urlparse(raw)
-q = dict(u.parse_qsl(p.query))
-q["user"] = u.unquote(p.username or "")
-q["password"] = u.unquote(p.password or "")
-q.setdefault("sslmode", "require")
-host, db = p.hostname or "", p.path.lstrip("/")
-print()
-print("プーリング有効:", "はい" if "-pooler" in host else "★いいえ（取り直す）")
-print("DB 名        :", db)
-print()
-print("jdbc:postgresql://%s/%s?%s" % (host, db, u.urlencode(q)))
-EOF
-```
-
-`getpass` を使うので、**貼り付けた文字列は画面にもシェル履歴にも残らない。**
-`urlencode` がパスワードの記号を正しくエンコードする。
-
-**出力はパスワードを含む。** 扱いは他のシークレットと同じにする。
+**この文字列はパスワードを含む。** 扱いは他のシークレットと同じにする。
 
 ### 2.4 確認
 
