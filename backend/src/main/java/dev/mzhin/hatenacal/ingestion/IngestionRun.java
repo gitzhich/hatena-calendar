@@ -14,7 +14,7 @@ import java.time.OffsetDateTime;
  * 取り込み実行の記録（docs/data-model.md 第 4.3 節、FR-42）。
  *
  * <p>課金額を後から追跡できるようにするための台帳でもある。
- * {@code fetchedResourceCount} の当月合計が想定（月 300 前後）から桁違いに増えていれば
+ * {@code fetchedResourceCount} の請求サイクル合計が想定（1 サイクル 300 前後）から桁違いに増えていれば
  * 第三者利用を疑う（docs/security.md T-01）。
  */
 @Entity

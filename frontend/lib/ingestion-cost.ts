@@ -9,7 +9,13 @@
 /** Posts: Read の単価（USD / 1 リソース）。 */
 export const USD_PER_RESOURCE = 0.005;
 
-/** NFR-04 の想定上限。通常運用における月の消費額がこれを超えない。 */
+/**
+ * NFR-04 の想定上限。通常運用における消費額がこれを超えない。
+ *
+ * 比較の対象は**請求サイクル 1 回分**の合計（`BillingCycle`）で、暦月ではない。
+ * X 側に設定した請求サイクルの支出上限も同じ $5
+ * （docs/runbook-x-api-setup.md 手順 3.2）。
+ */
 export const MONTHLY_BUDGET_USD = 5;
 
 /**
@@ -27,7 +33,7 @@ export function estimateUsd(resources: number): string {
 /**
  * 想定額を超えているか（NFR-04 の「想定を超えた場合に気づける」）。
  *
- * **ちょうど上限は超過にしない。** 要件は「月 $5 を超えない」であり、
+ * **ちょうど上限は超過にしない。** 要件は「$5 を超えない」であり、
  * $5.00 は満たしている。
  */
 export function overBudget(resources: number): boolean {

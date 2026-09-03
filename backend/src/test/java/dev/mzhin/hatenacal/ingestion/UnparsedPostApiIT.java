@@ -144,6 +144,68 @@ class UnparsedPostApiIT {
     }
 
     @Test
+    @DisplayName("編集では ingestedPostId を差し替えられない（docs/api.md 第 5.3 節）")
+    void updateCannotRepointTheIngestedPost() throws Exception {
+        long id = json.readTree(send("POST", "/api/admin/appearances",
+                appearancePayload(postId)).body()).get("id").asLong();
+
+        /*
+         * **空欄が埋まる編集で試す。** 全項目を null のまま送ると、補完の経路を
+         * 通してしまう実装でも何も起きず、この検査が素通りする（変異テストで確認）。
+         */
+        assertThat(send("PUT", "/api/admin/appearances/" + id,
+                appearancePayload(999999L, "東京・テスト会場")).statusCode()).isEqualTo(200);
+        // null を送っても消えない
+        assertThat(send("PUT", "/api/admin/appearances/" + id,
+                appearancePayload(null, "東京・テスト会場")).statusCode()).isEqualTo(200);
+
+        JsonNode after = json.readTree(
+                send("GET", "/api/admin/appearances/" + id, null).body());
+        assertThat(after.get("venueName").asString())
+                .as("前提の確認：編集そのものは効いている")
+                .isEqualTo("東京・テスト会場");
+        assertThat(after.get("ingestedPostId").asLong())
+                .as("ingestedPostId は sourceUrl と同じ投稿を指す導出値。編集で選ぶ値ではない")
+                .isEqualTo(postId);
+    }
+
+    @Test
+    @DisplayName("出演情報を削除しても未処理一覧に戻らない（docs/data-model.md 第 7.2 節）")
+    void deletingDoesNotReopenThePost() throws Exception {
+        long id = json.readTree(send("POST", "/api/admin/appearances",
+                appearancePayload(postId)).body()).get("id").asLong();
+        assertThat(json.readTree(send("GET", PATH, null).body()).get("items")).isEmpty();
+
+        assertThat(send("DELETE", "/api/admin/appearances/" + id, null).statusCode())
+                .isEqualTo(204);
+
+        assertThat(json.readTree(send("GET", PATH, null).body()).get("items"))
+                .as("戻すと、複数枠のうち 1 枠を消しただけで未処理として現れる条件が生まれる")
+                .isEmpty();
+        assertThat(status(postId)).isEqualTo("REGISTERED");
+    }
+
+    private String status(long id) {
+        return tx.execute(s -> (String) em.createNativeQuery(
+                "SELECT status FROM ingested_post WHERE id = ?")
+                .setParameter(1, id).getSingleResult());
+    }
+
+    private static String appearancePayload(Long ingestedPostId) {
+        return appearancePayload(ingestedPostId, null);
+    }
+
+    private static String appearancePayload(Long ingestedPostId, String venueName) {
+        return """
+                {"appearanceDate":"2026-09-20","eventName":"『手動登録』",
+                 "venueName":%s,"performanceStartTime":"18:00:00","performanceEndTime":null,
+                 "merchStartTime":null,"merchEndTime":null,"ticketUrl":null,
+                 "sourceUrl":"https://x.com/a/status/1","ingestedPostId":%s}
+                """.formatted(venueName == null ? "null" : "\"" + venueName + "\"",
+                        ingestedPostId == null ? "null" : ingestedPostId.toString());
+    }
+
+    @Test
     @DisplayName("存在しない投稿を指定すると 400")
     void unknownPostIsBadRequest() throws Exception {
         String body = """

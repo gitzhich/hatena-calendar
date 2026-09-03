@@ -12,13 +12,18 @@
 Spring Boot が提供する REST API の契約。呼び出すのは **Next.js（BFF）のサーバ側だけ**で、
 ブラウザから直接叩かれることはない（[architecture.md](architecture.md) 第 3 章）。
 
-API は 3 系統に分かれる。
+API は 3 系統に分かれる。これに、認証を掛けない監視用エンドポイントが 1 つ加わる。
 
 | 系統 | パス | 認証 | 用途 |
 | --- | --- | --- | --- |
 | 公開 API | `/api/public/**` | 公開キー | 閲覧者向け。**`GET` のみ** |
 | 管理 API | `/api/admin/**` | 管理キー | 登録・編集・削除・点検 |
 | 内部 API | `/internal/**` | 管理キー | 管理者パスワードの検証 |
+| 監視 | `/actuator/health` | **なし** | Fly.io のヘルスチェック（第 4.3 節） |
+
+**これ以外のパスはすべて拒否する**（`anyRequest().denyAll()`）。
+許可を明示的に列挙する形にしてあり、新しいエンドポイントは
+`SecurityConfig` に足さない限り 403 になる（第 2.2 節）。
 
 **将来 EAS から叩くのは公開 API だけ**であり、その前提で設計する（NFR-07）。
 
@@ -34,7 +39,11 @@ Next.js から Spring Boot への呼び出しは、共有シークレットを�
 | ヘッダ | 環境変数 | 通せる範囲 |
 | --- | --- | --- |
 | `X-Api-Key` | `INTERNAL_API_KEY` | 公開 API のみ |
-| `X-Admin-Api-Key` | `INTERNAL_ADMIN_API_KEY` | 管理 API・内部 API |
+| `X-Admin-Api-Key` | `INTERNAL_ADMIN_API_KEY` | 管理 API・内部 API・**公開 API** |
+
+**管理キーは公開 API も通せる（上位互換）。公開キーで管理 API は通らない。**
+管理画面が公開 API を呼ぶ場面でキーを持ち替えずに済ませるための設計で、
+分離の目的（露出の広い公開キーに管理権限を与えない）は逆向きの禁止だけで達成される。
 
 キーを 1 種類にすると、**公開ページの取得に使うキーが漏れただけで管理操作まで通ってしまう**。
 公開データの取得は全ページのレンダリングで使われ露出機会が多いため、分離して被害を限定する。
@@ -205,13 +214,32 @@ FR-08 のために最終更新日時を返す。
 **取り込みの内部情報はこの API に載せない。** 失敗理由・取得リソース数・実行中かどうかは
 運用の情報であり、公開 API から読めるようにしない（NFR-03）。
 
+### 4.3 ヘルスチェック
+
+```
+GET /actuator/health
+```
+
+```json
+{ "status": "UP" }
+```
+
+**この 1 つだけ認証を掛けない。** Fly.io のヘルスチェック
+（`fly.toml` の `http_service.checks`）が内部 API キーを送れないためで、
+認証を要求するとインスタンスが常に不健全と判定されて再起動を繰り返す。
+
+**返すのは `status` だけ。** `management.endpoint.health.show-details: never` に
+してあり、DB への接続可否やディスク容量といった内部の状態を出さない（NFR-03）。
+公開しているのは `health` のみで、他の actuator エンドポイントは
+`management.endpoints.web.exposure.include` から外してある。
+
 ---
 
 ## 5. 管理 API
 
 すべて `X-Admin-Api-Key` を要求する。
 
-### 5.1 出演情報の一覧（点検用）
+### 5.1 出演情報の一覧と個別取得（点検用）
 
 ```
 GET /api/admin/appearances?sourceType=AUTO&page=0&size=20
@@ -243,6 +271,7 @@ FR-24 の点検一覧。公開 API と違い、内部項目も返す。
       "ticketUrl": "https://livepocket.jp/e/lk-nagoya0916",
       "sourceUrl": "https://x.com/.../status/...",
       "sourceType": "AUTO",
+      "ingestedPostId": 55,
       "createdAt": "2026-08-20T02:00:00Z",
       "updatedAt": "2026-08-25T04:00:00Z"
     }
@@ -254,6 +283,21 @@ FR-24 の点検一覧。公開 API と違い、内部項目も返す。
 ```
 
 `createdAt` の降順で返す（新しく取り込まれたものから点検する）。
+
+**個別取得**
+
+```
+GET /api/admin/appearances/{id}
+```
+
+編集画面が現在値を読むために使う。レスポンスは上の `items` の 1 要素と同じ形。
+存在しない ID は `404`。
+
+**公開 API に個別取得は用意しない。** 閲覧者向けの詳細は月一覧
+（第 4.1 節）が返す項目だけで描画でき、1 か月 1 リクエストの原則（NFR-01）を崩さない。
+個別取得を足すと ISR のキャッシュキーが出演情報の件数だけ増え、
+T-04（無料枠の枯渇）の経路が広がる（[security.md](security.md) T-04）。
+将来の EAS（第 7 章）も月一覧を使う前提でよい。
 
 ### 5.2 手動登録
 
@@ -312,6 +356,16 @@ PUT /api/admin/appearances/{id}
 （`PATCH` にすると「未指定」と「`null` にしたい」を区別できず、
 値の消去が意図せず無視される）。
 
+**ただし `ingestedPostId` は読み取り専用で、送っても無視される。**
+この値は「最後に内容を反映した告知」を指す導出値であり、
+`sourceUrl` と常に同じ投稿を指す（[data-model.md](data-model.md) 第 7.1 節）。
+編集で付け替えられるようにすると、2 つが別の投稿を指せてしまう。
+400 で弾かずに無視するのは、`GET`（第 5.1 節）で受け取った値を
+そのまま返す往復を壊さないため。
+
+紐付けを直したいときは削除して作り直す。手順は
+[data-model.md](data-model.md) 第 7.2 節。
+
 - `eventName` を変更した場合、`eventKey` はサーバ側で再計算する
 - 変更後の `appearanceDate` / `eventKey` / `performanceStartTime` が他の行と衝突する場合は `409`
 - 成功時は `200` と更新後のリソースを返す
@@ -323,8 +377,8 @@ DELETE /api/admin/appearances/{id}
 ```
 
 - 成功時は `204 No Content`
-- `ingested_post` の記録は削除しない。同じ投稿から再登録されるのを防ぐため
-  （[data-model.md](data-model.md) 第 7.2 節）
+- `ingested_post` の記録は削除しない。`status` も `REGISTERED` のまま動かさない。
+  **削除した投稿は未処理一覧に戻らない**（[data-model.md](data-model.md) 第 7.2 節）
 - 存在しない ID は `404`
 
 ### 5.5 未処理投稿の一覧
@@ -391,7 +445,8 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
   "page": 0,
   "size": 20,
   "totalElements": 2880,
-  "currentMonthResourceCount": 287,
+  "currentCycleResourceCount": 287,
+  "cycleStartAt": "2026-09-01T15:00:00Z",
   "consecutiveFailureCount": 0,
   "halted": false
 }
@@ -403,14 +458,22 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
 | `finishedAt` | 実行中（`status` が `RUNNING`）なら `null` |
 | `truncated` | ページ上限で打ち切ったか。`true` なら**古い投稿を取りこぼしている**（[x-integration.md](x-integration.md) 第 3.4 節 / [ADR-0020](adr/0020-drop-posts-beyond-page-limit.md)）。`status` は `SUCCESS` のまま |
 | `errorSummary` | 失敗理由の要約。**スタックトレースとトークンを含まない**（NFR-03） |
-| `currentMonthResourceCount` | 当月の `fetchedResourceCount` 合計。`× $0.005` が概算コスト（NFR-04） |
+| `currentCycleResourceCount` | 現在の請求サイクルの `fetchedResourceCount` 合計。`× $0.005` が概算コスト（NFR-04） |
+| `cycleStartAt` | 集計期間の開始（UTC）。何を合計した値かを画面が示せるようにする |
 | `consecutiveFailureCount` | 直近で失敗が連続している回数。成功が 1 件でも挟まれば 0 に戻る |
 | `halted` | 連続失敗で取り込みが打ち切られているか（FR-43 / NFR-09） |
 
-**当月は JST の暦月で切る**（NFR-05）。管理者が見る「今月」は JST の暦月であり、
-UTC で切ると月初 9 時間分が前月に混じる。ただしこれは**概算のための区切りであって
-請求期間ではない**。X API の請求サイクルはクレジットの購入日を起点に切られ、
-暦月と一致しない（[runbook-x-api-setup.md](runbook-x-api-setup.md) 第 3.3 節）。
+**集計期間は請求サイクルで切る。暦月ではない。** X API の請求サイクルは
+クレジットの購入日を起点に切られる（例: `Sep 2 - Oct 2`。
+[runbook-x-api-setup.md](runbook-x-api-setup.md) 第 3.3 節）。暦月で切ると
+支出上限のリセット日と集計期間がずれ、NFR-04 の「想定を超えたら気づける」が
+成り立たない。
+
+- 起点の日は設定値 `x.billing-cycle-start-day`（1〜31）で持つ。
+  **`1` を指定すると暦月と一致する**ので、暦月は特殊ケースであって別の分岐ではない
+- その日が無い月（31 起点の 2 月）は**月末に丸める**
+- **境界は JST で切る**（NFR-05）。UTC で切ると 9 時間分が前のサイクルに混じる
+- 正確な請求額は X の管理画面で確認する。ここに出すのは概算
 
 **`halted` と `consecutiveFailureCount` はサーバ側で判定する。** 打ち切りの条件を
 画面側で書き直すと、実際に取り込みを止めている条件とずれても誰も気づけない。

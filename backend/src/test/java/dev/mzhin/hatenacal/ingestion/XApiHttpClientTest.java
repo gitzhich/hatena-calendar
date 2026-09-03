@@ -98,7 +98,7 @@ class XApiHttpClientTest {
                 100, 10, 3,
                 Duration.ofSeconds(1), Duration.ofSeconds(60),
                 Duration.ofSeconds(5), Duration.ofSeconds(30),
-                3);
+                3, 1);
         return new XApiHttpClient(props, sleeper);
     }
 

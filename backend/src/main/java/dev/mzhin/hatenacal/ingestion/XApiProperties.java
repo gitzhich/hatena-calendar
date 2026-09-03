@@ -23,7 +23,8 @@ public record XApiProperties(
         Duration maxBackoff,
         Duration connectTimeout,
         Duration readTimeout,
-        int backfillMonths) {
+        int backfillMonths,
+        int billingCycleStartDay) {
 
     /**
      * 取り込みを実行できる状態か。

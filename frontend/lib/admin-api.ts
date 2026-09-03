@@ -97,7 +97,13 @@ export type IngestionRun = {
  * ここで items を数え直さない（NFR-09 / `IngestionHaltRule`）。
  */
 export type IngestionRunList = Paged<IngestionRun> & {
-  currentMonthResourceCount: number;
+  /**
+   * 現在の請求サイクルで取得したリソース数。**暦月ではない**（NFR-04）。
+   * 区切りはバックエンドの `BillingCycle` が決める。
+   */
+  currentCycleResourceCount: number;
+  /** 集計期間の開始（UTC）。何を合計した値かを画面に出すために使う。 */
+  cycleStartAt: string;
   consecutiveFailureCount: number;
   halted: boolean;
 };
