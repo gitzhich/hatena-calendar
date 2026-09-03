@@ -375,9 +375,7 @@ Vercel の egress IP であり、そこで IP 単位に絞ると攻撃者では�
 
 | 変数 | 用途 | ローカルの既定値 |
 | --- | --- | --- |
-| `DATABASE_URL` | Neon の接続文字列 | `compose.yaml` に合わせた値 |
-| `DATABASE_USER` | 同上 | `hatenacal` |
-| `DATABASE_PASSWORD` | 同上 | `hatenacal` |
+| `DATABASE_URL` | Neon の接続文字列。**認証情報を含む JDBC 形式**（第 7.2 節） | `compose.yaml` に合わせた値 |
 | `PORT` | 待ち受けポート | `8080` |
 | `X_BEARER_TOKEN` | X API の認証。**課金に直結する** | なし |
 | `X_SOURCE_USERNAME` | 情報源アカウントのハンドル | なし |
@@ -385,8 +383,8 @@ Vercel の egress IP であり、そこで IP 単位に絞ると攻撃者では�
 | `INTERNAL_API_KEY` | 公開 API 用の共有シークレット | なし |
 | `INTERNAL_ADMIN_API_KEY` | 管理 API・内部 API 用の共有シークレット | なし |
 
-**既定値のある 4 つは `.env.example` に載せない。** ローカルでは設定不要で、
-空の値を置くと既定値を潰す。本番では `DATABASE_*` を Fly.io Secrets に入れる。
+**既定値のある 2 つは `.env.example` に載せない。** ローカルでは設定不要で、
+空の値を置くと既定値を潰す。本番では `DATABASE_URL` を Fly.io Secrets に入れる。
 
 `X_SOURCE_USERNAME` は**どのアカウントを取り込むかの指定**であり、
 取り込み後のハンドルの正本は `source_account.username`
@@ -437,58 +435,58 @@ print(bcrypt.hashpw(pw, bcrypt.gensalt(rounds=12)).decode())
 （`ExternalBcryptHashIT`）。Spring 自身が作ったハッシュしか検証していないと、
 手順どおりに作った値が通るかは分からない。
 
-### 7.2 未解決：接続情報の渡し方が二重になっている
+### 7.2 接続情報は `DATABASE_URL` 1 本で渡す
 
-`application.yml` は接続情報を **3 つに分けて**データソースへ渡している。
-
-```yaml
-url:      ${DATABASE_URL:jdbc:postgresql://localhost:5432/hatenacal}
-username: ${DATABASE_USER:hatenacal}
-password: ${DATABASE_PASSWORD:hatenacal}
-```
-
-**問題**: Neon の接続文字列は認証情報を URL に含む形
-（`...?user=X&password=Y`）で配られる。本番で `DATABASE_URL` だけを
-Fly.io Secrets に入れると、Spring は**同時に `username=hatenacal` /
-`password=hatenacal` も渡す**。URL のクエリと明示プロパティのどちらが
-優先されるかは PostgreSQL JDBC ドライバとコネクションプールの実装依存で、
-バージョンによって変わりうる。
-
-**影響**: 明示プロパティが勝つ側に倒れると、**起動時に接続できず
-バックエンドが上がらない**。Flyway もデータソースを使うため、
-マイグレーション以前の段階で落ちる。ローカルでは 3 つの既定値が
-`compose.yaml` と一致するため、この食い違いは表に出ない。
-
-**対処（案）**: `username` / `password` を `application.yml` から外し、
-認証情報を `DATABASE_URL` に含める形へ寄せる。
+`application.yml` はデータソースへ **URL だけ**を渡す。
+`username` / `password` を別に渡さない。
 
 ```yaml
 url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/hatenacal?user=hatenacal&password=hatenacal}
 ```
 
-- 環境変数が 3 つから **1 つ**になる
-- 優先順位の曖昧さが消える。どちらが勝つかに依存しない
-- ローカルの既定値に平文パスワードが入るが、`compose.yaml` に
-  コミット済みの使い捨て値であり、新たな露出ではない
+**両方を渡すと壊れうる。** Neon の接続文字列は認証情報を含む形で配られるため、
+`DATABASE_URL` だけを Fly.io Secrets に入れても、Spring は同時に
+`username=hatenacal` / `password=hatenacal`（既定値）も渡していた。
+URL のクエリと明示プロパティのどちらが優先されるかは
+PostgreSQL JDBC ドライバとコネクションプールの実装依存で、バージョンによって変わりうる。
+明示プロパティが勝つ側に倒れると**起動時に接続できずバックエンドが上がらない**。
+Flyway もデータソースを使うため、マイグレーション以前の段階で落ちる。
+**ローカルでは既定値が `compose.yaml` と一致するため、この食い違いは表に出ない。**
 
-**検証**: 変更後に `./gradlew test` が通れば、ローカルの接続は成立している
-（結合テストが実 DB を使う）。本番側は初回デプロイで確認する。
+**pgjdbc は `user:password@host` の形を受け付けない。** 認証情報は
+`user=` / `password=` のクエリパラメータで渡す。Neon が配る
+`postgresql://user:pass@host/db` はそのままでは使えず、変換が要る
+（[runbook-deploy.md](runbook-deploy.md) 第 2.3 節）。
 
-デプロイ前に決着させる。
+**テストも同じ経路にしてある。** `PostgresContainerListener` は認証情報を
+URL に埋めて渡す。テストだけ別の渡し方にすると、URL に埋めた認証情報が
+効くかどうかを一度も検証しないまま本番に出すことになる。
+
+ローカルの既定値に平文パスワードが入るが、`compose.yaml` にコミット済みの
+使い捨て値であり、新たな露出ではない。
 
 ---
 
 ## 8. デプロイ
 
+**作業手順は [runbook-deploy.md](runbook-deploy.md)。** ここには構成だけを書く。
+
 | 対象 | 方法 |
 | --- | --- |
-| Next.js | GitHub 連携で Vercel が自動デプロイ |
-| Spring Boot | `Dockerfile` + `fly.toml`、`fly deploy` |
+| Next.js | GitHub 連携で Vercel が自動デプロイ。Root Directory は `frontend` |
+| Spring Boot | `backend/Dockerfile` + `backend/fly.toml`、`fly deploy` |
 | DB マイグレーション | アプリ起動時に Flyway が適用 |
 
-- Fly.io のインスタンス数は **1 に固定**する（取り込みジョブの多重起動を防ぐため）
+- **Fly.io のインスタンス数は 1 に固定**する（取り込みジョブの多重起動を防ぐため）。
+  `min_machines_running = 1` と `auto_stop_machines = false` を両方書く。
+  前者だけだと寝てしまい `@Scheduled` が止まる
 - シークレットは `fly secrets set` で設定する。`fly.toml` に書かない
-- Neon の接続文字列はプーリング対応のものを使う
+- Neon の接続文字列は**プーリング対応のもの**（ホスト名に `-pooler` が付く）を使う
+- **イメージのビルドはコンテナの中で行い、テストは走らせない。**
+  結合テストは Testcontainers が PostgreSQL を起動するため Docker を要求し、
+  ビルドコンテナの中では動かせない。**CI が green のコミットをデプロイする**
+  ことで担保する（[runbook-deploy.md](runbook-deploy.md) 第 1.2 節）
+- デプロイの順番は **Neon → Fly.io → Vercel**。後ろが前の値を要求するため
 
 ---
 

@@ -387,26 +387,19 @@ curl -s -H "Authorization: Bearer $X_BEARER_TOKEN" 'https://api.x.com/2/usage/tw
 
 ## 6. Fly.io に載せる
 
-`fly.toml` に書かない。**Secrets に入れる**（[security.md](security.md) T-01）。
+**デプロイ全体の手順は [runbook-deploy.md](runbook-deploy.md)。** ここには
+X API 固有のことだけを書く。
 
-`fly secrets set KEY=VALUE` は値がシェル履歴に残る。標準入力から流し込む。
+`fly.toml` に書かない。**Secrets に入れる**（[security.md](security.md) T-01）。
+`fly secrets set KEY=VALUE` は値がシェル履歴に残るので、標準入力から流し込む。
 
 ```bash
 # .env から X_ で始まる行だけを渡す（他の変数を巻き込まない）
 grep '^X_' .env | fly secrets import
 ```
 
-`DATABASE_URL` などが未設定なら合わせて投入する
-（一覧は [architecture.md](architecture.md) 第 7 章）。
-
-```bash
-fly secrets list     # 名前とダイジェストだけが出る。値は表示されない
-```
-
-**インスタンスは 1 台に固定する。** 複数台だと `@Scheduled` が多重起動し、
-同じ範囲を並行して取得して課金が倍になる（[CLAUDE.md](../CLAUDE.md)）。
-
-本番の `source_account` にも手順 5.3 の行が要る。**ローカルと本番は別の DB**である。
+本番の `source_account` にも手順 5.3 の行が要る。**ローカルと本番は別の DB**であり、
+行が無いと取り込みは毎回スキップされる。
 
 ---
 

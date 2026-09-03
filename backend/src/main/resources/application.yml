@@ -2,9 +2,17 @@ spring:
   application:
     name: hatenacal
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/hatenacal}
-    username: ${DATABASE_USER:hatenacal}
-    password: ${DATABASE_PASSWORD:hatenacal}
+    # 認証情報は URL に含める。username / password を別に渡さない
+    # （docs/architecture.md 第 7.2 節）。両方を渡すと、URL のクエリと
+    # 明示プロパティのどちらが勝つかがドライバとプールの実装依存になり、
+    # 本番で接続できずに起動しない側へ倒れうる。ローカルは既定値が
+    # compose.yaml と一致するため、この食い違いが表に出ない。
+    #
+    # pgjdbc は user:password@host の形を受け付けない。
+    # 必ず user= / password= のクエリパラメータで渡す
+    # （Neon が配る postgresql:// の文字列はそのままでは使えない。
+    #  変換手順は docs/runbook-deploy.md 第 2.3 節）。
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/hatenacal?user=hatenacal&password=hatenacal}
   jpa:
     # docs/data-model.md 第 8 章：update は消した列が残るため本番でもローカルでも使わない
     hibernate:

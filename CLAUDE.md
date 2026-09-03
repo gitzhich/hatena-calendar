@@ -79,7 +79,7 @@ Web の API 契約をそのままモバイルから叩けるようにしてお�
 | `docs/x-integration.md` | X API 連携の設計（取得・課金・パース） |
 | `docs/security.md` | 脅威モデルと対策 |
 | `docs/coding-guidelines.md` | 実装時に守るコーディング規約。**実装を始める前に読む** |
-| `docs/runbook-*.md` | 作業手順書（設計ではなく手順）。`runbook-x-api-setup.md` / `runbook-local-db.md` |
+| `docs/runbook-*.md` | 作業手順書（設計ではなく手順）。`runbook-deploy.md` / `runbook-x-api-setup.md` / `runbook-local-db.md` |
 | `docs/adr/` | 意思決定記録。一覧と運用ルールは `docs/adr/README.md` |
 
 ドキュメントと実装が食い違ったら、**ドキュメントを正として実装を直す**か、

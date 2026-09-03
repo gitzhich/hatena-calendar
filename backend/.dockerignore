@@ -1,0 +1,9 @@
+# ホワイトリスト方式にする。除外を書き足す方式だと、
+# 新しく増えたディレクトリ（build/ .gradle/ など）が黙ってイメージに入る。
+# ビルドに要るものだけを明示的に戻す。
+*
+!gradlew
+!gradle
+!settings.gradle.kts
+!build.gradle.kts
+!src
