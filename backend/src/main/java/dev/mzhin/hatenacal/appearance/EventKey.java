@@ -22,6 +22,10 @@ public final class EventKey {
      * <p>長音符「ー」(U+30FC) は Unicode の script が Common で、
      * Katakana に含まれない。明示しないと「ニキプレ」が「ニキプレ」のまま
      * でも「ラーメン」が「ラメン」になるような取りこぼしが起きる。
+     *
+     * <p><b>この集合は {@code EventKeyTest} が固定している。</b>
+     * 変えると既存行のキーと新しい告知のキーが一致せず、照合が静かに壊れる。
+     * 落ちる文字の一覧は docs/data-model.md 第 4.3.2 節。
      */
     private static final Pattern DROP =
             Pattern.compile("[^\\p{IsHiragana}\\p{IsKatakana}\\p{IsHan}a-z0-9ー]");
