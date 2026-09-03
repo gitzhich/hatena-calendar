@@ -12,13 +12,18 @@
 Spring Boot が提供する REST API の契約。呼び出すのは **Next.js（BFF）のサーバ側だけ**で、
 ブラウザから直接叩かれることはない（[architecture.md](architecture.md) 第 3 章）。
 
-API は 3 系統に分かれる。
+API は 3 系統に分かれる。これに、認証を掛けない監視用エンドポイントが 1 つ加わる。
 
 | 系統 | パス | 認証 | 用途 |
 | --- | --- | --- | --- |
 | 公開 API | `/api/public/**` | 公開キー | 閲覧者向け。**`GET` のみ** |
 | 管理 API | `/api/admin/**` | 管理キー | 登録・編集・削除・点検 |
 | 内部 API | `/internal/**` | 管理キー | 管理者パスワードの検証 |
+| 監視 | `/actuator/health` | **なし** | Fly.io のヘルスチェック（第 4.3 節） |
+
+**これ以外のパスはすべて拒否する**（`anyRequest().denyAll()`）。
+許可を明示的に列挙する形にしてあり、新しいエンドポイントは
+`SecurityConfig` に足さない限り 403 になる（第 2.2 節）。
 
 **将来 EAS から叩くのは公開 API だけ**であり、その前提で設計する（NFR-07）。
 
@@ -34,7 +39,11 @@ Next.js から Spring Boot への呼び出しは、共有シークレットを�
 | ヘッダ | 環境変数 | 通せる範囲 |
 | --- | --- | --- |
 | `X-Api-Key` | `INTERNAL_API_KEY` | 公開 API のみ |
-| `X-Admin-Api-Key` | `INTERNAL_ADMIN_API_KEY` | 管理 API・内部 API |
+| `X-Admin-Api-Key` | `INTERNAL_ADMIN_API_KEY` | 管理 API・内部 API・**公開 API** |
+
+**管理キーは公開 API も通せる（上位互換）。公開キーで管理 API は通らない。**
+管理画面が公開 API を呼ぶ場面でキーを持ち替えずに済ませるための設計で、
+分離の目的（露出の広い公開キーに管理権限を与えない）は逆向きの禁止だけで達成される。
 
 キーを 1 種類にすると、**公開ページの取得に使うキーが漏れただけで管理操作まで通ってしまう**。
 公開データの取得は全ページのレンダリングで使われ露出機会が多いため、分離して被害を限定する。
@@ -205,13 +214,32 @@ FR-08 のために最終更新日時を返す。
 **取り込みの内部情報はこの API に載せない。** 失敗理由・取得リソース数・実行中かどうかは
 運用の情報であり、公開 API から読めるようにしない（NFR-03）。
 
+### 4.3 ヘルスチェック
+
+```
+GET /actuator/health
+```
+
+```json
+{ "status": "UP" }
+```
+
+**この 1 つだけ認証を掛けない。** Fly.io のヘルスチェック
+（`fly.toml` の `http_service.checks`）が内部 API キーを送れないためで、
+認証を要求するとインスタンスが常に不健全と判定されて再起動を繰り返す。
+
+**返すのは `status` だけ。** `management.endpoint.health.show-details: never` に
+してあり、DB への接続可否やディスク容量といった内部の状態を出さない（NFR-03）。
+公開しているのは `health` のみで、他の actuator エンドポイントは
+`management.endpoints.web.exposure.include` から外してある。
+
 ---
 
 ## 5. 管理 API
 
 すべて `X-Admin-Api-Key` を要求する。
 
-### 5.1 出演情報の一覧（点検用）
+### 5.1 出演情報の一覧と個別取得（点検用）
 
 ```
 GET /api/admin/appearances?sourceType=AUTO&page=0&size=20
@@ -243,6 +271,7 @@ FR-24 の点検一覧。公開 API と違い、内部項目も返す。
       "ticketUrl": "https://livepocket.jp/e/lk-nagoya0916",
       "sourceUrl": "https://x.com/.../status/...",
       "sourceType": "AUTO",
+      "ingestedPostId": 55,
       "createdAt": "2026-08-20T02:00:00Z",
       "updatedAt": "2026-08-25T04:00:00Z"
     }
@@ -254,6 +283,21 @@ FR-24 の点検一覧。公開 API と違い、内部項目も返す。
 ```
 
 `createdAt` の降順で返す（新しく取り込まれたものから点検する）。
+
+**個別取得**
+
+```
+GET /api/admin/appearances/{id}
+```
+
+編集画面が現在値を読むために使う。レスポンスは上の `items` の 1 要素と同じ形。
+存在しない ID は `404`。
+
+**公開 API に個別取得は用意しない。** 閲覧者向けの詳細は月一覧
+（第 4.1 節）が返す項目だけで描画でき、1 か月 1 リクエストの原則（NFR-01）を崩さない。
+個別取得を足すと ISR のキャッシュキーが出演情報の件数だけ増え、
+T-04（無料枠の枯渇）の経路が広がる（[security.md](security.md) T-04）。
+将来の EAS（第 7 章）も月一覧を使う前提でよい。
 
 ### 5.2 手動登録
 

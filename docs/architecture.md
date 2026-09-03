@@ -116,7 +116,7 @@ sequenceDiagram
     S->>S: BCrypt で環境変数のハッシュと照合
     S-->>N: 成功 / 失敗
     N->>N: セッションを署名・暗号化
-    N-->>B: Set-Cookie（HttpOnly, Secure, SameSite=Lax）
+    N-->>B: Set-Cookie（HttpOnly, Secure, SameSite=Lax, Path=/admin）
     B->>N: 以降の管理操作（Cookie 付き）
     N->>N: Cookie を検証
     N->>S: 管理 API（内部 API キー）
@@ -126,6 +126,12 @@ sequenceDiagram
   「管理者としてログイン済み」と有効期限だけを入れる。
   単一管理者であり、Redis などを増やす必要がない
 - **有効期限は 8 時間**とする
+- **Cookie の `Path` を `/admin` に絞る。** 公開ページへ送らないことで、
+  公開ページ側の CSP が `script-src` を緩めている代償を打ち消している
+  （[ADR-0016](adr/0016-static-csp-public-nonce-admin.md)、
+  [security.md](security.md) 第 4.1 節）。`HttpOnly` は JS から値を読ませないだけで、
+  ブラウザが自動で送ることは止められない。
+  **set と delete で同じ値を使う**こと。食い違うとログアウトで消えない
 - パスワードのハッシュは Spring Boot 側の環境変数に置く。
   DB にユーザーテーブルを作らない（FR-20）
 
@@ -223,7 +229,13 @@ Neon のコンピュートが起動する回数が減り、無料枠に収まり
 
 **管理操作の直後は明示的に再検証する。** FR-22 の
 「編集内容は保存後ただちに公開画面へ反映される」を満たすため、
-登録・編集・削除を処理する Route Handler の中で `revalidatePath()` を呼ぶ。
+登録・編集・削除を処理する Server Action の中で
+`revalidatePath("/", "layout")` を呼ぶ。
+
+**第 2 引数を省かない。** `revalidatePath("/")` はトップページだけを再検証する。
+公開カレンダーは `[year]/[month]` が年月ごとに別のキャッシュエントリになるため、
+それでは `/2026/09` などが古いまま残り、FR-22 を満たさない。
+`"layout"` を渡してルートレイアウト配下をまとめて再検証する。
 
 取り込みジョブによる更新は時間ベースの再検証に任せる（最大 5 分の遅れ）。
 FR-08 で最終更新日時を表示するため、この遅延は閲覧者に判別できる。
@@ -327,10 +339,13 @@ Vercel の egress IP であり、そこで IP 単位に絞ると攻撃者では�
 ### 6.3 管理者による訂正（FR-22）
 
 ```
-ブラウザ → Route Handler（Cookie 検証）→ Spring Boot 管理 API → Neon
+ブラウザ → Server Action（Cookie 検証）→ Spring Boot 管理 API → Neon
                     ↓
-              revalidatePath('/') で公開ページを再検証
+       revalidatePath("/", "layout") で公開ページを再検証
 ```
+
+Route Handler ではなく Server Action にした理由は第 5.3 節。
+第 2 引数が要る理由は第 5.2 節。
 
 ---
 

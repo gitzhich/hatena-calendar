@@ -19,9 +19,12 @@ Vercel の送信 IP が固定されないため IP 制限が使えず、キー�
 | ヘッダ | 環境変数 | 通せる範囲 |
 | --- | --- | --- |
 | `X-Api-Key` | `INTERNAL_API_KEY` | 公開 API のみ |
-| `X-Admin-Api-Key` | `INTERNAL_ADMIN_API_KEY` | 管理 API・内部 API |
+| `X-Admin-Api-Key` | `INTERNAL_ADMIN_API_KEY` | 管理 API・内部 API・公開 API |
 
 Next.js は**管理者セッション Cookie の検証に成功した場合にのみ**管理キーを使う。
+
+**管理キーは公開 API も通せる（上位互換）。逆は通さない。** この決定が防ぎたいのは
+「露出の広い公開キーに管理権限が付く」ことであり、それは逆向きの禁止だけで達成される。
 
 ## 理由
 
@@ -49,3 +52,9 @@ Next.js は**管理者セッション Cookie の検証に成功した場合に�
 
 - [docs/api.md](../api.md) 第 2 章
 - [docs/security.md](../security.md) T-02
+
+## 更新履歴
+
+- 2026-09-03: 権限表に「管理キーは公開 API も通せる」を明記した。
+  実装（`ApiKeyFilter`）は当初からこの形で、表だけが片側を落としていた。
+  **決定内容の変更ではない。**
