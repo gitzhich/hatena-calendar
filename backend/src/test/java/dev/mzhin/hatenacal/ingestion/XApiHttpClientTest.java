@@ -195,14 +195,48 @@ class XApiHttpClientTest {
     void backfillIsBounded() {
         responses.add(Canned.ok("{\"meta\":{\"result_count\":0}}"));
 
+        // **ナノ秒を持つ時刻で検証する。** OffsetDateTime.now() は必ずナノ秒を持ち、
+        // 丸い時刻で検証すると秒未満の扱いを一度も試さないまま通る。
+        // 実際にそれで本番が HTTP 400 で失敗した
         client().fetchPosts(USER_ID,
-                new FetchWindow.From(OffsetDateTime.of(2026, 6, 2, 0, 0, 0, 0, ZoneOffset.UTC)),
+                new FetchWindow.From(
+                        OffsetDateTime.of(2026, 6, 2, 0, 0, 0, 21_243_663, ZoneOffset.UTC)),
                 null);
 
         assertThat(requestedUris).singleElement().satisfies(uri -> {
-            assertThat(uri).contains("start_time=2026-06-02T00:00");
+            assertThat(uri)
+                    .as("X API は秒未満を含む値を RFC3339 として受け付けない")
+                    .contains("start_time=2026-06-02T00:00:00Z");
             assertThat(uri).doesNotContain("since_id");
         });
+    }
+
+    @Test
+    @DisplayName("start_time は秒精度の UTC にする（HTTP 400 を招かない形）")
+    void startTimeIsSecondPrecisionUtc() {
+        assertThat(XApiHttpClient.rfc3339(
+                OffsetDateTime.of(2026, 6, 3, 6, 47, 4, 21_243_663, ZoneOffset.UTC)))
+                .as("ナノ秒が付くと X API が 400 を返す")
+                .isEqualTo("2026-06-03T06:47:04Z");
+    }
+
+    @Test
+    @DisplayName("start_time はオフセット付きの入力も UTC に寄せる")
+    void startTimeIsNormalizedToUtc() {
+        assertThat(XApiHttpClient.rfc3339(
+                OffsetDateTime.of(2026, 6, 3, 15, 47, 4, 0, ZoneOffset.ofHours(9))))
+                .as("送る形を 1 つに固定する")
+                .isEqualTo("2026-06-03T06:47:04Z");
+    }
+
+    @Test
+    @DisplayName("start_time に秒未満が残らない")
+    void startTimeHasNoFraction() {
+        for (int nanos : new int[] {1, 500_000_000, 999_999_999}) {
+            assertThat(XApiHttpClient.rfc3339(
+                    OffsetDateTime.of(2026, 6, 3, 6, 47, 4, nanos, ZoneOffset.UTC)))
+                    .isEqualTo("2026-06-03T06:47:04Z");
+        }
     }
 
     @Test
