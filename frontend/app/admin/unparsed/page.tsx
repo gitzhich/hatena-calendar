@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listUnparsedPosts, requireAdmin } from "@/lib/admin-api";
 import { currentCsrf, excludePostAction } from "@/app/admin/actions";
 import { ActionForm } from "@/components/admin/FormFields";
+import { formatJst } from "@/lib/last-updated";
 
 /**
  * 未処理投稿（FR-25）。
@@ -37,10 +38,11 @@ export default async function UnparsedPage({
               key={post.id}
               className="rounded border border-neutral-300 dark:border-neutral-700 p-3"
             >
+              {/* バックエンドは UTC で返す。JST への変換は表示側の責務
+                  （docs/data-model.md 第 6 章）。formatJst を使う理由は lib/last-updated.ts */}
               <p className="text-xs tabular-nums text-neutral-600 dark:text-neutral-400">
-                投稿 {new Date(post.postedAt).toLocaleString("ja-JP", {
-                  timeZone: "Asia/Tokyo",
-                })}
+                投稿{" "}
+                <time dateTime={post.postedAt}>{formatJst(post.postedAt) ?? "不明"}</time>
               </p>
               <p className="mt-2 flex flex-wrap items-center gap-4 text-xs">
                 <a
