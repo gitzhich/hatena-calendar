@@ -292,6 +292,12 @@ echo "${#X_BEARER_TOKEN}"                 # 値を観測する: 禁止
 
 - **`main` ブランチに直接コミットしない**。変更は必ず作業ブランチを切って行い、
   `main` へはマージで取り込む
+- **作業ブランチは `main` の最新から切る**。他の作業ブランチから切らない。
+  未マージのブランチから切ると**その差分が次の PR に混ざり**、
+  先に出した PR は差分ゼロになって**マージコミットが残らない**。
+  実際に PR #34 がこれで履歴から消えている（内容は #35 に入っているが、
+  Vercel のデプロイ記録にも #34 が無い）。
+  `git log --graph --first-parent` で気づくまで分からない
 - 作業ブランチ名は種別を接頭辞にする（`feat/` `fix/` `docs/` `chore/`）
 - **マージコミットを必ず残す**（PR なら `gh pr merge --merge`、ローカルなら `--no-ff`）。
   `--squash` と `--rebase` は使わない。
@@ -313,6 +319,7 @@ git config core.hooksPath .githooks   # clone 後に 1 回だけ実行する
 規約そのものは人が守る。有料プランへ移るなら GitHub 側の保護に置き換える。
 
 ```bash
+git checkout main && git pull     # 先に main を最新にする（切る元を間違えない）
 git checkout -b feat/xxx          # 作業ブランチを切る
 git push -u origin feat/xxx       # push
 gh pr create --fill               # PR を作る
