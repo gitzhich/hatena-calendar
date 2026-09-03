@@ -321,6 +321,32 @@ class IngestionServiceIT {
     }
 
     @Test
+    @DisplayName("1 枠でも検証に落ちたら投稿ごと未処理にする（第 5.10 節）")
+    void postWithAnyInvalidSlotIsUnparsed() {
+        /*
+         * 枠単位で捨てると、落ちた枠がどこにも現れない。投稿は REGISTERED として
+         * 記録されるため未処理一覧にも出ず、取りこぼしがログだけで消える。
+         *
+         * 2 枠目の会場だけを 300 字超にしてある。1 枠目はヘッダの会場を使うので
+         * 検証を通る。枠単位で捨てる実装なら 1 枠目が登録され、投稿は REGISTERED になる。
+         */
+        String body = announcement("""
+                🎤16:35-16:55 XINXIN出演
+                📍%s
+                🎤19:50-20:15 XINXIN出演""".formatted("あ".repeat(300)));
+        client.responses.add(page(null, post(2500, body, at(2026, 9, 1))));
+
+        service.run();
+
+        assertThat(count("appearance"))
+                .as("検証を通る枠も登録しない。判定は投稿単位")
+                .isZero();
+        assertThat(column("SELECT status FROM ingested_post"))
+                .as("未処理一覧に出して管理者が手で直せるようにする（FR-25）")
+                .isEqualTo("UNPARSED");
+    }
+
+    @Test
     @DisplayName("同じ投稿を 2 回処理しても出演情報が増えない（冪等性）")
     void reprocessingIsIdempotent() {
         SourcePost p = post(2400, announcement("🎤19:50-20:15 XINXIN出演"), at(2026, 9, 1));

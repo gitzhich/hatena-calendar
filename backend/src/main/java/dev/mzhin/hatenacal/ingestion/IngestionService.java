@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -230,15 +229,35 @@ public class IngestionService {
                 .toList();
 
         String sourceUrl = postUrl(account, post);
+
+        /*
+         * 判定は投稿単位（docs/x-integration.md 第 5.10 節）。1 枠でも検証に
+         * 通らなければ、この投稿からは 1 件も登録せず未処理へ回す。
+         *
+         * 枠単位で捨てると、抽出できなかった枠がどこにも現れない。投稿は
+         * REGISTERED として記録されるため未処理一覧に出ず、取りこぼしが
+         * ログだけで消える。単位をパーサ側（投稿単位）に合わせる。
+         */
+        Optional<String> violation = slots.stream()
+                .map(slot -> violation(command(slot, sourceUrl, null)))
+                .flatMap(Optional::stream)
+                .findFirst();
+        if (violation.isPresent()) {
+            log.warn("投稿 {} の抽出結果が検証に通らないため未処理にした: {}",
+                    post.id(), violation.get());
+            tx.executeWithoutResult(s -> ingestedPosts.save(IngestedPost.record(
+                    account.getId(), post.id(), post.createdAt(),
+                    IngestedPostStatus.UNPARSED)));
+            counters.unparsed++;
+            return;
+        }
+
         tx.executeWithoutResult(s -> {
             IngestedPost record = ingestedPosts.save(IngestedPost.record(
                     account.getId(), post.id(), post.createdAt(),
                     IngestedPostStatus.REGISTERED));
             for (ParsedAppearance slot : slots) {
                 AppearanceCommand cmd = command(slot, sourceUrl, record.getId());
-                if (invalid(cmd)) {
-                    continue;
-                }
                 if (appearances.registerFromIngestion(cmd) == IngestionOutcome.CREATED) {
                     counters.created++;
                 }
@@ -260,15 +279,16 @@ public class IngestionService {
      * <p>X 由来のテキストは信頼しない入力である。抽出が想定外の値を作ったら
      * 登録しない。DB の CHECK 制約で落ちると実行全体が失敗するが、
      * ここで弾けば他の投稿の処理は続く。
+     *
+     * <p><b>ingestedPostId は検証対象ではない</b>ため、記録を保存する前に呼べる。
+     * これにより「登録するか未処理にするか」を書き込みの前に決められる。
+     *
+     * @return 最初の違反メッセージ。検証を通れば empty
      */
-    private boolean invalid(AppearanceCommand cmd) {
-        Set<ConstraintViolation<AppearanceCommand>> violations = validator.validate(cmd);
-        if (violations.isEmpty()) {
-            return false;
-        }
-        log.warn("抽出結果が検証に通らないため登録しない: {}",
-                violations.iterator().next().getMessage());
-        return true;
+    private Optional<String> violation(AppearanceCommand cmd) {
+        return validator.validate(cmd).stream()
+                .map(ConstraintViolation::getMessage)
+                .findFirst();
     }
 
     /** 出典 URL（FR-06）。ハンドルの正本は source_account の行。 */
