@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { listAppearances, requireAdmin } from "@/lib/admin-api";
+import { listAppearances, listIngestionRuns, requireAdmin } from "@/lib/admin-api";
+import { IngestionAlert } from "@/components/admin/IngestionAlert";
+import { Pager } from "@/components/admin/Pager";
 
 /**
  * 自動登録された出演情報の点検（FR-24）。
@@ -18,10 +20,21 @@ export default async function AdminHome({
     ? params.sourceType
     : undefined;
   const page = Number(params.page ?? "0") || 0;
-  const result = await listAppearances(sourceType, page);
+  const [result, ingestion] = await Promise.all([
+    listAppearances(sourceType, page),
+    // 警告に必要なのは判定だけ。履歴そのものは専用ページで見るので 1 件で足りる
+    listIngestionRuns(0, 1),
+  ]);
 
   return (
     <main>
+      {/* 取り込みが止まっていることに、ここへ来た時点で気づけるようにする（NFR-09） */}
+      <IngestionAlert
+        consecutiveFailureCount={ingestion.consecutiveFailureCount}
+        halted={ingestion.halted}
+        withLink
+      />
+
       <h1 className="text-lg font-bold mb-1">出演情報の点検</h1>
       <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-4">
         登録された時点で公開されています。誤りがあればその場で修正してください。
@@ -90,45 +103,12 @@ export default async function AdminHome({
         </ul>
       )}
 
-      <Pager page={result.page} size={result.size} total={result.totalElements}
-             sourceType={sourceType} />
+      <Pager
+        page={result.page}
+        size={result.size}
+        total={result.totalElements}
+        href={(p) => (sourceType ? `/admin?sourceType=${sourceType}&page=${p}` : `/admin?page=${p}`)}
+      />
     </main>
-  );
-}
-
-function Pager({
-  page,
-  size,
-  total,
-  sourceType,
-}: {
-  page: number;
-  size: number;
-  total: number;
-  sourceType?: string;
-}) {
-  const last = Math.max(0, Math.ceil(total / size) - 1);
-  const href = (p: number) =>
-    sourceType ? `/admin?sourceType=${sourceType}&page=${p}` : `/admin?page=${p}`;
-  return (
-    <nav className="mt-6 flex items-center justify-between text-sm">
-      {page > 0 ? (
-        <Link href={href(page - 1)} className="min-h-11 inline-flex items-center underline">
-          ← 前
-        </Link>
-      ) : (
-        <span />
-      )}
-      <span className="text-xs tabular-nums">
-        {total === 0 ? "0 件" : `${page + 1} / ${last + 1} ページ・全 ${total} 件`}
-      </span>
-      {page < last ? (
-        <Link href={href(page + 1)} className="min-h-11 inline-flex items-center underline">
-          次 →
-        </Link>
-      ) : (
-        <span />
-      )}
-    </nav>
   );
 }

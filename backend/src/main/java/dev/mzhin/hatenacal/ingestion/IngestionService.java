@@ -40,9 +40,6 @@ public class IngestionService {
     /** これを超えて RUNNING のままなら、落ちたとみなして倒す（第 10.1 節）。 */
     static final Duration STALE_RUN_THRESHOLD = Duration.ofMinutes(15);
 
-    /** 連続でこの回数だけ失敗したら止める。自動では再開しない（第 7 章）。 */
-    static final int MAX_CONSECUTIVE_FAILURES = 10;
-
     private final XApiClient client;
     private final PostParser parser;
     private final AppearanceService appearances;
@@ -101,7 +98,7 @@ public class IngestionService {
         }
         if (Boolean.TRUE.equals(tx.execute(s -> halted()))) {
             log.error("取り込みが {} 回連続で失敗しているため停止している。"
-                    + "原因を確認してから手で戻すこと", MAX_CONSECUTIVE_FAILURES);
+                    + "原因を確認してから手で戻すこと", IngestionHaltRule.MAX_CONSECUTIVE_FAILURES);
             return Result.HALTED;
         }
 
@@ -317,11 +314,12 @@ public class IngestionService {
      * ページ上限 10 × 100 件で最悪 $5/日 になりうる。
      *
      * <p><b>自動で再開しない。</b>原因を確認してから手で戻す。
+     *
+     * <p><b>判定規則そのものは {@link IngestionHaltRule} が持つ。</b>
+     * 管理画面の警告（NFR-09）が同じ規則を使うため、ここで書き下ろさない。
      */
     private boolean halted() {
-        List<IngestionRun> recent = runs.findTop10ByOrderByStartedAtDesc();
-        return recent.size() >= MAX_CONSECUTIVE_FAILURES
-                && recent.stream().allMatch(r -> r.getStatus() == IngestionRunStatus.FAILED);
+        return IngestionHaltRule.halted(runs.findByOrderByStartedAtDesc(IngestionHaltRule.window()));
     }
 
     /**

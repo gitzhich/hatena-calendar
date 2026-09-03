@@ -1,6 +1,6 @@
 # セキュリティ設計 — 脅威モデルと対策
 
-最終更新: 2026-09-02
+最終更新: 2026-09-03
 
 関連文書: [CLAUDE.md](../CLAUDE.md) / [docs/requirements.md](requirements.md) /
 [docs/architecture.md](architecture.md) / [docs/api.md](api.md)
@@ -337,8 +337,15 @@ Vercel で実行環境が変われば数え直しになる。外部ストア（R
 - [x] 公開 API にレート制限がある（Vercel からの総量を守る目的）
       （`PublicApiRateLimitFilter`。300 req/分の総量。第 4.2 節）
 - [ ] Neon の autoscaling 下限が `0.25 CU` に固定されている — 未デプロイのため未設定
-- [ ] X API の消費リソース数を管理画面で確認できる
-      — **未実装。** 集計クエリ（`sumFetchedResourceCountSince`）はあるが呼び出し側が無い
+- [x] X API の消費リソース数を管理画面で確認できる
+      — 2026-09-03 にブラウザで確認。`/admin/ingestion` が当月の消費リソース数と
+      概算コストを表示し、想定額（月 $5、NFR-04）を超えると警告を出す。
+      **当月は JST の暦月で切る**（[api.md](api.md) 第 5.7 節）
+- [x] 取り込みの連続失敗が管理画面に警告として出る（NFR-09）
+      — 2026-09-03 にブラウザで確認。失敗記録を 10 件入れた状態で `/admin` と
+      `/admin/ingestion` の両方に停止中の警告が出た。判定は**打ち切りと同じ規則**
+      （`IngestionHaltRule`）をサーバ側で使い、画面側で書き直さない。
+      第 7 章の週次確認はこの警告を見る
 - [x] `SITE_DISABLED` でサイトを止められ、停止中は**キャッシュ済みページも配信されない**
       — 2026-09-02 にローカルで確認。`/` と `/2026/09` を先に開いて ISR に載せてから
       `SITE_DISABLED=true` で再起動したところ、両方とも停止ページを返し

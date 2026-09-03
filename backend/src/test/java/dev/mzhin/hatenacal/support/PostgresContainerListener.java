@@ -44,5 +44,15 @@ public class PostgresContainerListener implements LauncherSessionListener {
         System.setProperty("spring.datasource.url", container.getJdbcUrl());
         System.setProperty("spring.datasource.username", container.getUsername());
         System.setProperty("spring.datasource.password", container.getPassword());
+        // 接続プールを絞る。Spring のテストコンテキストは使い回すためにキャッシュされ、
+        // 設定の違う結合テストを足すたびに 1 つ増える。それぞれが Hikari のプールを
+        // 握ったままなので、既定の 10 本だとコンテキスト 10 個で PostgreSQL の
+        // max_connections (100) に届き、「sorry, too many clients already」で
+        // **後から動いたクラスだけ**がコンテキストを作れずに落ちる。
+        // 原因がテスト内容と無関係なので追いにくい。
+        //
+        // テストは並列実行しないが、テスト側がトランザクションを持ったまま
+        // HTTP を叩く形があるため 1 本では足りない。4 本なら 25 コンテキストまで持つ。
+        System.setProperty("spring.datasource.hikari.maximum-pool-size", "4");
     }
 }
