@@ -183,8 +183,15 @@ fly secrets list        # 名前とダイジェストだけが出る。値は表
 
 ```bash
 cd backend
-fly deploy --local-only     # 手元の Docker でビルドする
+fly deploy --local-only --ha=false
 ```
+
+**`--ha=false` を必ず付ける。** 付けないと `fly deploy` が
+**HA 用の予備機をもう 1 台作り、取り込みが二重に走る**（同じ範囲を並行して
+取得して X API の課金が倍になる）。初回デプロイで実際に 2 台立った。
+
+**`fly.toml` では止められない。** 予備機の作成を抑える設定キーは存在せず、
+このフラグが唯一の制御。忘れたときのために、次節で台数を必ず確かめる。
 
 `--local-only` を外すと Fly.io のリモートビルダー（別課金のマシン）が起動する。
 Docker が動いているなら手元で焼くほうが速く、余計なマシンも立たない。
@@ -203,7 +210,9 @@ curl -s https://hatenacal.fly.dev/actuator/health
 
 **確かめること**
 
-- [ ] マシンが **1 台**（複数だと取り込みが多重起動する）
+- [ ] **マシンが 1 台**。`fly status` の Machines が 1 行であること。
+      2 行あれば `fly scale count 1 -a hatenacal` で落とす。
+      **複数台だと取り込みが多重起動し、X API の課金が倍になる**
 - [ ] `https://` で応答する（`http://` はリダイレクトされる）
 - [ ] `/api/public/appearances?from=...&to=...` が**キー無しで 403**
       （デフォルト拒否。[security.md](security.md) 第 5 章）
@@ -308,9 +317,12 @@ curl -sI https://<domain>/ | grep -iE 'content-security-policy|strict-transport|
 
 ```bash
 git checkout main && git pull --ff-only
-gh run list --branch main --limit 1        # CI が green か
-cd backend && fly deploy --local-only      # バックエンドを変えたときだけ
+gh run list --branch main --limit 1                  # CI が green か
+cd backend && fly deploy --local-only --ha=false     # バックエンドを変えたときだけ
+fly status                                            # **マシンが 1 台か**
 ```
+
+**`--ha=false` を落とさない。** 毎回付ける必要がある（第 3.3 節）。
 
 フロントエンドは `main` への push で Vercel が自動デプロイする。手作業は要らない。
 

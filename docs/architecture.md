@@ -478,8 +478,11 @@ URL に埋めて渡す。テストだけ別の渡し方にすると、URL に埋
 | DB マイグレーション | アプリ起動時に Flyway が適用 |
 
 - **Fly.io のインスタンス数は 1 に固定**する（取り込みジョブの多重起動を防ぐため）。
-  `min_machines_running = 1` と `auto_stop_machines = false` を両方書く。
-  前者だけだと寝てしまい `@Scheduled` が止まる
+  常時起動は **`auto_stop_machines = false`** が担う。
+  **`min_machines_running` は 0 のままにする。** この値は auto_stop が
+  有効なときだけ効き、1 以上にすると **`fly deploy` が HA 用の予備機を作る**。
+  **台数の制御は `fly deploy --ha=false` で、fly.toml では止められない。**
+  デプロイのたびに `fly status` で 1 台であることを確かめる
 - シークレットは `fly secrets set` で設定する。`fly.toml` に書かない
 - Neon の接続文字列は**プーリング対応のもの**（ホスト名に `-pooler` が付く）を使う
 - **イメージのビルドはコンテナの中で行い、テストは走らせない。**

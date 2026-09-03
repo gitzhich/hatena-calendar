@@ -31,9 +31,17 @@ primary_region = "sin"
   auto_stop_machines = false
   auto_start_machines = false
 
-  # **1 台に固定する。** 複数台だと取り込みが多重起動し、
-  # 同じ範囲を並行して取得して X API の課金が倍になる。
-  min_machines_running = 1
+  # **0 のままにする。** この値は auto_stop_machines が "stop" / "suspend" の
+  # ときだけ意味を持つ。こちらは false なので効かない。
+  #
+  # それどころか 1 以上にすると `fly deploy` が HA 用の予備機をもう 1 台作り、
+  # **取り込みが二重に走る**。初回デプロイで実際に 2 台立ち、両方が
+  # スケジューラを実行した（source_account が空だったため課金は出なかった）。
+  #
+  # **台数を 1 に保つのは fly.toml ではなく `fly deploy --ha=false`。**
+  # fly.toml に予備機を止める設定は無い。デプロイ後に `fly status` で
+  # 1 台であることを必ず確かめる（docs/runbook-deploy.md 第 3.4 節）。
+  min_machines_running = 0
 
   [[http_service.checks]]
     path = "/actuator/health"
