@@ -73,6 +73,30 @@ export type Paged<T> = {
   totalElements: number;
 };
 
+/** 取り込み実行 1 回分（docs/api.md 第 5.7 節）。日時は UTC。 */
+export type IngestionRun = {
+  id: number;
+  startedAt: string;
+  finishedAt: string | null;
+  status: "RUNNING" | "SUCCESS" | "FAILED";
+  fetchedResourceCount: number;
+  newAppearanceCount: number;
+  errorSummary: string | null;
+};
+
+/**
+ * 取り込み履歴と、そこから導かれる運用の指標。
+ *
+ * `halted` と `consecutiveFailureCount` は**バックエンドの判定をそのまま使う**。
+ * 実際に取り込みを止める条件と画面に出す条件を 1 か所に集約するため、
+ * ここで items を数え直さない（NFR-09 / `IngestionHaltRule`）。
+ */
+export type IngestionRunList = Paged<IngestionRun> & {
+  currentMonthResourceCount: number;
+  consecutiveFailureCount: number;
+  halted: boolean;
+};
+
 export async function listAppearances(
   sourceType?: string,
   page = 0,
@@ -88,6 +112,15 @@ export async function getAppearance(id: number): Promise<AdminAppearance | null>
   const res = await adminFetch(`/api/admin/appearances/${id}`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`取得に失敗しました (${res.status})`);
+  return res.json();
+}
+
+export async function listIngestionRuns(
+  page = 0,
+  size = 20,
+): Promise<IngestionRunList> {
+  const res = await adminFetch(`/api/admin/ingestion-runs?page=${page}&size=${size}`);
+  if (!res.ok) throw new Error(`取り込み履歴の取得に失敗しました (${res.status})`);
   return res.json();
 }
 

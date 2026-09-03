@@ -3,6 +3,8 @@ package dev.mzhin.hatenacal.ingestion;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,8 +15,19 @@ public interface IngestionRunRepository extends JpaRepository<IngestionRun, Long
 
     Optional<IngestionRun> findFirstByOrderByStartedAtDesc();
 
-    /** 直近の実行を新しい順に。連続失敗の判定に使う（FR-43）。 */
-    List<IngestionRun> findTop10ByOrderByStartedAtDesc();
+    /**
+     * 直近の実行を新しい順に。連続失敗の判定に使う（FR-43 / NFR-09）。
+     *
+     * <p><b>件数は {@link IngestionHaltRule#window()} が決める。</b> 判定が
+     * 「直近 N 件がすべて失敗」である以上、取る件数が N を下回ると打ち切りが成立しない。
+     * ここに件数を焼き付けない。
+     *
+     * <p>Page ではなく List を返す。判定に総件数は要らず、COUNT を余計に打たないため。
+     */
+    List<IngestionRun> findByOrderByStartedAtDesc(Pageable pageable);
+
+    /** 取り込み履歴の一覧（docs/api.md 第 5.7 節）。総件数をページャに出すため Page で返す。 */
+    Page<IngestionRun> findAllByOrderByStartedAtDesc(Pageable pageable);
 
     /**
      * 最後に取り込みが成功した日時（FR-08 / docs/data-model.md 第 4.4 節）。

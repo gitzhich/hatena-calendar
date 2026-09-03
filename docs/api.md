@@ -1,6 +1,6 @@
 # API 設計 — XINXIN 出演情報カレンダー
 
-最終更新: 2026-09-02
+最終更新: 2026-09-03
 
 関連文書: [CLAUDE.md](../CLAUDE.md) / [docs/requirements.md](requirements.md) /
 [docs/data-model.md](data-model.md) / [docs/architecture.md](architecture.md)
@@ -390,12 +390,35 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
   "page": 0,
   "size": 20,
   "totalElements": 2880,
-  "currentMonthResourceCount": 287
+  "currentMonthResourceCount": 287,
+  "consecutiveFailureCount": 0,
+  "halted": false
 }
 ```
 
-`currentMonthResourceCount` は当月の `fetchedResourceCount` 合計。
-X API の消費額を管理画面で確認するために返す（`× $0.005` が概算コスト）。
+| フィールド | 説明 |
+| --- | --- |
+| `items` | 実行記録を**開始日時の降順**で返す。日時は UTC |
+| `finishedAt` | 実行中（`status` が `RUNNING`）なら `null` |
+| `errorSummary` | 失敗理由の要約。**スタックトレースとトークンを含まない**（NFR-03） |
+| `currentMonthResourceCount` | 当月の `fetchedResourceCount` 合計。`× $0.005` が概算コスト（NFR-04） |
+| `consecutiveFailureCount` | 直近で失敗が連続している回数。成功が 1 件でも挟まれば 0 に戻る |
+| `halted` | 連続失敗で取り込みが打ち切られているか（FR-43 / NFR-09） |
+
+**当月は JST の暦月で切る**（NFR-05）。管理者が見る「今月」は JST の暦月であり、
+UTC で切ると月初 9 時間分が前月に混じる。ただしこれは**概算のための区切りであって
+請求期間ではない**。X API の請求サイクルはクレジットの購入日を起点に切られ、
+暦月と一致しない（[runbook-x-api-setup.md](runbook-x-api-setup.md) 第 3.3 節）。
+
+**`halted` と `consecutiveFailureCount` はサーバ側で判定する。** 打ち切りの条件を
+画面側で書き直すと、実際に取り込みを止めている条件とずれても誰も気づけない。
+判定規則は `IngestionHaltRule` が 1 か所で持ち、スケジューラとこの API が同じものを使う。
+表示中のページに含まれる `items` を数え直して求めるものではない
+（2 ページ目を開いても判定は変わらない）。
+
+**再開の操作はこのエンドポイントに持たせない。** 打ち切りからの復帰は
+原因を確認してから手で戻す運用であり（FR-43）、押すだけで再開できると
+原因が残ったまま同じ範囲を取り直して課金が積み上がる。
 
 ---
 
