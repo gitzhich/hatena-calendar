@@ -286,4 +286,34 @@ class AdminApiIT {
                     .isEqualTo(400);
         }
     }
+
+    @Nested
+    @DisplayName("ページング（docs/api.md 第 5.1 節）")
+    class Paging {
+
+        @Test
+        @DisplayName("範囲外の page / size は丸める。400 にしない")
+        void outOfRangePagingIsClamped() throws Exception {
+            send("POST", PATH, ADMIN_KEY, payload("2026-09-20", "『FES』", "18:00:00"));
+
+            HttpResponse<String> low = send("GET", PATH + "?page=-1&size=0", ADMIN_KEY, null);
+            assertThat(low.statusCode())
+                    .as("点検一覧は値がずれても画面が止まらないほうがよい")
+                    .isEqualTo(200);
+            assertThat(low.body()).contains("\"page\":0").contains("\"size\":1");
+
+            HttpResponse<String> high = send("GET", PATH + "?size=1000", ADMIN_KEY, null);
+            assertThat(high.statusCode()).isEqualTo(200);
+            assertThat(high.body())
+                    .as("上限を超える size で DB を引かせない")
+                    .contains("\"size\":100");
+        }
+
+        @Test
+        @DisplayName("数として読めない size は 400。丸めるのは範囲外だけ")
+        void nonNumericSizeIsBadRequest() throws Exception {
+            assertThat(send("GET", PATH + "?size=abc", ADMIN_KEY, null).statusCode())
+                    .isEqualTo(400);
+        }
+    }
 }
