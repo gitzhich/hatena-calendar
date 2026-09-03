@@ -36,3 +36,4 @@
 | [0016](0016-static-csp-public-nonce-admin.md) | 公開ページは静的 CSP、管理画面は nonce ベースの CSP にする | 承認済み |
 | [0017](0017-contact-channel.md) | 削除要請の窓口をサイト専用のメールアドレスにする | 承認済み |
 | [0018](0018-regions.md) | Neon を Singapore に置き、Fly.io を同居させる | 承認済み |
+| [0019](0019-deploy-triggers-and-records.md) | デプロイの起動条件をリポジトリ側で決め、記録をデプロイの副作用として残す | 承認済み |
