@@ -201,6 +201,48 @@ class PostParserBoundaryTest {
             assertThat(only(body, posted(2026, 8, 1)).appearanceDate())
                     .isEqualTo(LocalDate.of(2026, 8, 25));
         }
+
+        @Test
+        @DisplayName("⏰ が無くても OPEN 行で切る。販売期間の日付を候補にしない")
+        void openLineWithoutClockIsTheBoundary() {
+            String body = """
+                    🔸XINXIN公演情報解禁🔸
+
+                    10/22(木)📍愛知・テスト会場
+                    『テストイベント』
+
+                    OPEN 19:00 / START 19:30
+                    🔻先行チケット🔻
+                    販売期間 : 8/21(金) 21:00〜
+                    販売期間 : 8/28(金) 21:00〜
+
+                    ▪️タイムテーブル
+                    🎤20:05-20:40 XINXIN出演
+                    """;
+            assertThat(only(body, posted(2026, 8, 1)).appearanceDate())
+                    .as("⏰ だけを見ると候補が 3 つになり、日付に対応付けられなくなる")
+                    .isEqualTo(LocalDate.of(2026, 10, 22));
+        }
+
+        @Test
+        @DisplayName("時刻を伴わない OPEN の語では切らない。範囲が手前で終わってしまう")
+        void bareOpenWordIsNotTheBoundary() {
+            String body = """
+                    🔸XINXIN公演情報解禁🔸
+                    ※OPEN時間が変更になりました
+
+                    9/16(水)📍愛知・テスト会場
+                    『テストイベント』
+
+                    ⏰OPEN 17:00 / START 17:30
+
+                    ▪️タイムテーブル
+                    🎤19:50-20:15 XINXIN出演
+                    """;
+            assertThat(only(body, posted(2026, 8, 1)).appearanceDate())
+                    .as("語だけで切ると日付も 📍 も範囲外になり、投稿ごと落ちる")
+                    .isEqualTo(LocalDate.of(2026, 9, 16));
+        }
     }
 
     @Nested
