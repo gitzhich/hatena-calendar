@@ -242,8 +242,30 @@ class PostParserBoundaryTest {
                     XINXIN / 「いつかのネバーランド」
                     """;
             assertThat(only(body, posted(2026, 8, 1)).eventName())
-                    .as("範囲を切らないと、出演者名の括弧をイベント名に採りうる")
                     .isEqualTo("『テストイベント』");
+        }
+
+        @Test
+        @DisplayName("▪️ が無く、イベント名に括弧も無ければ Unparsed。出演者名を採らない")
+        void performerNameIsNotTakenAsEventName() {
+            String body = """
+                    🔸XINXIN公演情報解禁🔸
+
+                    9/16(水)📍愛知・テスト会場
+                    括弧のないイベント名
+
+                    ⏰OPEN 17:00 / START 17:30
+
+                    🎤19:50-20:15 XINXIN出演
+                    📸21:25-22:35 終演後物販
+
+                    【出演者(敬称略)】
+                    XINXIN / 「いつかのネバーランド」
+                    """;
+            assertThat(reason(body, posted(2026, 8, 1)))
+                    .as("🎤 で切らないと出演者一覧まで探し、括弧を持つ他グループ名を"
+                            + "イベント名として登録してしまう")
+                    .contains("イベント名");
         }
     }
 
