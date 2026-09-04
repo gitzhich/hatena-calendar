@@ -358,7 +358,34 @@ public class PostParser {
                 }
             }
         }
-        return null;
+        return joinedEventName(header, venueLine);
+    }
+
+    /**
+     * 括弧を持たないイベント名（実サンプル 20.txt）。
+     *
+     * <p>会場行の次から<b>空行まで</b>を 1 行にまとめる。20.txt は
+     * {@code HATENA CREATION Presents} / {@code ジエメイ VS XINXIN} /
+     * {@code BANDSET 2MAN LIVE} の 3 行に分かれており、括弧が 1 つも無い。
+     *
+     * <p><b>括弧がある場合はこの経路に来ない。</b>括弧があるときに前の行まで
+     * まとめると、5.txt の住所行（{@code 千葉県佐倉市飯野820}）や
+     * 6.txt の会場数（{@code 他 全12会場}）まで巻き込む。
+     * まとめてよいのは「括弧が無く、他に手がかりが無い」ときだけである。
+     */
+    private static String joinedEventName(List<String> header, int venueLine) {
+        StringBuilder joined = new StringBuilder();
+        for (int i = venueLine + 1; i < header.size(); i++) {
+            String line = header.get(i).trim();
+            if (line.isEmpty()) {
+                break;
+            }
+            if (!joined.isEmpty()) {
+                joined.append(' ');
+            }
+            joined.append(line);
+        }
+        return joined.isEmpty() ? null : joined.toString();
     }
 
     // ------------------------------------------------------------------

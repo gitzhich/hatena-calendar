@@ -17,7 +17,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * 実サンプル 19 件に対する抽出テスト。期待値は
+ * 実サンプル 20 件に対する抽出テスト。期待値は
  * docs/x-integration.md 第 5.11 節。
  *
  * <p>サンプルは docs/x-post-sample/ の写しを test/resources に置いている。
@@ -63,7 +63,7 @@ class PostParserSampleTest {
     }
 
     @Nested
-    @DisplayName("抽出する 12 件")
+    @DisplayName("抽出する 13 件")
     class Extracted {
 
         @Test
@@ -267,6 +267,22 @@ class PostParserSampleTest {
             assertThat(a.merchStartTime()).isEqualTo(LocalTime.of(20, 50));
             assertThat(a.merchEndTime()).isEqualTo(LocalTime.of(22, 30));
             assertThat(a.ticketUrl()).isEqualTo("https://t-dv.com/xinhiba1022");
+        }
+
+        @Test
+        @DisplayName("20.txt 括弧のないイベント名。会場行の次から空行までをまとめる")
+        void sample20() throws IOException {
+            ParsedAppearance a = only("20.txt");
+            assertThat(a.appearanceDate()).isEqualTo(LocalDate.of(2026, 10, 10));
+            assertThat(a.venueName()).isEqualTo("金沢・REDSUN");
+            assertThat(a.eventName())
+                    .as("3 行に分かれており括弧が 1 つも無い")
+                    .isEqualTo("HATENA CREATION Presents ジエメイ VS XINXIN BANDSET 2MAN LIVE");
+            assertThat(a.performanceStartTime()).isEqualTo(LocalTime.of(16, 0));
+            assertThat(a.performanceEndTime()).isEqualTo(LocalTime.of(16, 45));
+            assertThat(a.merchStartTime()).isEqualTo(LocalTime.of(18, 15));
+            assertThat(a.merchEndTime()).isEqualTo(LocalTime.of(19, 45));
+            assertThat(a.ticketUrl()).isEqualTo("https://t-dv.com/jiexin1010");
         }
 
         @Test

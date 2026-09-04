@@ -246,7 +246,7 @@ class PostParserBoundaryTest {
         }
 
         @Test
-        @DisplayName("▪️ が無く、イベント名に括弧も無ければ Unparsed。出演者名を採らない")
+        @DisplayName("▪️ が無い告知でも、出演者一覧の括弧をイベント名に採らない")
         void performerNameIsNotTakenAsEventName() {
             String body = """
                     🔸XINXIN公演情報解禁🔸
@@ -262,10 +262,10 @@ class PostParserBoundaryTest {
                     【出演者(敬称略)】
                     XINXIN / 「いつかのネバーランド」
                     """;
-            assertThat(reason(body, posted(2026, 8, 1)))
-                    .as("🎤 で切らないと出演者一覧まで探し、括弧を持つ他グループ名を"
-                            + "イベント名として登録してしまう")
-                    .contains("イベント名");
+            assertThat(only(body, posted(2026, 8, 1)).eventName())
+                    .as("🎤 で切らないと出演者一覧まで括弧を探しに行き、"
+                            + "他グループ名「いつかのネバーランド」を採ってしまう")
+                    .isEqualTo("括弧のないイベント名");
         }
     }
 
