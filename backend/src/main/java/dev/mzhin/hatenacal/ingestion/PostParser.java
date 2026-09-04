@@ -51,9 +51,11 @@ public class PostParser {
             Pattern.compile("🔗" + SP + "(https?://\\S+)");
 
     private static final String PIN = "📍";      // 📍
-    private static final String CLOCK = "⏰";          // ⏰
+    private static final String MIC_MARKER = "🎤";     // 🎤
     private static final String SECTION = "▪️";  // ▪️
-    private static final char[] BRACKETS = {'『', '』', '「', '」', '｢', '｣'};
+    /** 対応する開き括弧と閉じ括弧。実データは 3 種類が混在する（第 5.5 節）。 */
+    private static final char[] OPEN_BRACKETS = {'『', '「', '｢'};
+    private static final char[] CLOSE_BRACKETS = {'』', '」', '｣'};
 
     private static final DayOfWeek[] JP_WEEKDAYS = {
         DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY,
@@ -119,7 +121,7 @@ public class PostParser {
         List<String> header = lines.subList(0, headerEnd);
 
         // ---- 第 5.2 節 条件 2：探索範囲に日付候補があるか ----
-        List<MonthDay> headerDates = monthDaysIn(header);
+        List<MonthDay> headerDates = performanceDatesIn(header);
         if (headerDates.isEmpty()) {
             return ParseResult.unparsed("公演日の候補が見つからない");
         }
@@ -205,18 +207,45 @@ public class PostParser {
     // 第 5.3 節：探索範囲と日付
     // ------------------------------------------------------------------
 
-    /** 先頭 〜 ⏰ で始まる最初の行の直前／なければ ▪️ を含む最初の行の直前／なければ全体。 */
+    /**
+     * 先頭 〜 タイムテーブルが始まる直前（第 5.3 節）。
+     *
+     * <p><b>境界は保持する項目だけで決める。</b>開演時刻（⏰ OPEN / START）は
+     * 保持しない項目であり（第 5.1 節）、そこに境界を置くと
+     * <b>捨てる値の書き方が抽出の成否を決めてしまう</b>。
+     * 実サンプル 19.txt は ⏰ が落ちて {@code OPEN 19:00 / START 19:30} だけになっており、
+     * これで探索範囲が広がって投稿ごと Unparsed になっていた。
+     *
+     * <p>▪️ が無い告知のために 🎤 でも切る。範囲は狭まる方向にしか動かず、
+     * イベント名は必ずタイムテーブルより前にある。
+     */
     private static int headerEnd(List<String> lines) {
-        for (int i = 0; i < lines.size(); i++) {
-            if (lines.get(i).startsWith(CLOCK)) {
-                return i;
-            }
-        }
         int section = indexOfContaining(lines, SECTION);
-        return section >= 0 ? section : lines.size();
+        if (section >= 0) {
+            return section;
+        }
+        int mic = indexOfContaining(lines, MIC_MARKER);
+        return mic >= 0 ? mic : lines.size();
     }
 
     private record MonthDay(int month, int day, char weekday) {
+    }
+
+    /**
+     * 公演日の候補（第 5.3 節）。
+     *
+     * <p><b>📍 の行に書かれた日付を第一の手がかりにする。</b>
+     * 基本形は {@code {M}/{D}({曜日})📍{都道府県}・{会場}} で日付と会場が同一行にあり
+     * （第 5.1 節）、販売期間の日付が 📍 の行に載ることはない。
+     *
+     * <p>📍 の行に日付が無い告知（実サンプル 6.txt は日付行と会場行が別）では、
+     * 探索範囲の日付をすべて候補にする。
+     */
+    private static List<MonthDay> performanceDatesIn(List<String> header) {
+        List<MonthDay> onPinLines = monthDaysIn(header.stream()
+                .filter(line -> line.contains(PIN))
+                .toList());
+        return onPinLines.isEmpty() ? monthDaysIn(header) : onPinLines;
     }
 
     private static List<MonthDay> monthDaysIn(List<String> lines) {
@@ -324,14 +353,84 @@ public class PostParser {
      */
     private static String eventNameIn(List<String> header, int venueLine) {
         for (int i = venueLine + 1; i < header.size(); i++) {
-            String line = header.get(i);
-            for (char b : BRACKETS) {
-                if (line.indexOf(b) >= 0) {
-                    return line.trim();
-                }
+            int kind = openBracketKind(header.get(i));
+            if (kind >= 0) {
+                return bracketedName(header, i, kind);
+            }
+        }
+        return joinedEventName(header, venueLine);
+    }
+
+    /** 行に最初に現れる開き括弧の種類。無ければ -1。 */
+    private static int openBracketKind(String line) {
+        int found = -1;
+        int at = Integer.MAX_VALUE;
+        for (int k = 0; k < OPEN_BRACKETS.length; k++) {
+            int i = line.indexOf(OPEN_BRACKETS[k]);
+            if (i >= 0 && i < at) {
+                at = i;
+                found = k;
+            }
+        }
+        return found;
+    }
+
+    /**
+     * 開き括弧の行から始まるイベント名。
+     *
+     * <p><b>同じ行で閉じていなければ、閉じるまで後続行を連結する。</b>
+     * 開き括弧の行だけを採ると {@code 『テストイベント} のように
+     * <b>閉じ括弧の無い値</b>ができ、そのまま公開される。
+     *
+     * <p>空行までに閉じなければ {@code null} を返し、投稿ごと Unparsed にする。
+     * 壊れた名前を登録するより取りこぼす（第 5.10 節と同じ判断）。
+     */
+    private static String bracketedName(List<String> header, int line, int kind) {
+        char open = OPEN_BRACKETS[kind];
+        char close = CLOSE_BRACKETS[kind];
+        String first = header.get(line);
+        if (first.indexOf(close, first.indexOf(open) + 1) >= 0) {
+            return first.trim();
+        }
+        StringBuilder joined = new StringBuilder(first.trim());
+        for (int i = line + 1; i < header.size(); i++) {
+            String next = header.get(i).trim();
+            if (next.isEmpty()) {
+                return null;
+            }
+            joined.append(' ').append(next);
+            if (next.indexOf(close) >= 0) {
+                return joined.toString();
             }
         }
         return null;
+    }
+
+    /**
+     * 括弧を持たないイベント名（実サンプル 20.txt）。
+     *
+     * <p>会場行の次から<b>空行まで</b>を 1 行にまとめる。20.txt は
+     * {@code HATENA CREATION Presents} / {@code ジエメイ VS XINXIN} /
+     * {@code BANDSET 2MAN LIVE} の 3 行に分かれており、括弧が 1 つも無い。
+     *
+     * <p><b>括弧がある場合はこの経路に来ない。</b>括弧があるときに前の行まで
+     * まとめると、5.txt の住所行（{@code 千葉県佐倉市飯野820}）や
+     * 6.txt の会場数（{@code 他 全12会場}）まで巻き込む。
+     * まとめてよいのは「括弧が無く、他に手がかりが無い」ときだけである。
+     */
+    private static String joinedEventName(List<String> header, int venueLine) {
+        StringBuilder joined = new StringBuilder();
+        for (int i = venueLine + 1; i < header.size(); i++) {
+            String line = header.get(i).trim();
+            if (line.isEmpty()) {
+                break;
+            }
+            if (!joined.isEmpty()) {
+                joined.append(' ');
+            }
+            joined.append(line);
+        }
+        return joined.isEmpty() ? null : joined.toString();
     }
 
     // ------------------------------------------------------------------

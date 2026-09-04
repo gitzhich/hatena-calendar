@@ -17,7 +17,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * 実サンプル 17 件に対する抽出テスト。期待値は
+ * 実サンプル 20 件に対する抽出テスト。期待値は
  * docs/x-integration.md 第 5.11 節。
  *
  * <p>サンプルは docs/x-post-sample/ の写しを test/resources に置いている。
@@ -40,7 +40,18 @@ class PostParserSampleTest {
     }
 
     private List<ParsedAppearance> extract(String name) throws IOException {
-        ParseResult result = parser.parse(sample(name), POSTED);
+        return extract(name, POSTED);
+    }
+
+    /**
+     * 投稿日を指定して抽出する。
+     *
+     * <p>基準の {@link #POSTED} から 30 日以上前の公演は翌年と解釈されるため
+     * （第 5.3 節）、6 月の公演を扱う 18.txt では実際の投稿日に近い値が要る。
+     */
+    private List<ParsedAppearance> extract(String name, OffsetDateTime postedAt)
+            throws IOException {
+        ParseResult result = parser.parse(sample(name), postedAt);
         assertThat(result).isInstanceOf(ParseResult.Extracted.class);
         return ((ParseResult.Extracted) result).appearances();
     }
@@ -52,7 +63,7 @@ class PostParserSampleTest {
     }
 
     @Nested
-    @DisplayName("抽出する 10 件")
+    @DisplayName("抽出する 13 件")
     class Extracted {
 
         @Test
@@ -215,6 +226,63 @@ class PostParserSampleTest {
             assertThat(list).extracting(ParsedAppearance::ticketUrl)
                     .containsExactly("http://eplus.jp/ayusuku_8th",
                             "https://ticketdive.com/event/kc2026080809");
+        }
+
+        @Test
+        @DisplayName("18.txt 2 公演が同じ会場。会場が同じでもブロックは別々に扱う")
+        void sample18() throws IOException {
+            // 前日告知。基準の POSTED（8/1）だと 6/6 が翌年と解釈される
+            List<ParsedAppearance> list = extract("18.txt",
+                    OffsetDateTime.of(2026, 6, 5, 12, 0, 0, 0, ZoneOffset.ofHours(9)));
+            assertThat(list).hasSize(2);
+            assertThat(list).extracting(ParsedAppearance::venueName)
+                    .as("同じ会場を自分自身と連結しない")
+                    .containsExactly("韓国・SETi LIVE HALL", "韓国・SETi LIVE HALL");
+            assertThat(list).extracting(ParsedAppearance::eventName)
+                    .containsExactly("「 SETi FES vol.33 」",
+                            "「XINXIN NEKIRU ジエメイ 3MANLIVE in KOREA」");
+            assertThat(list).extracting(ParsedAppearance::performanceStartTime)
+                    .containsExactly(LocalTime.of(13, 45), LocalTime.of(19, 20));
+            assertThat(list).extracting(ParsedAppearance::merchStartTime)
+                    .containsExactly(LocalTime.of(14, 40), LocalTime.of(21, 10));
+            assertThat(list).extracting(ParsedAppearance::ticketUrl)
+                    .containsExactly("http://tiget.net/events/490634",
+                            "http://tiget.net/events/490990");
+        }
+
+        @Test
+        @DisplayName("19.txt ⏰ が落ちた告知。OPEN 行を境界にして販売期間の日付を除く")
+        void sample19() throws IOException {
+            ParsedAppearance a = only("19.txt");
+            assertThat(a.appearanceDate())
+                    .as("⏰ が無いと探索範囲が ▪️ まで広がり、"
+                            + "販売期間の 8/21 と 8/28 が公演日の候補に混ざる")
+                    .isEqualTo(LocalDate.of(2026, 10, 22));
+            assertThat(a.venueName()).isEqualTo("愛知・NAGOYA JAMMIN'");
+            assertThat(a.eventName())
+                    .as("主催者が別行にあると括弧の行だけが残る（第 5.5 節の既知の制限）")
+                    .isEqualTo("「新進火花」");
+            assertThat(a.performanceStartTime()).isEqualTo(LocalTime.of(20, 5));
+            assertThat(a.performanceEndTime()).isEqualTo(LocalTime.of(20, 40));
+            assertThat(a.merchStartTime()).isEqualTo(LocalTime.of(20, 50));
+            assertThat(a.merchEndTime()).isEqualTo(LocalTime.of(22, 30));
+            assertThat(a.ticketUrl()).isEqualTo("https://t-dv.com/xinhiba1022");
+        }
+
+        @Test
+        @DisplayName("20.txt 括弧のないイベント名。会場行の次から空行までをまとめる")
+        void sample20() throws IOException {
+            ParsedAppearance a = only("20.txt");
+            assertThat(a.appearanceDate()).isEqualTo(LocalDate.of(2026, 10, 10));
+            assertThat(a.venueName()).isEqualTo("金沢・REDSUN");
+            assertThat(a.eventName())
+                    .as("3 行に分かれており括弧が 1 つも無い")
+                    .isEqualTo("HATENA CREATION Presents ジエメイ VS XINXIN BANDSET 2MAN LIVE");
+            assertThat(a.performanceStartTime()).isEqualTo(LocalTime.of(16, 0));
+            assertThat(a.performanceEndTime()).isEqualTo(LocalTime.of(16, 45));
+            assertThat(a.merchStartTime()).isEqualTo(LocalTime.of(18, 15));
+            assertThat(a.merchEndTime()).isEqualTo(LocalTime.of(19, 45));
+            assertThat(a.ticketUrl()).isEqualTo("https://t-dv.com/jiexin1010");
         }
 
         @Test
