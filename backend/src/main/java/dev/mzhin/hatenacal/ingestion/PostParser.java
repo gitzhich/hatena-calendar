@@ -46,23 +46,12 @@ public class PostParser {
     private static final Pattern CAMERA =
             Pattern.compile("📸" + SP + "(\\d{1,2}):(\\d{2})-(\\d{1,2}):(\\d{2})");
 
-    /**
-     * 第 5.3 節。ヘッダとタイムテーブルの境界。
-     *
-     * <p><b>マーカーが落ちた告知がある。</b>実サンプル 19.txt は
-     * {@code OPEN 19:00 / START 19:30} と ⏰ が付いていない。
-     * ⏰ だけを見ると探索範囲が ▪️ まで広がり、販売期間の日付が
-     * 公演日の候補に混ざる。
-     */
-    private static final Pattern OPEN =
-            Pattern.compile("OPEN" + SP + "\\d{1,2}:\\d{2}");
-
     /** 第 5.8 節。🔗 マーカーの付いた URL のみを対象にする。 */
     private static final Pattern TICKET =
             Pattern.compile("🔗" + SP + "(https?://\\S+)");
 
     private static final String PIN = "📍";      // 📍
-    private static final String CLOCK = "⏰";          // ⏰
+    private static final String MIC_MARKER = "🎤";     // 🎤
     private static final String SECTION = "▪️";  // ▪️
     private static final char[] BRACKETS = {'『', '』', '「', '」', '｢', '｣'};
 
@@ -130,7 +119,7 @@ public class PostParser {
         List<String> header = lines.subList(0, headerEnd);
 
         // ---- 第 5.2 節 条件 2：探索範囲に日付候補があるか ----
-        List<MonthDay> headerDates = monthDaysIn(header);
+        List<MonthDay> headerDates = performanceDatesIn(header);
         if (headerDates.isEmpty()) {
             return ParseResult.unparsed("公演日の候補が見つからない");
         }
@@ -217,22 +206,44 @@ public class PostParser {
     // ------------------------------------------------------------------
 
     /**
-     * 先頭 〜 開演時刻の行の直前／なければ ▪️ を含む最初の行の直前／なければ全体。
+     * 先頭 〜 タイムテーブルが始まる直前（第 5.3 節）。
      *
-     * <p>開演時刻の行は ⏰ で始まるのが通常だが、マーカーが落ちた告知があるため
-     * {@code OPEN hh:mm} でも境界とみなす（第 5.3 節）。
+     * <p><b>境界は保持する項目だけで決める。</b>開演時刻（⏰ OPEN / START）は
+     * 保持しない項目であり（第 5.1 節）、そこに境界を置くと
+     * <b>捨てる値の書き方が抽出の成否を決めてしまう</b>。
+     * 実サンプル 19.txt は ⏰ が落ちて {@code OPEN 19:00 / START 19:30} だけになっており、
+     * これで探索範囲が広がって投稿ごと Unparsed になっていた。
+     *
+     * <p>▪️ が無い告知のために 🎤 でも切る。範囲は狭まる方向にしか動かず、
+     * イベント名は必ずタイムテーブルより前にある。
      */
     private static int headerEnd(List<String> lines) {
-        for (int i = 0; i < lines.size(); i++) {
-            if (lines.get(i).startsWith(CLOCK) || OPEN.matcher(lines.get(i)).find()) {
-                return i;
-            }
-        }
         int section = indexOfContaining(lines, SECTION);
-        return section >= 0 ? section : lines.size();
+        if (section >= 0) {
+            return section;
+        }
+        int mic = indexOfContaining(lines, MIC_MARKER);
+        return mic >= 0 ? mic : lines.size();
     }
 
     private record MonthDay(int month, int day, char weekday) {
+    }
+
+    /**
+     * 公演日の候補（第 5.3 節）。
+     *
+     * <p><b>📍 の行に書かれた日付を第一の手がかりにする。</b>
+     * 基本形は {@code {M}/{D}({曜日})📍{都道府県}・{会場}} で日付と会場が同一行にあり
+     * （第 5.1 節）、販売期間の日付が 📍 の行に載ることはない。
+     *
+     * <p>📍 の行に日付が無い告知（実サンプル 6.txt は日付行と会場行が別）では、
+     * 探索範囲の日付をすべて候補にする。
+     */
+    private static List<MonthDay> performanceDatesIn(List<String> header) {
+        List<MonthDay> onPinLines = monthDaysIn(header.stream()
+                .filter(line -> line.contains(PIN))
+                .toList());
+        return onPinLines.isEmpty() ? monthDaysIn(header) : onPinLines;
     }
 
     private static List<MonthDay> monthDaysIn(List<String> lines) {

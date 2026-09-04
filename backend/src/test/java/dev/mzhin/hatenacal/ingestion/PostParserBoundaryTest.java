@@ -165,7 +165,7 @@ class PostParserBoundaryTest {
     class SearchScope {
 
         @Test
-        @DisplayName("販売条件の日付を公演日にしない。⏰ 行より後は候補にならない")
+        @DisplayName("販売条件の日付を公演日にしない。📍 の行に無い日付は候補にならない")
         void salesPeriodDateIsNotPerformanceDate() {
             String body = """
                     🔸XINXIN公演情報解禁🔸
@@ -203,8 +203,8 @@ class PostParserBoundaryTest {
         }
 
         @Test
-        @DisplayName("⏰ が無くても OPEN 行で切る。販売期間の日付を候補にしない")
-        void openLineWithoutClockIsTheBoundary() {
+        @DisplayName("⏰ が落ちていても公演日を取り違えない。境界を開演時刻に置かない")
+        void missingClockMarkerDoesNotBreakDateResolution() {
             String body = """
                     🔸XINXIN公演情報解禁🔸
 
@@ -220,28 +220,30 @@ class PostParserBoundaryTest {
                     🎤20:05-20:40 XINXIN出演
                     """;
             assertThat(only(body, posted(2026, 8, 1)).appearanceDate())
-                    .as("⏰ だけを見ると候補が 3 つになり、日付に対応付けられなくなる")
+                    .as("開演時刻は保持しない項目であり、その書き方で抽出の成否が変わってはならない")
                     .isEqualTo(LocalDate.of(2026, 10, 22));
         }
 
         @Test
-        @DisplayName("時刻を伴わない OPEN の語では切らない。範囲が手前で終わってしまう")
-        void bareOpenWordIsNotTheBoundary() {
+        @DisplayName("▪️ が無い告知では 🎤 で切る。出演者一覧のイベント名を拾わない")
+        void micLineIsTheBoundaryWithoutSectionHeading() {
             String body = """
                     🔸XINXIN公演情報解禁🔸
-                    ※OPEN時間が変更になりました
 
                     9/16(水)📍愛知・テスト会場
                     『テストイベント』
 
                     ⏰OPEN 17:00 / START 17:30
 
-                    ▪️タイムテーブル
                     🎤19:50-20:15 XINXIN出演
+                    📸21:25-22:35 終演後物販
+
+                    【出演者(敬称略)】
+                    XINXIN / 「いつかのネバーランド」
                     """;
-            assertThat(only(body, posted(2026, 8, 1)).appearanceDate())
-                    .as("語だけで切ると日付も 📍 も範囲外になり、投稿ごと落ちる")
-                    .isEqualTo(LocalDate.of(2026, 9, 16));
+            assertThat(only(body, posted(2026, 8, 1)).eventName())
+                    .as("範囲を切らないと、出演者名の括弧をイベント名に採りうる")
+                    .isEqualTo("『テストイベント』");
         }
     }
 
