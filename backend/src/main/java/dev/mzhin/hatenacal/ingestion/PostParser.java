@@ -68,6 +68,50 @@ public class PostParser {
     public ParseResult parse(String body, OffsetDateTime postedAt) {
         List<String> lines = body.lines().toList();
 
+        // ---- 第 5.10 節 パターン C：1 投稿に複数イベント ----
+        // ブロックごとに独立して解析する。投稿全体を 1 イベントとして扱うと、
+        // 後続ブロックの 📍 を前ブロックの「枠の会場」と誤認して連結し、
+        // イベント名は前ブロックのものが使い回される（実サンプル 16.txt）
+        List<Integer> starts = blockStarts(lines);
+        if (starts.size() <= 1) {
+            return parseBlock(lines, postedAt);
+        }
+        List<ParsedAppearance> merged = new ArrayList<>();
+        for (int i = 0; i < starts.size(); i++) {
+            int from = i == 0 ? 0 : starts.get(i);
+            int to = i + 1 < starts.size() ? starts.get(i + 1) : lines.size();
+            ParseResult block = parseBlock(lines.subList(from, to), postedAt);
+            if (block instanceof ParseResult.Unparsed unparsed) {
+                // 判定の単位は投稿（第 5.10 節）。1 ブロックでも成立しなければ
+                // 投稿ごと管理者へ回す。取れたブロックだけ登録すると、
+                // 投稿が REGISTERED になって未処理一覧に現れない
+                return unparsed;
+            }
+            merged.addAll(((ParseResult.Extracted) block).appearances());
+        }
+        return new ParseResult.Extracted(List.copyOf(sorted(merged)));
+    }
+
+    /**
+     * イベントブロックの開始行（第 5.10 節 パターン C）。
+     *
+     * <p><b>日付と 📍 を同じ行に持つ行</b>を境界にする。実サンプル 13 件では
+     * この形の行は多くても 1 行しかなく、複数あるのはまとめ告知だけだった。
+     * タイムテーブル内の 📍 は枠ごとの会場（ステージ名）で日付を伴わないため、
+     * 6.txt のようなサーキット形式を誤って分割しない。
+     */
+    private static List<Integer> blockStarts(List<String> lines) {
+        List<Integer> starts = new ArrayList<>();
+        for (int i = 0; i < lines.size(); i++) {
+            if (lines.get(i).contains(PIN) && DATE.matcher(lines.get(i)).find()) {
+                starts.add(i);
+            }
+        }
+        return starts;
+    }
+
+    /** 1 イベント分の範囲を解析する。 */
+    private ParseResult parseBlock(List<String> lines, OffsetDateTime postedAt) {
         int headerEnd = headerEnd(lines);
         List<String> header = lines.subList(0, headerEnd);
 
@@ -136,14 +180,22 @@ public class PostParser {
                     ticketUrl));
         }
 
-        // 第 5.10 節：登録処理へ渡す順を出演開始時刻の昇順に固定する。
-        // 順序を決めないと、既存行を引き継ぐ枠が入れ替わって結果が
-        // 非決定的になる（docs/data-model.md 第 7.1 節）
+        return new ParseResult.Extracted(List.copyOf(sorted(results)));
+    }
+
+    /**
+     * 第 5.10 節：登録処理へ渡す順を出演開始時刻の昇順に固定する。
+     *
+     * <p>順序を決めないと、既存行を引き継ぐ枠が入れ替わって結果が
+     * 非決定的になる（docs/data-model.md 第 7.1 節）。
+     * ブロックをまたいで並べ替えるため、投稿全体の結合後にも同じ順を適用する。
+     */
+    private static List<ParsedAppearance> sorted(List<ParsedAppearance> results) {
         results.sort((a, b) -> {
             int c = a.appearanceDate().compareTo(b.appearanceDate());
             return c != 0 ? c : a.performanceStartTime().compareTo(b.performanceStartTime());
         });
-        return new ParseResult.Extracted(List.copyOf(results));
+        return results;
     }
 
     // ------------------------------------------------------------------

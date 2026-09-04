@@ -17,7 +17,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * 実サンプル 13 件に対する抽出テスト。期待値は
+ * 実サンプル 16 件に対する抽出テスト。期待値は
  * docs/x-integration.md 第 5.11 節。
  *
  * <p>サンプルは docs/x-post-sample/ の写しを test/resources に置いている。
@@ -52,7 +52,7 @@ class PostParserSampleTest {
     }
 
     @Nested
-    @DisplayName("抽出する 6 件")
+    @DisplayName("抽出する 9 件")
     class Extracted {
 
         @Test
@@ -132,6 +132,71 @@ class PostParserSampleTest {
             assertThat(extract("6.txt"))
                     .extracting(ParsedAppearance::appearanceDate)
                     .containsOnly(LocalDate.of(2026, 8, 25));
+        }
+
+        @Test
+        @DisplayName("14.txt 個別告知。16.txt の 1 ブロック目と同じ公演を指す")
+        void sample14() throws IOException {
+            ParsedAppearance a = only("14.txt");
+            assertThat(a.appearanceDate()).isEqualTo(LocalDate.of(2026, 8, 1));
+            assertThat(a.venueName()).isEqualTo("東京・渋谷DESEO");
+            assertThat(a.eventName()).isEqualTo("「KAMAITACI Pre.\"つむじ風\"」");
+            assertThat(a.performanceStartTime()).isEqualTo(LocalTime.of(13, 30));
+            assertThat(a.performanceEndTime()).isEqualTo(LocalTime.of(14, 0));
+            assertThat(a.merchStartTime()).isEqualTo(LocalTime.of(15, 50));
+            assertThat(a.merchEndTime()).isEqualTo(LocalTime.of(17, 10));
+        }
+
+        @Test
+        @DisplayName("15.txt 冒頭にもう一方の会場名があっても、会場は 📍 からしか取らない")
+        void sample15() throws IOException {
+            ParsedAppearance a = only("15.txt");
+            assertThat(a.appearanceDate()).isEqualTo(LocalDate.of(2026, 8, 1));
+            assertThat(a.venueName()).isEqualTo("東京・白金高輪SELENEb2");
+            assertThat(a.eventName()).isEqualTo("「SELENE SUMMER FES」-DAY1-");
+            assertThat(a.performanceStartTime()).isEqualTo(LocalTime.of(19, 35));
+            assertThat(a.merchStartTime()).isEqualTo(LocalTime.of(20, 30));
+        }
+
+        @Test
+        @DisplayName("16.txt 1 投稿に 2 イベント。ブロックごとにイベント名と会場を取る")
+        void sample16() throws IOException {
+            List<ParsedAppearance> list = extract("16.txt");
+            assertThat(list).hasSize(2);
+
+            ParsedAppearance first = list.get(0);
+            assertThat(first.appearanceDate()).isEqualTo(LocalDate.of(2026, 8, 1));
+            assertThat(first.venueName()).isEqualTo("東京・渋谷DESEO");
+            assertThat(first.eventName()).isEqualTo("「KAMAITACI Pre.\"つむじ風\"」");
+            assertThat(first.performanceStartTime()).isEqualTo(LocalTime.of(13, 30));
+            assertThat(first.merchStartTime()).isEqualTo(LocalTime.of(15, 50));
+
+            ParsedAppearance second = list.get(1);
+            assertThat(second.appearanceDate()).isEqualTo(LocalDate.of(2026, 8, 1));
+            assertThat(second.venueName()).isEqualTo("東京・白金高輪SELENEb2");
+            assertThat(second.eventName()).isEqualTo("「SELENE SUMMER FES」-DAY1-");
+            assertThat(second.performanceStartTime()).isEqualTo(LocalTime.of(19, 35));
+            assertThat(second.merchStartTime()).isEqualTo(LocalTime.of(20, 30));
+        }
+
+        @Test
+        @DisplayName("16.txt 会場を連結しない。2 ブロック目に 1 ブロック目の会場を混ぜない")
+        void sample16KeepsBlocksApart() throws IOException {
+            assertThat(extract("16.txt"))
+                    .extracting(ParsedAppearance::venueName)
+                    .containsExactly("東京・渋谷DESEO", "東京・白金高輪SELENEb2");
+        }
+
+        @Test
+        @DisplayName("16.txt は 14.txt / 15.txt と同じ 2 件を指す。まとめ告知でも結果が変わらない")
+        void sample16MatchesIndividualPosts() throws IOException {
+            List<ParsedAppearance> combined = extract("16.txt");
+            assertThat(combined.get(0))
+                    .usingRecursiveComparison().ignoringFields("ticketUrl")
+                    .isEqualTo(only("14.txt"));
+            assertThat(combined.get(1))
+                    .usingRecursiveComparison().ignoringFields("ticketUrl")
+                    .isEqualTo(only("15.txt"));
         }
 
         @Test
