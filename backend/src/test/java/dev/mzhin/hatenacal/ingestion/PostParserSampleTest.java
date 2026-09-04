@@ -17,7 +17,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * 実サンプル 16 件に対する抽出テスト。期待値は
+ * 実サンプル 17 件に対する抽出テスト。期待値は
  * docs/x-integration.md 第 5.11 節。
  *
  * <p>サンプルは docs/x-post-sample/ の写しを test/resources に置いている。
@@ -52,7 +52,7 @@ class PostParserSampleTest {
     }
 
     @Nested
-    @DisplayName("抽出する 9 件")
+    @DisplayName("抽出する 10 件")
     class Extracted {
 
         @Test
@@ -197,6 +197,24 @@ class PostParserSampleTest {
             assertThat(combined.get(1))
                     .usingRecursiveComparison().ignoringFields("ticketUrl")
                     .isEqualTo(only("15.txt"));
+        }
+
+        @Test
+        @DisplayName("17.txt 前置きの 📍 を会場にしない。ブロックの開始行より前は捨てる")
+        void sample17() throws IOException {
+            List<ParsedAppearance> list = extract("17.txt");
+            assertThat(list).hasSize(2);
+            assertThat(list).extracting(ParsedAppearance::venueName)
+                    .as("前置きの「📍大阪・Music Club JANUSと」を拾うと末尾に「と」が残る")
+                    .containsExactly("大阪・Music Club JANUS", "大阪・心斎橋SUNHALL");
+            assertThat(list).extracting(ParsedAppearance::performanceStartTime)
+                    .containsExactly(LocalTime.of(13, 20), LocalTime.of(19, 50));
+            assertThat(list).extracting(ParsedAppearance::eventName)
+                    .containsExactly("I to U $CREAMing!! 8周年記念 大阪主催「symmetric」",
+                            "こぐまカリー主催「Mash UP!」");
+            assertThat(list).extracting(ParsedAppearance::ticketUrl)
+                    .containsExactly("http://eplus.jp/ayusuku_8th",
+                            "https://ticketdive.com/event/kc2026080809");
         }
 
         @Test
