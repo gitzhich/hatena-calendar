@@ -46,6 +46,17 @@ public class PostParser {
     private static final Pattern CAMERA =
             Pattern.compile("📸" + SP + "(\\d{1,2}):(\\d{2})-(\\d{1,2}):(\\d{2})");
 
+    /**
+     * 第 5.3 節。ヘッダとタイムテーブルの境界。
+     *
+     * <p><b>マーカーが落ちた告知がある。</b>実サンプル 19.txt は
+     * {@code OPEN 19:00 / START 19:30} と ⏰ が付いていない。
+     * ⏰ だけを見ると探索範囲が ▪️ まで広がり、販売期間の日付が
+     * 公演日の候補に混ざる。
+     */
+    private static final Pattern OPEN =
+            Pattern.compile("OPEN" + SP + "\\d{1,2}:\\d{2}");
+
     /** 第 5.8 節。🔗 マーカーの付いた URL のみを対象にする。 */
     private static final Pattern TICKET =
             Pattern.compile("🔗" + SP + "(https?://\\S+)");
@@ -205,10 +216,15 @@ public class PostParser {
     // 第 5.3 節：探索範囲と日付
     // ------------------------------------------------------------------
 
-    /** 先頭 〜 ⏰ で始まる最初の行の直前／なければ ▪️ を含む最初の行の直前／なければ全体。 */
+    /**
+     * 先頭 〜 開演時刻の行の直前／なければ ▪️ を含む最初の行の直前／なければ全体。
+     *
+     * <p>開演時刻の行は ⏰ で始まるのが通常だが、マーカーが落ちた告知があるため
+     * {@code OPEN hh:mm} でも境界とみなす（第 5.3 節）。
+     */
     private static int headerEnd(List<String> lines) {
         for (int i = 0; i < lines.size(); i++) {
-            if (lines.get(i).startsWith(CLOCK)) {
+            if (lines.get(i).startsWith(CLOCK) || OPEN.matcher(lines.get(i)).find()) {
                 return i;
             }
         }
