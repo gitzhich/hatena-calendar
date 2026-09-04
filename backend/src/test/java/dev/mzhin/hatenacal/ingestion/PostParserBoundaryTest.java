@@ -271,6 +271,65 @@ class PostParserBoundaryTest {
     }
 
     @Nested
+    @DisplayName("1 投稿に複数イベント（第 5.10 節 パターン C）")
+    class MultipleEvents {
+
+        /** ブロックを 1 つ組み立てる。日付と 📍 が同じ行にあるので境界になる。 */
+        private static String block(String date, String venue, String event, String mic) {
+            return """
+                    %s📍%s
+                    『%s』
+
+                    ⏰OPEN 10:00 / START 10:15
+                    🔗https://example.com/%s
+
+                    ▪️タイムテーブル
+                    %s
+                    """.formatted(date, venue, event, event, mic);
+        }
+
+        @Test
+        @DisplayName("後のブロックが先に書かれていても、出演開始時刻の昇順で返る")
+        void blocksAreSortedAcrossBlocks() {
+            String body = "🔸明日のXINXIN公演🔸\n\n／\n2公演に出演‼️\n＼\n\n"
+                    + block("8/25(火)", "愛知・夜会場", "夜イベント", "🎤19:50-20:15 XINXIN出演")
+                    + "\nーーーーーーーーーーーーーーー\n\n"
+                    + block("8/25(火)", "愛知・昼会場", "昼イベント", "🎤13:20-13:45 XINXIN出演");
+
+            ParseResult r = parser.parse(body, posted(2026, 8, 1));
+            assertThat(r).isInstanceOf(ParseResult.Extracted.class);
+            List<ParsedAppearance> list = ((ParseResult.Extracted) r).appearances();
+
+            assertThat(list).extracting(ParsedAppearance::performanceStartTime)
+                    .as("ブロックをまたいでも並べ替える。順序が非決定にならない")
+                    .containsExactly(LocalTime.of(13, 20), LocalTime.of(19, 50));
+            assertThat(list).extracting(ParsedAppearance::eventName)
+                    .containsExactly("『昼イベント』", "『夜イベント』");
+            assertThat(list).extracting(ParsedAppearance::venueName)
+                    .as("ブロックをまたいで会場を連結しない")
+                    .containsExactly("愛知・昼会場", "愛知・夜会場");
+            assertThat(list).extracting(ParsedAppearance::ticketUrl)
+                    .as("チケット URL もブロックの中だけから取る")
+                    .containsExactly("https://example.com/昼イベント",
+                            "https://example.com/夜イベント");
+        }
+
+        @Test
+        @DisplayName("1 ブロックでも成立しなければ、投稿ごと Unparsed にする")
+        void oneFailingBlockDropsThePost() {
+            String body = "🔸明日のXINXIN公演🔸\n\n"
+                    + block("8/25(火)", "愛知・昼会場", "昼イベント", "🎤13:20-13:45 XINXIN出演")
+                    + "\nーーーーーーーーーーーーーーー\n\n"
+                    + block("8/25(火)", "愛知・夜会場", "夜イベント", "🎤19:50-20:15 別グループ出演");
+
+            assertThat(reason(body, posted(2026, 8, 1)))
+                    .as("取れたブロックだけ登録すると、投稿が REGISTERED になり"
+                            + "未処理一覧に現れない（第 5.10 節 判定の単位は投稿）")
+                    .contains("🎤");
+        }
+    }
+
+    @Nested
     @DisplayName("物販時刻（第 5.7 節）")
     class Merch {
 
