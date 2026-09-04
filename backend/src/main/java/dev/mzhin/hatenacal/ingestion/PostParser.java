@@ -78,7 +78,10 @@ public class PostParser {
         }
         List<ParsedAppearance> merged = new ArrayList<>();
         for (int i = 0; i < starts.size(); i++) {
-            int from = i == 0 ? 0 : starts.get(i);
+            // 最初のブロックも境界行から始める。前置きは捨てる。
+            // まとめ告知は冒頭で両方の会場を並べることがあり（実サンプル 17.txt）、
+            // そこに 📍 が付くとヘッダ会場に採られる（「📍大阪・Music Club JANUSと」）
+            int from = starts.get(i);
             int to = i + 1 < starts.size() ? starts.get(i + 1) : lines.size();
             ParseResult block = parseBlock(lines.subList(from, to), postedAt);
             if (block instanceof ParseResult.Unparsed unparsed) {
