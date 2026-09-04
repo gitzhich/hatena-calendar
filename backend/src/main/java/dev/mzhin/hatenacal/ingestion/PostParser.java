@@ -53,7 +53,9 @@ public class PostParser {
     private static final String PIN = "📍";      // 📍
     private static final String MIC_MARKER = "🎤";     // 🎤
     private static final String SECTION = "▪️";  // ▪️
-    private static final char[] BRACKETS = {'『', '』', '「', '」', '｢', '｣'};
+    /** 対応する開き括弧と閉じ括弧。実データは 3 種類が混在する（第 5.5 節）。 */
+    private static final char[] OPEN_BRACKETS = {'『', '「', '｢'};
+    private static final char[] CLOSE_BRACKETS = {'』', '」', '｣'};
 
     private static final DayOfWeek[] JP_WEEKDAYS = {
         DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY,
@@ -351,14 +353,57 @@ public class PostParser {
      */
     private static String eventNameIn(List<String> header, int venueLine) {
         for (int i = venueLine + 1; i < header.size(); i++) {
-            String line = header.get(i);
-            for (char b : BRACKETS) {
-                if (line.indexOf(b) >= 0) {
-                    return line.trim();
-                }
+            int kind = openBracketKind(header.get(i));
+            if (kind >= 0) {
+                return bracketedName(header, i, kind);
             }
         }
         return joinedEventName(header, venueLine);
+    }
+
+    /** 行に最初に現れる開き括弧の種類。無ければ -1。 */
+    private static int openBracketKind(String line) {
+        int found = -1;
+        int at = Integer.MAX_VALUE;
+        for (int k = 0; k < OPEN_BRACKETS.length; k++) {
+            int i = line.indexOf(OPEN_BRACKETS[k]);
+            if (i >= 0 && i < at) {
+                at = i;
+                found = k;
+            }
+        }
+        return found;
+    }
+
+    /**
+     * 開き括弧の行から始まるイベント名。
+     *
+     * <p><b>同じ行で閉じていなければ、閉じるまで後続行を連結する。</b>
+     * 開き括弧の行だけを採ると {@code 『テストイベント} のように
+     * <b>閉じ括弧の無い値</b>ができ、そのまま公開される。
+     *
+     * <p>空行までに閉じなければ {@code null} を返し、投稿ごと Unparsed にする。
+     * 壊れた名前を登録するより取りこぼす（第 5.10 節と同じ判断）。
+     */
+    private static String bracketedName(List<String> header, int line, int kind) {
+        char open = OPEN_BRACKETS[kind];
+        char close = CLOSE_BRACKETS[kind];
+        String first = header.get(line);
+        if (first.indexOf(close, first.indexOf(open) + 1) >= 0) {
+            return first.trim();
+        }
+        StringBuilder joined = new StringBuilder(first.trim());
+        for (int i = line + 1; i < header.size(); i++) {
+            String next = header.get(i).trim();
+            if (next.isEmpty()) {
+                return null;
+            }
+            joined.append(' ').append(next);
+            if (next.indexOf(close) >= 0) {
+                return joined.toString();
+            }
+        }
+        return null;
     }
 
     /**

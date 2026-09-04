@@ -270,6 +270,67 @@ class PostParserBoundaryTest {
     }
 
     @Nested
+    @DisplayName("イベント名（第 5.5 節）")
+    class EventName {
+
+        /** 会場行の次にタイトルを置いた告知。⏰ 行までがヘッダになる。 */
+        private static String withTitle(String titleLines) {
+            return """
+                    🔸XINXIN公演情報解禁🔸
+
+                    9/16(水)📍愛知・テスト会場
+                    %s
+
+                    ⏰OPEN 17:00 / START 17:30
+
+                    ▪️タイムテーブル
+                    🎤19:50-20:15 XINXIN出演
+                    """.formatted(titleLines);
+        }
+
+        @Test
+        @DisplayName("括弧が 2 行にまたがるなら、閉じるまで連結する")
+        void bracketSpanningTwoLinesIsJoined() {
+            assertThat(only(withTitle("『テストイベント\n第2章』"), posted(2026, 8, 1))
+                    .eventName())
+                    .as("開き括弧の行だけを採ると『テストイベント と閉じ括弧の無い値になる")
+                    .isEqualTo("『テストイベント 第2章』");
+        }
+
+        @Test
+        @DisplayName("閉じた後ろに副題が続く場合も、その行まで含める")
+        void textAfterClosingBracketOnTheSameLineIsKept() {
+            assertThat(only(withTitle("『テスト\nイベント』-DAY1-"), posted(2026, 8, 1))
+                    .eventName())
+                    .isEqualTo("『テスト イベント』-DAY1-");
+        }
+
+        @Test
+        @DisplayName("空行までに閉じなければ Unparsed。壊れた名前を登録しない")
+        void unclosedBracketIsUnparsed() {
+            assertThat(reason(withTitle("『テストイベント"), posted(2026, 8, 1)))
+                    .contains("イベント名");
+        }
+
+        @Test
+        @DisplayName("同じ行で閉じていれば、次の行は連結しない")
+        void closedBracketDoesNotSwallowTheNextLine() {
+            assertThat(only(withTitle("『テストイベント』\n-DAY1-"), posted(2026, 8, 1))
+                    .eventName())
+                    .as("括弧の後ろの行はタイトルの一部とは限らない（第 5.5 節）")
+                    .isEqualTo("『テストイベント』");
+        }
+
+        @Test
+        @DisplayName("括弧が無ければ空行までを連結する（実サンプル 20.txt）")
+        void linesWithoutBracketsAreJoined() {
+            assertThat(only(withTitle("テストイベント\n第2章"), posted(2026, 8, 1))
+                    .eventName())
+                    .isEqualTo("テストイベント 第2章");
+        }
+    }
+
+    @Nested
     @DisplayName("複数枠（第 5.10 節）")
     class MultipleSlots {
 
