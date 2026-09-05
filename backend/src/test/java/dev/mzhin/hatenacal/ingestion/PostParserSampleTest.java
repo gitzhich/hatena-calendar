@@ -156,6 +156,9 @@ class PostParserSampleTest {
             assertThat(a.performanceEndTime()).isEqualTo(LocalTime.of(14, 0));
             assertThat(a.merchStartTime()).isEqualTo(LocalTime.of(15, 50));
             assertThat(a.merchEndTime()).isEqualTo(LocalTime.of(17, 10));
+            assertThat(a.ticketUrl())
+                    .as("実 API の本文は t.co の短縮 URL を含む")
+                    .isEqualTo("https://t.co/NGGpRDBOgq");
         }
 
         @Test
@@ -167,6 +170,7 @@ class PostParserSampleTest {
             assertThat(a.eventName()).isEqualTo("「SELENE SUMMER FES」-DAY1-");
             assertThat(a.performanceStartTime()).isEqualTo(LocalTime.of(19, 35));
             assertThat(a.merchStartTime()).isEqualTo(LocalTime.of(20, 30));
+            assertThat(a.ticketUrl()).isEqualTo("https://t.co/TQRJrHN9Dj");
         }
 
         @Test
@@ -188,6 +192,10 @@ class PostParserSampleTest {
             assertThat(second.eventName()).isEqualTo("「SELENE SUMMER FES」-DAY1-");
             assertThat(second.performanceStartTime()).isEqualTo(LocalTime.of(19, 35));
             assertThat(second.merchStartTime()).isEqualTo(LocalTime.of(20, 30));
+
+            assertThat(list).extracting(ParsedAppearance::ticketUrl)
+                    .as("チケット URL もブロックの中だけから取る")
+                    .containsExactly("https://t.co/NGGpRDBOgq", "https://t.co/TQRJrHN9Dj");
         }
 
         @Test
@@ -202,6 +210,11 @@ class PostParserSampleTest {
         @DisplayName("16.txt は 14.txt / 15.txt と同じ 2 件を指す。まとめ告知でも結果が変わらない")
         void sample16MatchesIndividualPosts() throws IOException {
             List<ParsedAppearance> combined = extract("16.txt");
+            /*
+             * ticketUrl は比較から外す。t.co の短縮 URL は投稿ごとに振られるため、
+             * 同じ公演でも個別告知とまとめ告知で別の値になりうる。
+             * 実害は無い（先に登録された行の値が空欄補完で保たれる）。
+             */
             assertThat(combined.get(0))
                     .usingRecursiveComparison().ignoringFields("ticketUrl")
                     .isEqualTo(only("14.txt"));
