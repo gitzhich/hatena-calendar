@@ -17,7 +17,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * 実サンプル 20 件に対する抽出テスト。期待値は
+ * 実サンプル 23 件に対する抽出テスト。期待値は
  * docs/x-integration.md 第 5.11 節。
  *
  * <p>サンプルは docs/x-post-sample/ の写しを test/resources に置いている。
@@ -63,7 +63,7 @@ class PostParserSampleTest {
     }
 
     @Nested
-    @DisplayName("抽出する 13 件")
+    @DisplayName("抽出する 16 件")
     class Extracted {
 
         @Test
@@ -297,6 +297,47 @@ class PostParserSampleTest {
             assertThat(a.ticketUrl()).isEqualTo(
                     "https://ticketdive.com/event/RADiD-LIVE-NOZangyoDAY-0819");
         }
+
+        @Test
+        @DisplayName("1.txt タイムテーブル未確定。会場が羅列なので空欄で登録する")
+        void sample1() throws IOException {
+            ParsedAppearance a = only("1.txt");
+            assertThat(a.appearanceDate()).isEqualTo(LocalDate.of(2026, 9, 15));
+            assertThat(a.eventName()).isEqualTo("#ﾆｷﾌﾟﾚ『カンシャサイ。-秋-』");
+            assertThat(a.venueName())
+                    .as("7 会場が / で並ぶ。どこに出るかはタイムテーブルまで決まらない")
+                    .isNull();
+            assertThat(a.performanceStartTime()).isNull();
+            assertThat(a.performanceEndTime()).isNull();
+            assertThat(a.merchStartTime()).isNull();
+            assertThat(a.merchEndTime()).isNull();
+            assertThat(a.ticketUrl()).isEqualTo("https://t-dv.com/20260915_nikipre");
+        }
+
+        @Test
+        @DisplayName("21.txt タイムテーブル未確定。単一会場はそのまま入れる")
+        void sample21() throws IOException {
+            ParsedAppearance a = only("21.txt");
+            assertThat(a.appearanceDate()).isEqualTo(LocalDate.of(2026, 9, 26));
+            assertThat(a.eventName())
+                    .isEqualTo("「アイドル甲子園 in 品川インターシティホール」supported by My-th");
+            assertThat(a.venueName()).isEqualTo("東京・品川インターシティホール");
+            assertThat(a.performanceStartTime()).isNull();
+            assertThat(a.ticketUrl())
+                    .as("🔗 の後にスペースがある。🎫 は 📝 に化けているが判定に使わない")
+                    .isEqualTo("https://user.my-th.jp/tickets/event/aikou_0926");
+        }
+
+        @Test
+        @DisplayName("22.txt 会場が & で並ぶ羅列。/ 以外の区切りでも会場を確定しない")
+        void sample22() throws IOException {
+            ParsedAppearance a = only("22.txt");
+            assertThat(a.appearanceDate()).isEqualTo(LocalDate.of(2026, 9, 19));
+            assertThat(a.eventName()).isEqualTo("『手羽先セッション vol.19』");
+            assertThat(a.venueName()).isNull();
+            assertThat(a.performanceStartTime()).isNull();
+            assertThat(a.ticketUrl()).isEqualTo("https://t-dv.com/tebasession_19");
+        }
     }
 
     @Nested
@@ -304,8 +345,8 @@ class PostParserSampleTest {
     class NotExtracted {
 
         @ParameterizedTest(name = "{0}")
-        @ValueSource(strings = {"1.txt", "7.txt", "8.txt", "9.txt", "10.txt", "11.txt",
-                "13.txt"})
+        @ValueSource(strings = {"7.txt", "8.txt", "9.txt", "10.txt", "11.txt",
+                "13.txt", "23.txt"})
         @DisplayName("対象外の投稿型は Unparsed になる")
         void unparsed(String name) throws IOException {
             assertThat(parser.parse(sample(name), POSTED))
@@ -313,19 +354,29 @@ class PostParserSampleTest {
         }
 
         @Test
-        @DisplayName("1.txt 出演時刻が未確定の情報解禁。将来対応（第 11.1 節）")
-        void sample1() throws IOException {
-            ParseResult r = parser.parse(sample("1.txt"), POSTED);
-            assertThat(((ParseResult.Unparsed) r).reason()).contains("🎤");
-        }
-
-        @Test
         @DisplayName("7.txt 次回予告つきのお礼投稿。緩い条件なら通ってしまう投稿")
         void sample7() throws IOException {
             String body = sample("7.txt");
             assertThat(body).contains("XINXIN", "📍", "8/26(水)");
+            assertThat(body)
+                    .as("チケット URL が無い。これから行われる公演の告知との違い")
+                    .doesNotContain("🔗");
             assertThat(parser.parse(body, POSTED))
                     .isInstanceOf(ParseResult.Unparsed.class);
+        }
+
+        @Test
+        @DisplayName("23.txt 出演日程解禁。📍 の行に日付が無く、販売期間の日付を拾ってしまう")
+        void sample23() throws IOException {
+            String body = sample("23.txt");
+            assertThat(body)
+                    .as("公演日は 2 日。どちらに出るかはタイムテーブルまで決まらない")
+                    .contains("8/25(火) & 8/26(水)");
+            assertThat(body)
+                    .as("販売期間の 8/9(日) は曜日が正しく、曜日検証では落とせない")
+                    .contains("8/9(日)");
+            ParseResult r = parser.parse(body, POSTED);
+            assertThat(((ParseResult.Unparsed) r).reason()).contains("📍 の行から公演日");
         }
 
         @Test

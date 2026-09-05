@@ -127,6 +127,19 @@ class IngestionServiceIT {
         return announcement("テスト会場", timetable);
     }
 
+    /** タイムテーブルがまだ無い告知（出演決定ポスト。ADR-0021）。 */
+    private static String scheduleOnly(String venue) {
+        return """
+                🔸XINXIN愛知公演情報解禁🔸
+
+                9/16(水)📍愛知・%s
+                『テストイベント』
+
+                ⏰OPEN 17:00 / START 17:30
+                🔗https://example.com/ticket
+                """.formatted(venue);
+    }
+
     private static SourcePost post(long id, String body, OffsetDateTime postedAt) {
         return new SourcePost(id, body, null, postedAt);
     }
@@ -281,6 +294,52 @@ class IngestionServiceIT {
         assertThat(column("SELECT source_url FROM appearance"))
                 .as("補完した告知が出典になる（第 7.1 節）")
                 .isEqualTo("https://x.com/xinxin_official/status/2100");
+    }
+
+    @Test
+    @DisplayName("出演決定の告知が行を作り、後続のタイムテーブルが同じ行を埋める（ADR-0021）")
+    void scheduleAnnouncementIsFilledByLaterTimetable() {
+        client.responses.add(page(null,
+                post(2100, announcement("本当の会場", "🎤19:50-20:15 XINXIN出演"),
+                        at(2026, 9, 2)),
+                post(2099, scheduleOnly("会場A / 会場B"), at(2026, 9, 1))));
+
+        service.run();
+
+        assertThat(count("appearance"))
+                .as("同じ公演を指すので行は 1 つ")
+                .isEqualTo(1);
+        assertThat(column("SELECT performance_start_time FROM appearance"))
+                .as("タイムテーブル解禁が時刻を埋める")
+                .hasToString("19:50");
+        assertThat(column("SELECT venue_name FROM appearance"))
+                .as("出演決定の時点で会場の羅列を入れていないため、実際の会場が入る")
+                .isEqualTo("愛知・本当の会場");
+        assertThat(column("SELECT source_url FROM appearance"))
+                .isEqualTo("https://x.com/xinxin_official/status/2100");
+    }
+
+    @Test
+    @DisplayName("時刻付きの行がある公演に出演決定の告知が届いても行を増やさない（ADR-0021）")
+    void scheduleAnnouncementDoesNotDuplicateTimedRow() {
+        /*
+         * 一意キーは (日付, event_key, 開始時刻) なので、時刻ありの行があっても
+         * 時刻なしの行は制約に触れずに作れてしまう。カレンダーに同じ公演が
+         * 2 行並ぶため、アプリ側で止める。
+         */
+        client.responses.add(page(null,
+                post(2100, scheduleOnly("会場A / 会場B"), at(2026, 9, 2)),
+                post(2099, announcement("本当の会場", "🎤19:50-20:15 XINXIN出演"),
+                        at(2026, 9, 1))));
+
+        service.run();
+
+        assertThat(count("appearance")).isEqualTo(1);
+        assertThat(column("SELECT performance_start_time FROM appearance"))
+                .hasToString("19:50");
+        assertThat(column("SELECT source_url FROM appearance"))
+                .as("何も埋まらないので出典も動かさない（第 7.1 節）")
+                .isEqualTo("https://x.com/xinxin_official/status/2099");
     }
 
     @Test

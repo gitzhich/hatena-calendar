@@ -267,6 +267,28 @@ class PostParserBoundaryTest {
                             + "他グループ名「いつかのネバーランド」を採ってしまう")
                     .isEqualTo("括弧のないイベント名");
         }
+
+        @Test
+        @DisplayName("ブロックが 1 つでも、前置きの 📍 を会場にしない")
+        void preambleVenueIsIgnoredWithSingleBlock() {
+            String body = """
+                    🔸明日のXINXIN公演🔸
+
+                    📍愛知・前置き会場と📍愛知・別会場の2ステージ
+
+                    9/16(水)📍愛知・本当の会場
+                    『テストイベント』
+
+                    ⏰OPEN 17:00 / START 17:30
+                    🔗https://example.com/ticket
+
+                    ▪️タイムテーブル
+                    🎤19:50-20:15 XINXIN出演
+                    """;
+            assertThat(only(body, posted(2026, 8, 1)).venueName())
+                    .as("解析はブロックの開始行から始める。ブロック数で規則を変えない")
+                    .isEqualTo("愛知・本当の会場");
+        }
     }
 
     @Nested
@@ -611,6 +633,153 @@ class PostParserBoundaryTest {
             assertThat(only(body, posted(2026, 9, 1)).ticketUrl())
                     .as("改行をまたいで許すと、別の節にある URL を拾いうる")
                     .isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("タイムテーブル未確定の告知（第 5.2 節 経路 B / ADR-0021）")
+    class TimetableUnknown {
+
+        /** 出演決定の告知。🎤 行を持たない。 */
+        private String announcement(String venue, String eventName, String ticketLine) {
+            return """
+                    🔸XINXIN公演情報解禁🔸
+
+                    9/15(火)📍%s
+                    %s
+
+                    ⏰OPEN 17:00 / START 17:30
+                    %s
+
+                    【出演者(敬称略)】
+                    テストアクト / XINXIN
+                    """.formatted(venue, eventName, ticketLine);
+        }
+
+        @Test
+        @DisplayName("日付・会場・イベント名・チケットが揃えば、時刻なしで登録する")
+        void extractsWithoutTimes() {
+            ParsedAppearance a = only(announcement("愛知・テスト会場", "『テストイベント』",
+                    "🔗https://example.com/ticket"), posted(2026, 8, 1));
+            assertThat(a.appearanceDate()).isEqualTo(LocalDate.of(2026, 9, 15));
+            assertThat(a.eventName()).isEqualTo("『テストイベント』");
+            assertThat(a.venueName()).isEqualTo("愛知・テスト会場");
+            assertThat(a.performanceStartTime()).isNull();
+            assertThat(a.performanceEndTime()).isNull();
+            assertThat(a.merchStartTime()).isNull();
+            assertThat(a.merchEndTime()).isNull();
+            assertThat(a.ticketUrl()).isEqualTo("https://example.com/ticket");
+        }
+
+        @Test
+        @DisplayName("チケット URL が無ければ Unparsed。お礼投稿を弾く根拠")
+        void withoutTicketUrlIsUnparsed() {
+            String body = announcement("愛知・テスト会場", "『テストイベント』",
+                    "🎫前売¥3,000 / 当日¥3,500");
+            assertThat(reason(body, posted(2026, 8, 1)))
+                    .as("これから行われる公演の告知にはチケット情報が付く")
+                    .contains("チケット URL");
+        }
+
+        @Test
+        @DisplayName("イベント名が括弧付きでなければ Unparsed。連結にフォールバックしない")
+        void withoutBracketsIsUnparsed() {
+            String body = announcement("愛知・テスト会場", "テストイベント",
+                    "🔗https://example.com/ticket");
+            assertThat(reason(body, posted(2026, 8, 1)))
+                    .as("連結を許すと event_key が後続の告知と一致せず、重複行になる")
+                    .contains("括弧");
+        }
+
+        @Test
+        @DisplayName("📍 の行に日付が無ければ Unparsed。探索範囲の日付で代用しない")
+        void dateOutsidePinLineIsNotUsed() {
+            String body = """
+                    🔸XINXIN公演出演日程解禁🔸
+
+                    9/15(火)
+                    📍愛知・テスト会場
+                    『テストイベント』
+
+                    🔗https://example.com/ticket
+                    """;
+            assertThat(reason(body, posted(2026, 8, 1)))
+                    .as("🎤 が無い投稿は探索範囲が本文末尾まで広がり、"
+                            + "販売期間の日付まで候補にしてしまう")
+                    .contains("📍 の行から公演日");
+        }
+
+        @Test
+        @DisplayName("📍 の行に日付が 2 つあれば Unparsed。どちらに出るか決まらない")
+        void twoDatesOnPinLineIsUnparsed() {
+            String body = announcement("愛知・テスト会場", "『テストイベント』",
+                    "🔗https://example.com/ticket")
+                    .replace("9/15(火)📍", "9/15(火) & 9/16(水)📍");
+            assertThat(reason(body, posted(2026, 8, 1))).contains("📍 の行から公演日");
+        }
+
+        @Test
+        @DisplayName("会場が / で並ぶなら空欄。タイムテーブルが実際の会場を埋める")
+        void slashSeparatedVenueIsLeftBlank() {
+            ParsedAppearance a = only(announcement("東京・会場A/会場B/会場C",
+                    "『テストイベント』", "🔗https://example.com/ticket"),
+                    posted(2026, 8, 1));
+            assertThat(a.venueName())
+                    .as("羅列を入れると、値のある列は空欄補完で上書きされず残り続ける")
+                    .isNull();
+        }
+
+        @Test
+        @DisplayName("会場が & で並ぶなら空欄。区切りは / だけではない")
+        void ampersandSeparatedVenueIsLeftBlank() {
+            ParsedAppearance a = only(announcement("愛知・会場A & 会場B",
+                    "『テストイベント』", "🔗https://example.com/ticket"),
+                    posted(2026, 8, 1));
+            assertThat(a.venueName()).isNull();
+        }
+
+        @Test
+        @DisplayName("他グループの 🎤 行があるなら登録しない。タイムテーブルは公開済み")
+        void timetablePublishedWithoutXinxinIsUnparsed() {
+            String body = """
+                    🔸XINXIN公演情報解禁🔸
+
+                    9/15(火)📍愛知・テスト会場
+                    『テストイベント』
+
+                    🔗https://example.com/ticket
+
+                    ▪️タイムテーブル
+                    🎤19:50-20:15 別グループ出演
+                    """;
+            assertThat(reason(body, posted(2026, 8, 1)))
+                    .as("「まだタイムテーブルが出ていない」と「出たが XINXIN が"
+                            + "載っていない」は別の状態。後者を時刻なしで登録しない")
+                    .contains("🎤");
+        }
+
+        @Test
+        @DisplayName("時刻なしの枠を先に返す。時刻ありが先だと別の行が作られる")
+        void timelessSlotComesFirst() {
+            String body = """
+                    🔸XINXIN東京公演🔸
+
+                    ☀️9/15(火)📍東京・会場A
+                    『イベントA』
+                    🔗https://example.com/a
+                    ▪️タイムテーブル
+                    🎤16:45-17:05 XINXIN出演
+
+                    🌙9/15(火)📍東京・会場B
+                    『イベントB』
+                    🔗https://example.com/b
+                    """;
+            ParseResult r = parser.parse(body, posted(2026, 8, 1));
+            assertThat(r).isInstanceOf(ParseResult.Extracted.class);
+            assertThat(((ParseResult.Extracted) r).appearances())
+                    .extracting(ParsedAppearance::eventName)
+                    .as("時刻なしを先に登録すれば、後続の時刻ありがその行を埋める")
+                    .containsExactly("『イベントB』", "『イベントA』");
         }
     }
 

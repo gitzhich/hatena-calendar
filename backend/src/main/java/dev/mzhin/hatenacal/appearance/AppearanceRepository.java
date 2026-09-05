@@ -55,4 +55,13 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
     Optional<Appearance> findByAppearanceDateAndEventKeyAndPerformanceStartTimeIsNull(
             LocalDate appearanceDate, String eventKey);
 
+    /**
+     * その日・そのイベントの行が 1 つでもあるか（開始時刻は問わない）。
+     *
+     * <p>時刻なしの取り込みが重複行を作らないための判定に使う
+     * （docs/data-model.md 第 7.1 節）。一意キーは開始時刻を含むため、
+     * 時刻ありの行があっても時刻なしの行は制約に触れずに作れてしまう。
+     */
+    boolean existsByAppearanceDateAndEventKey(LocalDate appearanceDate, String eventKey);
+
 }
