@@ -8,7 +8,7 @@ import java.time.LocalTime;
  *
  * <p>event_key はここでは作らない。生成は AppearanceService の単一メソッドに
  * 集約し、自動登録・手動登録・編集のすべてがそこを通る
- * （docs/architecture.md 第 4.2 節 / ADR-0006）。
+ * （docs/architecture.md「設計上の原則」 / ADR-0006）。
  *
  * <p>日付と時刻は<b>JST のローカル値</b>。深夜公演の繰り上げは
  * 抽出の時点で済ませてある（ADR-0011）。

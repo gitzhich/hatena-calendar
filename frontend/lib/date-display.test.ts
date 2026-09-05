@@ -4,7 +4,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { formatJst } from "./last-updated.ts";
 
 /**
- * 日時の表示方法（NFR-05 / docs/data-model.md 第 6 章）。
+ * 日時の表示方法（NFR-05 / docs/data-model.md「タイムゾーンの扱い」）。
  *
  * **ソースを読んで確かめる。** 守りたいのは「実行環境のタイムゾーン設定と ICU データに
  * 依存する API で日時を出さない」という規約そのもので、振る舞いのテストでは捕まらない。

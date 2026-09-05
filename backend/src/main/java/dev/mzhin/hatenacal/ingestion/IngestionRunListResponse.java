@@ -4,7 +4,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
- * 取り込み履歴の応答（docs/api.md 第 5.7 節）。
+ * 取り込み履歴の応答（docs/api.md「取り込み履歴」）。
  *
  * <p>ページングの共通形（{@link dev.mzhin.hatenacal.common.PageResponse}）に
  * 集計と警告を足した形のため、record では継承できず同じ 4 つの列を持つ。

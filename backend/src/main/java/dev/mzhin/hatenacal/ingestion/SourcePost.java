@@ -19,7 +19,7 @@ public record SourcePost(long id, String text, String noteText, OffsetDateTime c
      *
      * <p>{@code text} は途中で切れ、末尾が {@code https://t.co/...} に置き換わる。
      * 実測では長文投稿の {@code text} が 233 字に対し {@code note_tweet} が 492 字で、
-     * 物販の行の途中で切れていた（docs/x-integration.md 第 3.3 節）。
+     * 物販の行の途中で切れていた（docs/x-integration.md「本文の取り出し」）。
      * {@code note_tweet} があれば必ずそちらを使う。
      */
     public String body() {

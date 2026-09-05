@@ -16,10 +16,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 管理 API（docs/api.md 第 5 章）。認証必須。
+ * 管理 API（docs/api.md「管理 API」）。認証必須。
  *
  * <p>公開用と管理用でコントローラを分ける。公開側に更新系メソッドが
- * 紛れ込まないようにするため（docs/architecture.md 第 4.2 節）。
+ * 紛れ込まないようにするため（docs/architecture.md「設計上の原則」）。
  */
 @RestController
 @RequestMapping("/api/admin/appearances")

@@ -30,7 +30,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * 取り込み履歴（docs/api.md 第 5.7 節、FR-42 / NFR-04 / NFR-09）。
+ * 取り込み履歴（docs/api.md「取り込み履歴」、FR-42 / NFR-04 / NFR-09）。
  *
  * <p>時計を固定する。当月の集計は「今がいつか」で答えが変わるため、
  * 実時刻のままだと月をまたいだ日にだけ落ちるテストになる。
@@ -212,7 +212,7 @@ class AdminIngestionRunApiIT {
     }
 
     @Test
-    @DisplayName("CANCELLED は連続失敗を切る。警告が消える（runbook 第 9 章）")
+    @DisplayName("CANCELLED は連続失敗を切る。警告が消える（runbook docs/runbook-x-api-setup.md「打ち切りから戻す」）")
     void cancelledRunBreaksTheFailureStreak() throws Exception {
         insertFailures(IngestionHaltRule.MAX_CONSECUTIVE_FAILURES);
         // 管理者が最新の失敗を確認済みにした状態（記録は消さない）
@@ -244,7 +244,7 @@ class AdminIngestionRunApiIT {
     }
 
     @Test
-    @DisplayName("日時は UTC で返す（docs/api.md 第 5.7 節）")
+    @DisplayName("日時は UTC で返す（docs/api.md「取り込み履歴」）")
     void timestampsAreUtc() throws Exception {
         insertRun("2026-09-10T01:00:00Z", "SUCCESS", 4, null);
 

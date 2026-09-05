@@ -23,7 +23,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/** 管理 API の契約（docs/api.md 第 5 章）。 */
+/** 管理 API の契約（docs/api.md「管理 API」）。 */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestPropertySource(properties = {
     "INTERNAL_API_KEY=public-key",
@@ -263,7 +263,7 @@ class AdminApiIT {
         }
 
         @Test
-        @DisplayName("壊れたボディは 400。500 にしない（docs/api.md 第 3.3 節）")
+        @DisplayName("壊れたボディは 400。500 にしない（docs/api.md「エラー」）")
         void malformedBodyIsBadRequest() throws Exception {
             assertThat(send("POST", PATH, ADMIN_KEY, "{ not json").statusCode())
                     .isEqualTo(400);
@@ -280,7 +280,7 @@ class AdminApiIT {
         }
 
         @Test
-        @DisplayName("パス変数の形式不正は 400（docs/api.md 第 3.3 節）")
+        @DisplayName("パス変数の形式不正は 400（docs/api.md「エラー」）")
         void malformedPathVariableIsBadRequest() throws Exception {
             assertThat(send("GET", PATH + "/abc", ADMIN_KEY, null).statusCode())
                     .isEqualTo(400);
@@ -288,7 +288,7 @@ class AdminApiIT {
     }
 
     @Nested
-    @DisplayName("ページング（docs/api.md 第 5.1 節）")
+    @DisplayName("ページング（docs/api.md「出演情報の一覧と個別取得（点検用）」）")
     class Paging {
 
         @Test

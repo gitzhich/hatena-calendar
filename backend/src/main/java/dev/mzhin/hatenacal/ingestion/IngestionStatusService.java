@@ -18,7 +18,7 @@ public class IngestionStatusService {
     /**
      * FR-08 の「24 時間」。
      *
-     * <p><b>閲覧者に見せる鮮度の基準はここ 1 か所に集約する</b>（docs/api.md 第 4.2 節）。
+     * <p><b>閲覧者に見せる鮮度の基準はここ 1 か所に集約する</b>（docs/api.md「データの状態」）。
      * フロントで再判定すると、サーバとフロントで基準がずれても誰も気づけない。
      */
     static final Duration STALE_THRESHOLD = Duration.ofHours(24);

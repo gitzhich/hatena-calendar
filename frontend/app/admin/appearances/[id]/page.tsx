@@ -35,7 +35,7 @@ export default async function EditAppearancePage({
         <input type="hidden" name="id" value={appearance.id} />
         {/*
           ingestedPostId は送らない。編集では変更できない導出値で、サーバが無視する
-          （docs/api.md 第 5.3 節）。送ると「変えられる」と読める
+          （docs/api.md「編集」）。送ると「変えられる」と読める
         */}
         <Field label="開催日" name="appearanceDate" type="date" required
                defaultValue={appearance.appearanceDate} />

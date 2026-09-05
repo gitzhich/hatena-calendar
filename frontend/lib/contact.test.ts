@@ -29,7 +29,7 @@ describe("問い合わせ窓口", () => {
   /**
    * **ソースを読んで確かめる。** アドレスを画面に直接書かれると、
    * 変更したときに片方だけ古いまま残る。実際に起きうる形なので規約を検査する
-   * （docs/coding-guidelines.md 第 11 章）。
+   * （docs/coding-guidelines.md「定数の置き場所」）。
    */
   describe("掲載側は定数を参照する", () => {
     const PAGES = ["components/Disclaimer.tsx", "app/unavailable/page.tsx"];

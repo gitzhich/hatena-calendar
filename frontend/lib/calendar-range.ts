@@ -12,7 +12,7 @@
  * ここが通した年月をバックエンドが 400 で弾く。
  *
  * 上限の起点は**現在の月**であってサービス開始月ではない。
- * 範囲は毎月 1 か月ずつ広がる（docs/security.md 第 4.2 節がこの月数を使う）。
+ * 範囲は毎月 1 か月ずつ広がる（docs/security.md「レート制限の構成と値」がこの月数を使う）。
  */
 export const SERVICE_START = { year: 2026, month: 1 } as const;
 export const MAX_FUTURE_MONTHS = 24;

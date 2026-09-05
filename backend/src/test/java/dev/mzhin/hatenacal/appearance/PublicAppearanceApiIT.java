@@ -24,7 +24,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * 公開 API の契約（docs/api.md 第 4.1 節）を通しで確かめる。
+ * 公開 API の契約（docs/api.md「期間内の出演情報一覧」）を通しで確かめる。
  *
  * <p>JDK の HttpClient を直に使う。フレームワークの変換を挟まず、
  * <b>ワイヤ上に実際に何が出るか</b>を検証するため。
@@ -116,7 +116,7 @@ class PublicAppearanceApiIT {
     }
 
     @Test
-    @DisplayName("日付と時刻にオフセットが付かない（docs/api.md 第 3.2 節）")
+    @DisplayName("日付と時刻にオフセットが付かない（docs/api.md「日付と時刻」）")
     void datesCarryNoOffset() throws Exception {
         assertThat(get(SEPT, KEY).statusCode()).isEqualTo(200);
         JsonNode item = first(SEPT);
@@ -173,7 +173,7 @@ class PublicAppearanceApiIT {
     }
 
     @Test
-    @DisplayName("必須パラメータの欠落は 400（docs/api.md 第 3.3 節）")
+    @DisplayName("必須パラメータの欠落は 400（docs/api.md「エラー」）")
     void missingParameterIsBadRequest() throws Exception {
         assertThat(get("/api/public/appearances?to=2026-09-30", KEY).statusCode())
                 .isEqualTo(400);
@@ -182,7 +182,7 @@ class PublicAppearanceApiIT {
     }
 
     @Test
-    @DisplayName("パラメータの形式不正は 400。500 にしない（docs/api.md 第 3.3 節）")
+    @DisplayName("パラメータの形式不正は 400。500 にしない（docs/api.md「エラー」）")
     void malformedParameterIsBadRequest() throws Exception {
         assertThat(get("/api/public/appearances?from=abc&to=2026-09-30", KEY).statusCode())
                 .isEqualTo(400);

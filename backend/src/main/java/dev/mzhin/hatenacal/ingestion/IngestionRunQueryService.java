@@ -10,13 +10,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 取り込み履歴の読み取り（docs/api.md 第 5.7 節、FR-42 / NFR-04 / NFR-09）。
+ * 取り込み履歴の読み取り（docs/api.md「取り込み履歴」、FR-42 / NFR-04 / NFR-09）。
  *
  * <p>管理者しか見られない情報を扱う。認可は {@code /api/admin/**} に対する
  * {@link dev.mzhin.hatenacal.config.SecurityConfig} のデフォルト拒否で担保しており、
  * このクラスは<b>更新系のメソッドを持たない</b>（読み取りのみ）。
  *
- * <p><b>この情報を公開 API に載せない</b>（NFR-03 / docs/api.md 第 4.2 節）。
+ * <p><b>この情報を公開 API に載せない</b>（NFR-03 / docs/api.md「データの状態」）。
  * 失敗理由・取得リソース数・実行中かどうかは運用の情報であり、
  * 閲覧者向けには最終成功日時だけを {@link IngestionStatusService} が返す。
  */

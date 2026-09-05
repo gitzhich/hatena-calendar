@@ -11,7 +11,7 @@ import {
 } from "./session.ts";
 
 /**
- * 管理者セッションの暗号処理（docs/architecture.md 第 3.2 節）。
+ * 管理者セッションの暗号処理（docs/architecture.md「管理者の認証フロー」）。
  *
  * ここが破れると管理者になりすませる（docs/security.md の資産表で「高」）。
  * 改ざん・期限切れ・鍵違いのすべてで拒否されることを確かめる。

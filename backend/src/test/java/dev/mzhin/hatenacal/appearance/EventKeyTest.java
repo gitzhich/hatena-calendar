@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-/** 期待値は docs/data-model.md 第 4.3.2 節の表。 */
+/** 期待値は docs/data-model.md「同一イベントの一意性と event_key」の表。 */
 class EventKeyTest {
 
     @ParameterizedTest(name = "{0} → {1}")
@@ -78,7 +78,7 @@ class EventKeyTest {
         "a b          | ab",
         "『A』「B」   | ab",
     })
-    @DisplayName("保持する文字集合（docs/data-model.md 第 4.3.2 節）")
+    @DisplayName("保持する文字集合（docs/data-model.md「同一イベントの一意性と event_key」）")
     void characterSet(String eventName, String expected) {
         /*
          * 集合を文書と実装の両方に書くと必ずずれる。ここで固定しておき、

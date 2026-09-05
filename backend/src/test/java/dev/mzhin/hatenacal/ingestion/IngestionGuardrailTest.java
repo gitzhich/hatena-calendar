@@ -12,7 +12,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * 課金の暴走を防ぐ規約の検査（docs/x-integration.md 第 9 章）。
+ * 課金の暴走を防ぐ規約の検査（docs/x-integration.md「テスト方針」）。
  *
  * <p><b>ここは振る舞いのテストではない。</b>「全件取り直しの経路が存在しない」
  * ことも「テストが実 API を叩かない」ことも、動かして確かめると
@@ -95,7 +95,7 @@ class IngestionGuardrailTest {
 
         assertThat(stripComments(source))
                 .as("無条件の UPDATE だと後退しうる。後退すると翌日に同じ投稿を"
-                        + "取り直して再課金する（docs/x-integration.md 第 2.2 節）")
+                        + "取り直して再課金する（docs/x-integration.md「取得位置を後退させない」）")
                 .contains("lastFetchedTweetId <")
                 .contains("lastFetchedTweetId IS NULL");
     }

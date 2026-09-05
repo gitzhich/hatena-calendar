@@ -71,15 +71,15 @@ flowchart TB
 
 ### 2.2 Neon を選んだ理由と制約
 
-- ストレージ 0.5GB / プロジェクト。本アプリの増加量は**年間約 4MB**（第 11 章）で余裕がある
+- ストレージ 0.5GB / プロジェクト。本アプリの増加量は**年間約 4MB**（本書「運用コストの試算」）で余裕がある
 - バックアップとバージョン管理が自動。個人運用で最も現実的な事故は
   「バックアップを設定し忘れたままのデータ消失」であり、これを避ける
 - **制約はコンピュート時間**。無料枠は 100 CU-hours/月で、5 分のアイドルで停止する。
   上限に達すると翌請求月まで**コンピュートが停止する**（自動課金はされない）
 
-この制約に対処するのが第 5 章のキャッシュ戦略。
+この制約に対処するのが本書「フロントエンド構成とキャッシュ戦略」のキャッシュ戦略。
 ただし**閲覧者が 0 でも取り込みジョブが枠を消費する**ため、
-キャッシュだけでは足りない。試算は第 11 章。
+キャッシュだけでは足りない。試算は本書「運用コストの試算」。
 
 ---
 
@@ -101,7 +101,7 @@ IP 制限が使えない。代わりに全リクエストへ内部 API キーを
 レンダリングで使われて露出機会が多く、1 種類だとそれが漏れただけで
 管理操作まで通ってしまう。Next.js は**管理者セッション Cookie の検証に成功した場合にのみ**
 管理キーを使い、公開ページのレンダリングでは読み込まない。
-加えて公開 API は `GET` のみを提供する（NFR-03）。詳細は [api.md](api.md) 第 2 章。
+加えて公開 API は `GET` のみを提供する（NFR-03）。詳細は [api.md](api.md)「認証」。
 
 ### 3.2 管理者の認証フロー
 
@@ -129,7 +129,7 @@ sequenceDiagram
 - **Cookie の `Path` を `/admin` に絞る。** 公開ページへ送らないことで、
   公開ページ側の CSP が `script-src` を緩めている代償を打ち消している
   （[ADR-0016](adr/0016-static-csp-public-nonce-admin.md)、
-  [security.md](security.md) 第 4.1 節）。`HttpOnly` は JS から値を読ませないだけで、
+  [security.md](security.md)「セキュリティヘッダの構成と検証」）。`HttpOnly` は JS から値を読ませないだけで、
   ブラウザが自動で送ることは止められない。
   **set と delete で同じ値を使う**こと。食い違うとログアウトで消えない
 - パスワードのハッシュは Spring Boot 側の環境変数に置く。
@@ -138,7 +138,7 @@ sequenceDiagram
 **制約: 発行済みセッションの即時失効ができない。** ログアウトは Cookie の削除で行うため、
 Cookie を事前に複製されていた場合は有効期限まで使える。
 単一管理者で被害範囲が限定されること、有効期限を 8 時間に絞ることで許容する。
-厳密な失効が必要になった場合は第 12 章を参照。
+厳密な失効が必要になった場合は本書「未決定事項」を参照。
 
 ---
 
@@ -178,14 +178,14 @@ backend/src/main/java/dev/mzhin/hatenacal/
   呼び出し箇所を 1 クラスに閉じ込めて監査しやすくする
 - **`event_key` の生成は `AppearanceService` の単一メソッドに集約する。**
   自動登録・手動登録・編集のすべてがそこを通る
-  （[data-model.md](data-model.md) 第 4.3.2 節）
+  （[data-model.md](data-model.md)「同一イベントの一意性と event_key」）
 - 公開用と管理用でコントローラを分ける。公開側に更新系メソッドを**書かない**
 
 ### 4.3 取り込みジョブ
 
-`@Scheduled` で 30 分間隔（[x-integration.md](x-integration.md) 第 10 章）。
+`@Scheduled` で 30 分間隔（[x-integration.md](x-integration.md)「運用と監視」）。
 
-- **多重起動を防ぐ。** 判定規則は [x-integration.md](x-integration.md) 第 10.1 節。
+- **多重起動を防ぐ。** 判定規則は [x-integration.md](x-integration.md)「多重起動の防止」。
   Fly.io のインスタンスを 1 台に固定し、単一インスタンス前提で運用する
 - 取り込みの失敗が公開 API に影響しない（NFR-02）。ジョブと Web は
   同一プロセスだが、例外はジョブ内で完結させる
@@ -198,13 +198,13 @@ backend/src/main/java/dev/mzhin/hatenacal/
 
 ```
 frontend/
-├── proxy.ts                          サイト全体の停止（第 5.4 節）と
+├── proxy.ts                          サイト全体の停止（本書「サイト全体の停止」）と
 │                                     管理画面への未認証アクセスの誘導
 ├── lib/                              セッション・API クライアント
 └── app/
     ├── page.tsx                      当月カレンダー
     ├── [year]/[month]/page.tsx       指定月（FR-05：URL に年月を反映）
-    ├── unavailable/page.tsx          停止中の案内（第 5.4 節）
+    ├── unavailable/page.tsx          停止中の案内（本書「サイト全体の停止」）
     ├── admin/
     │   ├── actions.ts                Server Action（管理操作の中継）
     │   ├── login/page.tsx
@@ -293,7 +293,7 @@ proxy.ts
 ```
 
 **バックエンドを止めるだけでは不十分。** 公開カレンダーは ISR でキャッシュされており
-（第 5.2 節）、Fly.io や Neon を停止してもキャッシュ済みのページは配信され続ける。
+（本書「キャッシュ戦略」）、Fly.io や Neon を停止してもキャッシュ済みのページは配信され続ける。
 `proxy.ts` は**キャッシュの手前**で全リクエストを受けるため、
 キャッシュ済みのページも確実に止められる。ここが方式選定の決め手になっている。
 
@@ -308,13 +308,13 @@ proxy.ts
 
 **レート制限は Next.js 側に置く。** Spring Boot から見た送信元は
 Vercel の egress IP であり、そこで IP 単位に絞ると攻撃者ではなく
-**全閲覧者がまとめて絞られる**。第 3.1 節で IP 許可リストを諦めたのと同じ理由。
+**全閲覧者がまとめて絞られる**。本書「経路ごとの保護」で IP 許可リストを諦めたのと同じ理由。
 
 - Next.js 側（`proxy.ts` または Server Action）なら実クライアントの IP が見える
 - Spring Boot 側のレート制限も残すが、目的が違う。こちらは
   「Vercel からの総量」を守る最後の防波堤で、発動すれば閲覧者全体に影響が出る
 - 具体値は **公開ページ 60 req/分（IP 単位）/ 公開 API 300 req/分（総量）**。
-  根拠と限界は [security.md](security.md) 第 4.2 節・第 4.3 節
+  根拠と限界は [security.md](security.md)「レート制限の構成と値」・[security.md](security.md)「レート制限で守れないもの」
 
 ---
 
@@ -334,7 +334,7 @@ Vercel の egress IP であり、そこで IP 単位に絞ると攻撃者では�
 
 ### 6.2 取り込み（FR-40〜43）
 
-詳細は [x-integration.md](x-integration.md) 第 2 章。
+詳細は [x-integration.md](x-integration.md)「取得フロー」。
 
 ### 6.3 管理者による訂正（FR-22）
 
@@ -344,8 +344,8 @@ Vercel の egress IP であり、そこで IP 単位に絞ると攻撃者では�
        revalidatePath("/", "layout") で公開ページを再検証
 ```
 
-Route Handler ではなく Server Action にした理由は第 5.3 節。
-第 2 引数が要る理由は第 5.2 節。
+Route Handler ではなく Server Action にした理由は本書「データ取得の方向」。
+第 2 引数が要る理由は本書「キャッシュ戦略」。
 
 ---
 
@@ -382,7 +382,7 @@ Route Handler ではなく Server Action にした理由は第 5.3 節。
 | `BACKEND_API_KEY` | 公開 API 用の内部キー |
 | `BACKEND_ADMIN_API_KEY` | 管理 API 用の内部キー。**Cookie 検証に成功したときだけ使う** |
 | `SESSION_SECRET` | セッション Cookie の署名・暗号化鍵 |
-| `SITE_DISABLED` | `true` でサイト全体を停止する（第 5.4 節。LR-05） |
+| `SITE_DISABLED` | `true` でサイト全体を停止する（本書「サイト全体の停止」。LR-05） |
 
 `NEXT_PUBLIC_` を付けるとブラウザに露出する。**上記のいずれにも付けない。**
 
@@ -390,7 +390,7 @@ Route Handler ではなく Server Action にした理由は第 5.3 節。
 
 | 変数 | 用途 | ローカルの既定値 |
 | --- | --- | --- |
-| `DATABASE_URL` | Neon の接続文字列。**認証情報を含む JDBC 形式**（第 7.2 節） | `compose.yaml` に合わせた値 |
+| `DATABASE_URL` | Neon の接続文字列。**認証情報を含む JDBC 形式**（本書「接続情報は `DATABASE_URL` 1 本で渡す」） | `compose.yaml` に合わせた値 |
 | `PORT` | 待ち受けポート | `8080` |
 | `X_BEARER_TOKEN` | X API の認証。**課金に直結する** | なし |
 | `X_SOURCE_USERNAME` | 情報源アカウントのハンドル | なし |
@@ -403,11 +403,11 @@ Route Handler ではなく Server Action にした理由は第 5.3 節。
 
 `X_SOURCE_USERNAME` は**どのアカウントを取り込むかの指定**であり、
 取り込み後のハンドルの正本は `source_account.username`
-（[data-model.md](data-model.md) 第 4.1 節）。投稿 URL の組み立てなど
+（[data-model.md](data-model.md)「source_account — 情報源アカウント」）。投稿 URL の組み立てなど
 既存データの表示には DB 側を使う。
 
 `spring.jpa.hibernate.ddl-auto` は `validate` に固定する
-（[data-model.md](data-model.md) 第 8 章）。
+（[data-model.md](data-model.md)「マイグレーション運用（Flyway）」）。
 
 ### 7.1 値の作り方
 
@@ -471,7 +471,7 @@ Flyway もデータソースを使うため、マイグレーション以前の�
 **pgjdbc は `user:password@host` の形を受け付けない。** 認証情報は
 `user=` / `password=` のクエリパラメータで渡す。Neon が配る
 `postgresql://user:pass@host/db` はそのままでは使えず、変換が要る
-（[runbook-deploy.md](runbook-deploy.md) 第 2.3 節）。
+（[runbook-deploy.md](runbook-deploy.md)「接続文字列を JDBC の形で取る」）。
 
 **テストも同じ経路にしてある。** `PostgresContainerListener` は認証情報を
 URL に埋めて渡す。テストだけ別の渡し方にすると、URL に埋めた認証情報が
@@ -503,7 +503,7 @@ URL に埋めて渡す。テストだけ別の渡し方にすると、URL に埋
 - **イメージのビルドはコンテナの中で行い、テストは走らせない。**
   結合テストは Testcontainers が PostgreSQL を起動するため Docker を要求し、
   ビルドコンテナの中では動かせない。**CI が green のコミットをデプロイする**
-  ことで担保する（[runbook-deploy.md](runbook-deploy.md) 第 1.2 節）
+  ことで担保する（[runbook-deploy.md](runbook-deploy.md)「デプロイするコミット」）
 - デプロイの順番は **Neon → Fly.io → Vercel**。後ろが前の値を要求するため
 
 ### CI
@@ -592,7 +592,7 @@ Neon Free の 0.5GB に対して 100 年以上の余裕がある。
 **無料枠で最も逼迫するのはストレージではなくコンピュート時間**であり、
 その主な消費者は閲覧者ではなく**取り込みジョブ**になる。
 Neon は最終クエリから 5 分でサスペンドするため、ジョブが DB に触るたびに
-最低 5 分は起動したままになる（第 2.2 節）。
+最低 5 分は起動したままになる（本書「Neon を選んだ理由と制約」）。
 
 | ポーリング間隔 | 稼働率 | 月間コンピュート時間 | 0.25 CU 換算 |
 | --- | --- | --- | --- |
@@ -627,9 +627,9 @@ Neon は最終クエリから 5 分でサスペンドするため、ジョブが
 
 **番号で参照しない**（項目を消すと番号がずれる）。他の文書からは**項目名**で参照する。
 
-1. **セッションの即時失効**（第 3.2 節）。現状は Cookie ベースで
+1. **セッションの即時失効**（本書「管理者の認証フロー」）。現状は Cookie ベースで
    サーバ側の失効ができない。必要になれば Spring Session + DB へ移す
-2. **取り込み結果の即時反映**（第 5.2 節）。現状は時間ベースの再検証に任せている。
+2. **取り込み結果の即時反映**（本書「キャッシュ戦略」）。現状は時間ベースの再検証に任せている。
    Spring Boot から Next.js の On-Demand Revalidation を呼ぶ構成も可能
 3. **ログの保存先**。Fly.io の標準出力に流すだけで足りるか、
    外部に集約するかは運用してから判断する

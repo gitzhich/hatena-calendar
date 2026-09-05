@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
  * DB の 21:05 が API では 06:05 になっていたが、往復テストは緑だった）。
  *
  * <p>イベントの開催日・出演時刻は JST のローカル値で、UTC へ変換しない
- * （docs/data-model.md 第 6 章 / ADR-0005）。ここが狂うとカレンダーの
+ * （docs/data-model.md「タイムゾーンの扱い」 / ADR-0005）。ここが狂うとカレンダーの
  * 日付そのものがずれる。
  */
 @SpringBootTest

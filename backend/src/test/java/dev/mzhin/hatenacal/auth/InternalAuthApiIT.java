@@ -19,7 +19,7 @@ import org.springframework.test.context.TestPropertySource;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * 管理者パスワードの検証（FR-20 / docs/api.md 第 6.1 節）。
+ * 管理者パスワードの検証（FR-20 / docs/api.md「管理者パスワードの検証」）。
  *
  * <p>ハッシュは実行時に生成する。固定値を埋め込むと、BCrypt の実装や
  * コストが変わったときに何が壊れたのか分からなくなる。

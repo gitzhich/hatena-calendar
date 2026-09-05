@@ -15,7 +15,7 @@ public interface SourceAccountRepository extends JpaRepository<SourceAccount, Lo
      *
      * <p>条件を SQL 側に置いているのは、読み出してから比較する実装だと
      * 並行実行で後退しうるため。後退は再課金に直結する
-     * （docs/x-integration.md 第 2.2 節、FR-43）。
+     * （docs/x-integration.md「取得位置を後退させない」、FR-43）。
      *
      * @return 更新された行数。後退させようとした場合は 0
      */

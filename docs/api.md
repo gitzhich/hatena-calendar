@@ -10,7 +10,7 @@
 ## 1. 前提
 
 Spring Boot が提供する REST API の契約。呼び出すのは **Next.js（BFF）のサーバ側だけ**で、
-ブラウザから直接叩かれることはない（[architecture.md](architecture.md) 第 3 章）。
+ブラウザから直接叩かれることはない（[architecture.md](architecture.md)「通信経路と認証」）。
 
 API は 3 系統に分かれる。これに、認証を掛けない監視用エンドポイントが 1 つ加わる。
 
@@ -19,11 +19,11 @@ API は 3 系統に分かれる。これに、認証を掛けない監視用エ�
 | 公開 API | `/api/public/**` | 公開キー | 閲覧者向け。**`GET` のみ** |
 | 管理 API | `/api/admin/**` | 管理キー | 登録・編集・削除・点検 |
 | 内部 API | `/internal/**` | 管理キー | 管理者パスワードの検証 |
-| 監視 | `/actuator/health` | **なし** | Fly.io のヘルスチェック（第 4.3 節） |
+| 監視 | `/actuator/health` | **なし** | Fly.io のヘルスチェック（本書「ヘルスチェック」） |
 
 **これ以外のパスはすべて拒否する**（`anyRequest().denyAll()`）。
 許可を明示的に列挙する形にしてあり、新しいエンドポイントは
-`SecurityConfig` に足さない限り 403 になる（第 2.2 節）。
+`SecurityConfig` に足さない限り 403 になる（本書「認可の実装方針」）。
 
 **将来 EAS から叩くのは公開 API だけ**であり、その前提で設計する（NFR-07）。
 
@@ -57,7 +57,7 @@ Spring Security で**デフォルト拒否**にし、パスごとに必要なキ
 
 - キーの比較は**固定時間比較**で行う（文字列の `equals` を使わない）
 - キーが一致しない場合は `403` を返し、**理由を区別できるメッセージを返さない**
-- 管理者パスワードの検証は `/internal/auth` でのみ行う（第 6 章）
+- 管理者パスワードの検証は `/internal/auth` でのみ行う（本書「内部 API」）
 
 ---
 
@@ -74,7 +74,7 @@ Spring Security で**デフォルト拒否**にし、パスごとに必要なキ
 
 ### 3.2 日付と時刻
 
-**ここを誤ると日付がずれる。** [data-model.md](data-model.md) 第 6 章の方針に対応する。
+**ここを誤ると日付がずれる。** [data-model.md](data-model.md)「タイムゾーンの扱い」の方針に対応する。
 
 | 種類 | 形式 | 例 | 意味 |
 | --- | --- | --- | --- |
@@ -173,13 +173,13 @@ GET /api/public/appearances?from=2026-09-01&to=2026-09-30
 ```
 
 - **`eventName` は告知の原文**。照合用の `eventKey` は**返さない**
-  （内部の実装詳細であり、画面に出す値ではない。[data-model.md](data-model.md) 第 4.3.2 節）
+  （内部の実装詳細であり、画面に出す値ではない。[data-model.md](data-model.md)「同一イベントの一意性と event_key」）
 - `sourceType`、`createdAt`、`ingestedPostId` も公開 API では返さない。
   閲覧者に不要な内部情報を出さない
 - 並び順は `appearanceDate` 昇順、次に `performanceStartTime` 昇順。
   **時刻が `null` のものは同じ日付の末尾**に置く（FR-03）
 - **同じ日に同じ `eventName` が複数並ぶことがある。** 1 つのイベントの中で
-  複数回出演する告知があるため（[x-integration.md](x-integration.md) 第 5.10 節）。
+  複数回出演する告知があるため（[x-integration.md](x-integration.md)「1 投稿から複数の出演情報」）。
   会場と時刻で区別できる
 - 該当がない場合は `appearances` が空配列。`404` にしない
 
@@ -261,7 +261,7 @@ FR-24 の点検一覧。公開 API と違い、内部項目も返す。
 | `size` が 1 未満 | `1` |
 | `size` が 100 超 | `100` |
 
-第 3.3 節の「`400`: クエリパラメータの形式不正」は**型として解釈できない場合**
+本書「エラー」の「`400`: クエリパラメータの形式不正」は**型として解釈できない場合**
 （`size=abc` など）を指す。数として読めるが範囲外の値は丸める。
 点検一覧はページャから呼ばれるだけで、値がずれても**画面が止まらないほうが望ましい**。
 上限を返す理由（無制限に大きな `size` で DB を引かせない）は丸めれば達成される。
@@ -307,10 +307,10 @@ GET /api/admin/appearances/{id}
 存在しない ID は `404`。
 
 **公開 API に個別取得は用意しない。** 閲覧者向けの詳細は月一覧
-（第 4.1 節）が返す項目だけで描画でき、1 か月 1 リクエストの原則（NFR-01）を崩さない。
+（本書「期間内の出演情報一覧」）が返す項目だけで描画でき、1 か月 1 リクエストの原則（NFR-01）を崩さない。
 個別取得を足すと ISR のキャッシュキーが出演情報の件数だけ増え、
 T-04（無料枠の枯渇）の経路が広がる（[security.md](security.md) T-04）。
-将来の EAS（第 7 章）も月一覧を使う前提でよい。
+将来の EAS（本書「将来の EAS 対応で変わる点」）も月一覧を使う前提でよい。
 
 ### 5.2 手動登録
 
@@ -349,13 +349,13 @@ POST /api/admin/appearances
 - `eventKey` は**クライアントから受け取らない**。サーバ側で `eventName` から生成する
 - **`ingestedPostId` を指定した場合、その投稿の `status` を `REGISTERED` へ進める**
   （`UNPARSED` のときだけ。既に `REGISTERED` なら変更しない）。
-  これにより処理済みの投稿が未処理一覧（第 5.5 節）から消える。
+  これにより処理済みの投稿が未処理一覧（本書「未処理投稿の一覧」）から消える。
   同じ投稿から 2 件目の出演情報を作る場合は一覧に出てこないため、
   出典 URL を控えたうえで本エンドポイントを直接使う
 - **同じ `appearanceDate` / `eventKey` / `performanceStartTime` の組が既にある場合は
-  `409`** を返す。上書きしない。既存を直したい場合は編集（第 5.3 節）を使う。
+  `409`** を返す。上書きしない。既存を直したい場合は編集（本書「編集」）を使う。
   開始時刻を含めるのは、同じ日・同じイベントで複数回出演する告知があるため
-  （[data-model.md](data-model.md) 第 4.3.2 節）。
+  （[data-model.md](data-model.md)「同一イベントの一意性と event_key」）。
   `performanceStartTime` が未指定の行は 1 日 1 イベントにつき 1 行しか作れない
 - 成功時は `201 Created` と作成されたリソースを返す
 
@@ -365,19 +365,19 @@ POST /api/admin/appearances
 PUT /api/admin/appearances/{id}
 ```
 
-リクエストは第 5.2 節と同じ形。**部分更新ではなく全項目を送る**
+リクエストは本書「手動登録」と同じ形。**部分更新ではなく全項目を送る**
 （`PATCH` にすると「未指定」と「`null` にしたい」を区別できず、
 値の消去が意図せず無視される）。
 
 **ただし `ingestedPostId` は読み取り専用で、送っても無視される。**
 この値は「最後に内容を反映した告知」を指す導出値であり、
-`sourceUrl` と常に同じ投稿を指す（[data-model.md](data-model.md) 第 7.1 節）。
+`sourceUrl` と常に同じ投稿を指す（[data-model.md](data-model.md)「追加告知による空欄補完」）。
 編集で付け替えられるようにすると、2 つが別の投稿を指せてしまう。
-400 で弾かずに無視するのは、`GET`（第 5.1 節）で受け取った値を
+400 で弾かずに無視するのは、`GET`（本書「出演情報の一覧と個別取得（点検用）」）で受け取った値を
 そのまま返す往復を壊さないため。
 
 紐付けを直したいときは削除して作り直す。手順は
-[data-model.md](data-model.md) 第 7.2 節。
+[data-model.md](data-model.md)「削除と冪等性」。
 
 - `eventName` を変更した場合、`eventKey` はサーバ側で再計算する
 - 変更後の `appearanceDate` / `eventKey` / `performanceStartTime` が他の行と衝突する場合は `409`
@@ -391,7 +391,7 @@ DELETE /api/admin/appearances/{id}
 
 - 成功時は `204 No Content`
 - `ingested_post` の記録は削除しない。`status` も `REGISTERED` のまま動かさない。
-  **削除した投稿は未処理一覧に戻らない**（[data-model.md](data-model.md) 第 7.2 節）
+  **削除した投稿は未処理一覧に戻らない**（[data-model.md](data-model.md)「削除と冪等性」）
 - 存在しない ID は `404`
 
 ### 5.5 未処理投稿の一覧
@@ -469,8 +469,8 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
 | --- | --- |
 | `items` | 実行記録を**開始日時の降順**で返す。日時は UTC |
 | `finishedAt` | 実行中（`status` が `RUNNING`）なら `null` |
-| `status` | `RUNNING` / `SUCCESS` / `FAILED` / `CANCELLED`。`CANCELLED` は**管理者が原因を確認し、打ち切りカウントから外した失敗**（[runbook-x-api-setup.md](runbook-x-api-setup.md) 第 9 章）。連続失敗の判定はここで切れる |
-| `truncated` | ページ上限で打ち切ったか。`true` なら**古い投稿を取りこぼしている**（[x-integration.md](x-integration.md) 第 3.4 節 / [ADR-0020](adr/0020-drop-posts-beyond-page-limit.md)）。`status` は `SUCCESS` のまま |
+| `status` | `RUNNING` / `SUCCESS` / `FAILED` / `CANCELLED`。`CANCELLED` は**管理者が原因を確認し、打ち切りカウントから外した失敗**（[runbook-x-api-setup.md](runbook-x-api-setup.md)「打ち切りから戻す」）。連続失敗の判定はここで切れる |
+| `truncated` | ページ上限で打ち切ったか。`true` なら**古い投稿を取りこぼしている**（[x-integration.md](x-integration.md)「ページング」 / [ADR-0020](adr/0020-drop-posts-beyond-page-limit.md)）。`status` は `SUCCESS` のまま |
 | `errorSummary` | 失敗理由の要約。**スタックトレースとトークンを含まない**（NFR-03） |
 | `currentCycleResourceCount` | 現在の請求サイクルの `fetchedResourceCount` 合計。`× $0.005` が概算コスト（NFR-04） |
 | `cycleStartAt` | 集計期間の開始（UTC）。何を合計した値かを画面が示せるようにする |
@@ -479,7 +479,7 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
 
 **集計期間は請求サイクルで切る。暦月ではない。** X API の請求サイクルは
 クレジットの購入日を起点に切られる（例: `Sep 2 - Oct 2`。
-[runbook-x-api-setup.md](runbook-x-api-setup.md) 第 3.3 節）。暦月で切ると
+[runbook-x-api-setup.md](runbook-x-api-setup.md)「コンソールで紛らわしい点」）。暦月で切ると
 支出上限のリセット日と集計期間がずれ、NFR-04 の「想定を超えたら気づける」が
 成り立たない。
 
@@ -499,7 +499,7 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
 原因を確認してから手で戻す運用であり（FR-43）、押すだけで再開できると
 原因が残ったまま同じ範囲を取り直して課金が積み上がる。
 戻すのは DB を直接触る操作で、手順は
-[runbook-x-api-setup.md](runbook-x-api-setup.md) 第 9 章にある。
+[runbook-x-api-setup.md](runbook-x-api-setup.md)「打ち切りから戻す」にある。
 
 ---
 
@@ -511,7 +511,7 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
 POST /internal/auth
 ```
 
-Next.js のログイン処理からのみ呼ばれる（[architecture.md](architecture.md) 第 3.2 節）。
+Next.js のログイン処理からのみ呼ばれる（[architecture.md](architecture.md)「管理者の認証フロー」）。
 
 **リクエスト**
 
@@ -543,7 +543,7 @@ Next.js のログイン処理からのみ呼ばれる（[architecture.md](archit
 - その時点で公開 API にレート制限を必ず入れる（NFR-03）
 - **その時点で公開 API の総量制限の数え方を見直す。**
   `PublicApiRateLimitFilter` は「**キーの検証を通ったものだけ数える**」設計で
-  （[security.md](security.md) 第 4.2 節）、キーなしで読めるようにすると
+  （[security.md](security.md)「レート制限の構成と値」）、キーなしで読めるようにすると
   この条件が成立せず、**300 req/分の総量制限が実質無効になる**。
   数える対象を変えるか、別の絞り方に置き換えるかを決めてから公開する
 - **管理 API はモバイルに公開しない。** 管理操作は Web の管理画面に限定する

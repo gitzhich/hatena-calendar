@@ -104,7 +104,7 @@ workspaces も無く、`backend/` は Gradle である。
 | GitHub Actions から `fly deploy` する | 記録は完全になるが、`FLY_API_TOKEN` を GitHub Secrets に置き、第三者アクションを増やす。CI は「**第三者アクションを増やさないため `git diff` で判定する**」と明記しており、それに逆行する。個人開発の規模に対して重い |
 | Vercel の Production Branch を `release/frontend` に変える | 変更自体は可能（`Settings → Environments → Production → Branch Tracking`）。ただし上記のとおり問題 1 を解かない |
 | Vercel の組み込みスキップを使う | **要件を満たさない**（workspaces 前提） |
-| 実行中のコミットをアプリが自分で返す（`/actuator/info` など） | 最も権威があるが、公開する actuator を増やすことになり、`health` 以外を出さない方針（[security.md](../security.md) 第 5 章）を崩す。`fly image show` で同じことが**アプリを変えずに**分かる |
+| 実行中のコミットをアプリが自分で返す（`/actuator/info` など） | 最も権威があるが、公開する actuator を増やすことになり、`health` 以外を出さない方針（[security.md](../security.md)「実装チェックリスト」）を崩す。`fly image show` で同じことが**アプリを変えずに**分かる |
 
 ## 結果
 
@@ -119,4 +119,4 @@ workspaces も無く、`backend/` は Gradle である。
 
 - [ADR-0018](0018-regions.md)（リージョンと本番構成）
 - [docs/runbook-deploy.md](../runbook-deploy.md)
-- [docs/coding-guidelines.md](../coding-guidelines.md) 第 0.2 節（規約は検査できるなら検査にする）
+- [docs/coding-guidelines.md](../coding-guidelines.md)「機械で検査しているもの」（規約は検査できるなら検査にする）

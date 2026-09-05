@@ -41,7 +41,7 @@ export function IngestionAlert({
             失敗したまま放置すると、同じ範囲を取り直すことで X API の課金が積み上がります。
           </p>
           <p className="mt-1">
-            戻し方は <code>docs/runbook-x-api-setup.md</code> 第 9 章にあります。
+            戻し方は <code>docs/runbook-x-api-setup.md</code>「打ち切りから戻す」にあります。
           </p>
         </>
       ) : (

@@ -144,7 +144,7 @@ class UnparsedPostApiIT {
     }
 
     @Test
-    @DisplayName("編集では ingestedPostId を差し替えられない（docs/api.md 第 5.3 節）")
+    @DisplayName("編集では ingestedPostId を差し替えられない（docs/api.md「編集」）")
     void updateCannotRepointTheIngestedPost() throws Exception {
         long id = json.readTree(send("POST", "/api/admin/appearances",
                 appearancePayload(postId)).body()).get("id").asLong();
@@ -170,7 +170,7 @@ class UnparsedPostApiIT {
     }
 
     @Test
-    @DisplayName("出演情報を削除しても未処理一覧に戻らない（docs/data-model.md 第 7.2 節）")
+    @DisplayName("出演情報を削除しても未処理一覧に戻らない（docs/data-model.md「削除と冪等性」）")
     void deletingDoesNotReopenThePost() throws Exception {
         long id = json.readTree(send("POST", "/api/admin/appearances",
                 appearancePayload(postId)).body()).get("id").asLong();

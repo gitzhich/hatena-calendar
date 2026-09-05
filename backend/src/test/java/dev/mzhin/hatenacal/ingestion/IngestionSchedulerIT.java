@@ -11,7 +11,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.TestPropertySource;
 
 /**
- * 取り込みの停止スイッチ（docs/security.md 第 9 章）。
+ * 取り込みの停止スイッチ（docs/security.md「未決定事項」）。
  *
  * <p>トークンを消す以外の止め方を用意する。止まっていることを
  * <b>ビーンの有無で</b>確かめる。振る舞いで確かめようとすると

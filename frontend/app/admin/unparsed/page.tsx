@@ -39,7 +39,7 @@ export default async function UnparsedPage({
               className="rounded border border-neutral-300 dark:border-neutral-700 p-3"
             >
               {/* バックエンドは UTC で返す。JST への変換は表示側の責務
-                  （docs/data-model.md 第 6 章）。formatJst を使う理由は lib/last-updated.ts */}
+                  （docs/data-model.md「タイムゾーンの扱い」）。formatJst を使う理由は lib/last-updated.ts */}
               <p className="text-xs tabular-nums text-neutral-600 dark:text-neutral-400">
                 投稿{" "}
                 <time dateTime={post.postedAt}>{formatJst(post.postedAt) ?? "不明"}</time>

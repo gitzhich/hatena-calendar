@@ -11,7 +11,7 @@ import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 
 /**
- * 取り込み実行の記録（docs/data-model.md 第 4.3 節、FR-42）。
+ * 取り込み実行の記録（docs/data-model.md「appearance — 出演情報」、FR-42）。
  *
  * <p>課金額を後から追跡できるようにするための台帳でもある。
  * {@code fetchedResourceCount} の請求サイクル合計が想定（1 サイクル 300 前後）から桁違いに増えていれば
@@ -21,7 +21,7 @@ import java.time.OffsetDateTime;
 @Table(name = "ingestion_run")
 public class IngestionRun {
 
-    /** error_summary の DB 側の上限（docs/data-model.md 第 4.3 節）。 */
+    /** error_summary の DB 側の上限（docs/data-model.md「appearance — 出演情報」）。 */
     static final int MAX_ERROR_SUMMARY = 500;
 
     @Id
@@ -45,7 +45,7 @@ public class IngestionRun {
     private int newAppearanceCount;
 
     /**
-     * ページ数の上限で打ち切ったか（docs/x-integration.md 第 3.4 節 / ADR-0020）。
+     * ページ数の上限で打ち切ったか（docs/x-integration.md「ページング」 / ADR-0020）。
      *
      * <p>打ち切ると<b>未取得の古い側の投稿は二度と取得されない</b>。意図した仕様だが、
      * 起きたことを管理者が知らないと手動登録で補う判断ができない（NFR-09）。
@@ -64,7 +64,7 @@ public class IngestionRun {
         // JPA 用
     }
 
-    /** 実行を開始する。この行が残っていることが多重起動の判定材料になる（第 10.1 節）。 */
+    /** 実行を開始する。この行が残っていることが多重起動の判定材料になる（docs/x-integration.md「多重起動の防止」）。 */
     static IngestionRun start(OffsetDateTime now) {
         IngestionRun run = new IngestionRun();
         run.startedAt = now;

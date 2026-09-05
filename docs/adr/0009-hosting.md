@@ -53,5 +53,5 @@
 
 ## 関連
 
-- [docs/architecture.md](../architecture.md) 第 2 章、第 11 章
+- [docs/architecture.md](../architecture.md)「構成要素とホスティング」、[architecture.md](../architecture.md)「運用コストの試算」
 - [docs/security.md](../security.md) T-04

@@ -11,7 +11,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 /**
- * 情報源アカウント（docs/data-model.md 第 4.1 節）。運用上は 1 行だけ持つ。
+ * 情報源アカウント（docs/data-model.md「source_account — 情報源アカウント」）。運用上は 1 行だけ持つ。
  *
  * <p>{@code xUserId} は初回に一度だけ解決して永続化する。username からの解決は
  * 1 回 $0.010 かかるため、以降は<b>二度と呼ばない</b>（FR-40）。
@@ -34,9 +34,9 @@ public class SourceAccount {
     /**
      * 取得済みの最大 tweet_id。次回の {@code since_id} に渡す。
      *
-     * <p>{@code null} は未取得を意味し、初回バックフィルの対象になる（第 8 章）。
+     * <p>{@code null} は未取得を意味し、初回バックフィルの対象になる（docs/x-integration.md「初回バックフィル」）。
      * <b>後退させてはいけない</b>。後退すると同じ投稿を翌日以降に取り直し、
-     * 24 時間の重複排除が効かず再課金になる（docs/x-integration.md 第 2.2 節）。
+     * 24 時間の重複排除が効かず再課金になる（docs/x-integration.md「取得位置を後退させない」）。
      */
     @Column(name = "last_fetched_tweet_id")
     private Long lastFetchedTweetId;

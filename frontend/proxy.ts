@@ -22,10 +22,10 @@ import { clientIpOf, createRateLimiter } from "@/lib/rate-limit";
  *
  * **実クライアントの IP で絞れるのはここだけ。** Spring Boot から見た送信元は
  * Vercel の egress IP であり、そこで IP 単位に絞ると攻撃者ではなく
- * 全閲覧者がまとめて絞られる（docs/architecture.md 第 5.5 節）。
+ * 全閲覧者がまとめて絞られる（docs/architecture.md「公開ページのレート制限」）。
  *
  * 1 分 60 回。通常の閲覧は 1 分に数回で、next/link のプリフェッチを
- * 数えても届かない。値の根拠は docs/security.md 第 4.2 節。
+ * 数えても届かない。値の根拠は docs/security.md「レート制限の構成と値」。
  */
 const PUBLIC_LIMIT = 60;
 const PUBLIC_WINDOW_MS = 60_000;

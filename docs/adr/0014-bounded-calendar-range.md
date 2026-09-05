@@ -22,7 +22,7 @@ Neon の無料枠を枯渇させ、課金を発生させずにサイトを停止
 
 ISR が効くのは**同じ URL が繰り返し要求される場合**だけで、
 年月を変え続けられると防御にならない。
-[api.md](../api.md) 第 4.1 節の「期間の上限 62 日」は 1 リクエストの幅を縛るだけで、
+[api.md](../api.md)「期間内の出演情報一覧」の「期間の上限 62 日」は 1 リクエストの幅を縛るだけで、
 リクエストできる月の**種類数**を縛らない。
 
 ## 決定
@@ -60,11 +60,11 @@ ISR が効くのは**同じ URL が繰り返し要求される場合**だけで�
 - レート制限の置き場所も見直した。Spring Boot から見た送信元は
   Vercel の egress IP なので、そこで IP 単位に絞ると全閲覧者が巻き添えになる。
   **実クライアント IP が見える Next.js の middleware に置く**
-  （[architecture.md](../architecture.md) 第 5.5 節）
+  （[architecture.md](../architecture.md)「公開ページのレート制限」）
 - T-04 の対策表を書き直した。ISR を筆頭対策として挙げるのをやめ、
   範囲の限定と組み合わせて初めて防御になることを明記した
 - サービス開始月は固定値として持つ。過去の出演情報は削除せず保持するため
-  （[requirements.md](../requirements.md) 第 8.3 節）、下限は動かさない
+  （[requirements.md](../requirements.md)「保持期間」）、下限は動かさない
 
 ## 更新履歴
 
@@ -82,7 +82,7 @@ ISR が効くのは**同じ URL が繰り返し要求される場合**だけで�
 
 - 2026-09-03: **サービス開始月の値を文書に置いた**（決定内容の変更なし）。
   本 ADR は「固定値として持つ」としか書いておらず、実際の値
-  （`2026-01`）は実装だけが持っていた。[security.md](../security.md) 第 4.2 節が
+  （`2026-01`）は実装だけが持っていた。[security.md](../security.md)「レート制限の構成と値」が
   この値から「表示できる月数」を導いてレート制限の根拠にしているため、
   値が無いと検算できない。**正本は [requirements.md](../requirements.md) FR-05 の
   受入基準**とし、`CalendarRange` と `frontend/lib/calendar-range.ts` が
@@ -93,6 +93,6 @@ ISR が効くのは**同じ URL が繰り返し要求される場合**だけで�
 ## 関連
 
 - [docs/requirements.md](../requirements.md) FR-05 / NFR-01 / NFR-04
-- [docs/architecture.md](../architecture.md) 第 5.2 節 / 第 5.5 節
+- [docs/architecture.md](../architecture.md)「キャッシュ戦略」 / [architecture.md](../architecture.md)「公開ページのレート制限」
 - [docs/security.md](../security.md) T-04
-- [docs/api.md](../api.md) 第 4.1 節
+- [docs/api.md](../api.md)「期間内の出演情報一覧」

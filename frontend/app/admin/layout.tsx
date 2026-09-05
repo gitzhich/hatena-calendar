@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { logout } from "@/app/admin/actions";
 
-// 管理画面はキャッシュしない（docs/architecture.md 第 5.2 節）
+// 管理画面はキャッシュしない（docs/architecture.md「キャッシュ戦略」）
 export const dynamic = "force-dynamic";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

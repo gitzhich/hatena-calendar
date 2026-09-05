@@ -2,8 +2,8 @@
 
 最終更新: 2026-09-02
 
-関連文書: [CLAUDE.md](../CLAUDE.md) / [data-model.md](data-model.md) 第 6 章 /
-[architecture.md](architecture.md) 第 7 章
+関連文書: [CLAUDE.md](../CLAUDE.md) / [data-model.md](data-model.md)「タイムゾーンの扱い」 /
+[architecture.md](architecture.md)「設定と環境変数」
 
 ---
 
@@ -45,7 +45,7 @@ docker compose ps                # 状態の確認
 警告が出る**（`ADMIN_PASSWORD_HASH` の bcrypt ハッシュが `$2b$12$...` の形のため）。
 `compose.yaml` はこの値を使っておらず実害はないが、
 警告を出したくなければ `--env-file /dev/null` を付ける
-（[architecture.md](architecture.md) 第 7.1 節）。
+（[architecture.md](architecture.md)「値の作り方」）。
 
 ---
 
@@ -74,11 +74,11 @@ JDBC URL は `jdbc:postgresql://localhost:5432/hatenacal`。
 ## 3. DBeaver での接続手順
 
 以下の画面名・項目名は DBeaver 25 系のもの。バージョンによって表記が変わることがあるが、
-入れる値（第 2 章）は変わらない。
+入れる値（本書「接続情報」）は変わらない。
 
 1. **「新しいデータベース接続」**（`Ctrl+Shift+N`）
 2. 一覧から **PostgreSQL** を選ぶ → 次へ
-3. **Main** タブに第 2 章の値を入力する
+3. **Main** タブに本書「接続情報」の値を入力する
 4. **「パスワードを保存」にチェック**を入れる
 5. 初回はドライバの取得を求められるので **ダウンロード**（1 回だけ）
 6. **「テスト接続」** で成功を確認 → **完了**
@@ -99,13 +99,13 @@ JDBC URL は `jdbc:postgresql://localhost:5432/hatenacal`。
   **取得範囲が広がって課金が跳ねる**。過去に、テストが残した値のまま動かせば
   $5.00 になる状況が起きている
 - `ingestion_run` は課金額を後から追跡するための台帳
-  （[data-model.md](data-model.md) 第 4.4 節）。消すと追跡できなくなる
+  （[data-model.md](data-model.md)「ingestion_run — 取り込み実行ログ」）。消すと追跡できなくなる
 
 値を書き換える必要が出たら、**何をどう戻すかを決めてから**読み取り専用を外す。
 
 ### 4.2 タイムゾーンの見え方を把握する
 
-**このプロジェクトは保存形式を 2 種類に分けている**（[data-model.md](data-model.md) 第 6 章）。
+**このプロジェクトは保存形式を 2 種類に分けている**（[data-model.md](data-model.md)「タイムゾーンの扱い」）。
 GUI はこの 2 つを見た目で区別しないため、同じ物差しで読むとズレる。
 
 | 列の例 | 型 | 実際の保存 | DBeaver での見え方 |
@@ -125,7 +125,7 @@ GUI はこの 2 つを見た目で区別しないため、同じ物差しで読�
 
 | テーブル | 中身 |
 | --- | --- |
-| `appearance` | 出演情報の本体（[data-model.md](data-model.md) 第 4.3 節） |
+| `appearance` | 出演情報の本体（[data-model.md](data-model.md)「appearance — 出演情報」） |
 | `ingestion_run` | 取り込みの実行ログ。**課金追跡の台帳**。`fetched_resource_count` が課金単位そのもの |
 | `ingested_post` | 取り込んだ投稿。`status` が `UNPARSED` なら管理画面の未処理一覧に出る |
 | `source_account` | **`last_fetched_tweet_id` が課金に直結する。触らない** |

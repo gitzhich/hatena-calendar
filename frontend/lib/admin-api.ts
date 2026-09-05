@@ -8,7 +8,7 @@ import { backendBaseUrl } from "./backend-url";
  * 管理 API のクライアント。
  *
  * **管理キーは、管理者セッションの検証に成功したときだけ読み込む**
- * （ADR-0010 / docs/architecture.md 第 3.1 節）。公開ページの
+ * （ADR-0010 / docs/architecture.md「経路ごとの保護」）。公開ページの
  * レンダリング経路からこのモジュールを呼ばない。
  *
  * キーを 1 種類にすると、公開ページの取得に使うキーが漏れただけで
@@ -35,7 +35,7 @@ async function adminFetch(path: string, init?: RequestInit): Promise<Response> {
       "X-Admin-Api-Key": process.env.BACKEND_ADMIN_API_KEY ?? "",
       ...init?.headers,
     },
-    // 管理画面はキャッシュしない（docs/architecture.md 第 5.2 節）
+    // 管理画面はキャッシュしない（docs/architecture.md「キャッシュ戦略」）
     cache: "no-store",
   });
 }
@@ -73,21 +73,21 @@ export type Paged<T> = {
   totalElements: number;
 };
 
-/** 取り込み実行 1 回分（docs/api.md 第 5.7 節）。日時は UTC。 */
+/** 取り込み実行 1 回分（docs/api.md「取り込み履歴」）。日時は UTC。 */
 export type IngestionRun = {
   id: number;
   startedAt: string;
   finishedAt: string | null;
   /**
    * `CANCELLED` は**管理者が原因を確認し、打ち切りカウントから外した失敗**
-   * （docs/runbook-x-api-setup.md 第 9 章）。アプリからは遷移させない。
+   * （docs/runbook-x-api-setup.md「打ち切りから戻す」）。アプリからは遷移させない。
    */
   status: "RUNNING" | "SUCCESS" | "FAILED" | "CANCELLED";
   fetchedResourceCount: number;
   newAppearanceCount: number;
   /**
    * ページ上限で打ち切ったか。`true` なら**古い投稿を取りこぼしている**
-   * （docs/x-integration.md 第 3.4 節 / ADR-0020）。`status` は `SUCCESS` のまま。
+   * （docs/x-integration.md「ページング」 / ADR-0020）。`status` は `SUCCESS` のまま。
    */
   truncated: boolean;
   errorSummary: string | null;
@@ -183,7 +183,7 @@ export const deleteAppearance = (id: number) =>
 export const excludeUnparsedPost = (id: number) =>
   mutate(`/api/admin/unparsed-posts/${id}/exclude`, "POST");
 
-/** ログインのためのパスワード検証（docs/api.md 第 6.1 節）。 */
+/** ログインのためのパスワード検証（docs/api.md「管理者パスワードの検証」）。 */
 export async function verifyPassword(password: string): Promise<boolean> {
   const res = await fetch(`${BASE_URL}/internal/auth`, {
     method: "POST",

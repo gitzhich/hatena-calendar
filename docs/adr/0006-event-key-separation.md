@@ -61,7 +61,7 @@
 
 ## 関連
 
-- [docs/data-model.md](../data-model.md) 第 4.3.2 節
+- [docs/data-model.md](../data-model.md)「同一イベントの一意性と event_key」
 
 ## 更新履歴
 

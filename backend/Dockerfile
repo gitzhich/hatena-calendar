@@ -17,7 +17,7 @@ COPY src src
 # **テストは走らせない。** 結合テストは Testcontainers が PostgreSQL を
 # 起動するため Docker を要求し、ビルドコンテナの中では動かせない。
 # 「テストを通った成果物か」はここでは保証されないので、
-# **CI が green のコミットをデプロイする**（docs/runbook-deploy.md 第 1 章）。
+# **CI が green のコミットをデプロイする**（docs/runbook-deploy.md「前提」）。
 RUN ./gradlew --no-daemon bootJar -x test
 
 # ============================================================

@@ -18,7 +18,7 @@ XINXIN が同じ日に 2 つの会場へ出演している。
 ```
 
 `appearance_date` と `event_key` が両方一致するため、**2 公演目を登録できない**。
-空欄補完（[data-model.md](../data-model.md) 第 7.1 節）に流れても、
+空欄補完（[data-model.md](../data-model.md)「追加告知による空欄補完」）に流れても、
 1 公演目の出演時刻が既に埋まっているので上書きされず、2 公演目は失われる。
 ファンにとっては「何時にどこで見られるか」が要件の中心（FR-03 / FR-04）であり、
 落としてよい情報ではない。
@@ -59,15 +59,15 @@ CONSTRAINT appearance_unique_event
 
 ## 結果
 
-- 空欄補完の照合を段階化した（[data-model.md](../data-model.md) 第 7.1 節）。
+- 空欄補完の照合を段階化した（[data-model.md](../data-model.md)「追加告知による空欄補完」）。
   まず 3 列の完全一致を探し、なければ同じ日・同じイベントで時刻が `NULL` の行を探し、
   それもなければ新規登録する
 - 同じ日・同じイベントに 2 枠が届いた場合、一方が既存の時刻なし行を引き継ぎ、
   もう一方が新規行になる。引き継いだ行は会場が古いままになりうるため、
   **どちらが引き継ぐかで行の内容が変わる**。
   処理順を出演開始時刻の昇順に固定して決定的にしている
-  （[data-model.md](../data-model.md) 第 7.1 節）
-- 管理 API の `409` 条件も 3 列になった（[api.md](../api.md) 第 5.2 節）
+  （[data-model.md](../data-model.md)「追加告知による空欄補完」）
+- 管理 API の `409` 条件も 3 列になった（[api.md](../api.md)「手動登録」）
 - **PostgreSQL 15 以降に依存する。** Neon が提供するのは 16 / 17 系なので問題ない
 - 公開 API では、同じ日に同じ `eventName` が複数並びうる。
   会場と開始時刻で区別する（FR-03）
@@ -75,15 +75,15 @@ CONSTRAINT appearance_unique_event
 ## 更新履歴
 
 - 2026-09-01: 「どちらが引き継ぐかは処理順に依存するが、最終的な行数と内容は変わらない」は
-  誤りだった。DDL と第 7.1 節の手順を実装して 2 通りの順序で流したところ、
+  誤りだった。DDL と[data-model.md](../data-model.md)「追加告知による空欄補完」の手順を実装して 2 通りの順序で流したところ、
   行数は一致したが**会場が食い違った**。引き継いだ行は値のある列を上書きしないため、
-  イベント全体の会場を抱えたままになる。処理順を昇順に固定する規則を第 7.1 節に加え、
+  イベント全体の会場を抱えたままになる。処理順を昇順に固定する規則を[data-model.md](../data-model.md)「追加告知による空欄補完」に加え、
   本 ADR の記述も実態に合わせた（決定内容の変更なし）
 
 - 2026-09-01: `NULLS NOT DISTINCT` の理由で挙げた「タイムテーブル未発表の告知
   （実サンプル 1.txt）から時刻 `NULL` の行が作られる」は、抽出対象の絞り込みにより
   自動取り込みでは起きなくなった。時刻 `NULL` の行は**管理者の手動登録**から生まれる
-  （[x-integration.md](../x-integration.md) 第 5.2 節）。
+  （[x-integration.md](../x-integration.md)「抽出対象の判定」）。
   制約が必要である結論は変わらないため決定内容は変更しない
 
 - 2026-09-05: 上の追記を取り消す。[ADR-0021](0021-register-appearances-without-timetable.md)
@@ -92,10 +92,10 @@ CONSTRAINT appearance_unique_event
   あわせて、この制約が保証するのは「時刻なしの行が 1 日 1 イベントにつき 1 行」までで
   あることを明記しておく。`(d, k, NULL)` と `(d, k, 16:45)` は別の行として通るため、
   **同じ公演が 2 行並ぶのを防ぐのはアプリ側の責務**である
-  （[data-model.md](../data-model.md) 第 7.1 節 手順 3）。決定内容は変更しない
+  （[data-model.md](../data-model.md)「追加告知による空欄補完」手順 3）。決定内容は変更しない
 
 ## 関連
 
 - [ADR-0006](0006-event-key-separation.md) イベント名を表示用と照合用に分離する
-- [docs/data-model.md](../data-model.md) 第 4.3.2 節 / 第 7.1 節
-- [docs/x-integration.md](../x-integration.md) 第 5.10 節
+- [docs/data-model.md](../data-model.md)「同一イベントの一意性と event_key」 / [data-model.md](../data-model.md)「追加告知による空欄補完」
+- [docs/x-integration.md](../x-integration.md)「1 投稿から複数の出演情報」

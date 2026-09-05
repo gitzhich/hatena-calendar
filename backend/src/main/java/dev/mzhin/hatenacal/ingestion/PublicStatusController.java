@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 公開 API のデータ状態（docs/api.md 第 4.2 節、FR-08）。
+ * 公開 API のデータ状態（docs/api.md「データの状態」、FR-08）。
  *
  * <p><b>更新系のメソッドをこのクラスに書かない</b>（NFR-03）。
  * 公開 API は読み取り専用であり、GET 以外を提供しない。

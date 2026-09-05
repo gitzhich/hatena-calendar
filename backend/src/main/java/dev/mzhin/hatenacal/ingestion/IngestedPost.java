@@ -12,7 +12,7 @@ import java.time.OffsetDateTime;
 import org.hibernate.annotations.CreationTimestamp;
 
 /**
- * 取り込み済み投稿の記録（docs/data-model.md 第 4.2 節）。
+ * 取り込み済み投稿の記録（docs/data-model.md「ingested_post — 取り込み済み投稿の記録」）。
  *
  * <p><b>投稿本文を保持しない</b>（LR-02）。未処理投稿を手で処理する管理者は、
  * tweet_id から組み立てた X 投稿 URL を開いて原文を X 上で読む。
@@ -35,7 +35,7 @@ public class IngestedPost {
      *
      * <p>BIGINT で持つ。TEXT だと「最大値の取得」が文字列比較になり、
      * 桁数が変わった瞬間に取得位置が巻き戻る。巻き戻りは再課金に直結する
-     * （docs/data-model.md 第 4.1 節）。
+     * （docs/data-model.md「source_account — 情報源アカウント」）。
      */
     @Column(name = "tweet_id", nullable = false, unique = true)
     private Long tweetId;
@@ -99,7 +99,7 @@ public class IngestedPost {
      * 処理済みにする。
      *
      * <p>UNPARSED のときだけ進める。既に REGISTERED なら変更しない
-     * （docs/api.md 第 5.2 節）。同じ投稿から 2 件目の出演情報を作る場合に
+     * （docs/api.md「手動登録」）。同じ投稿から 2 件目の出演情報を作る場合に
      * 状態を巻き戻さないため。
      */
     public void markRegistered() {

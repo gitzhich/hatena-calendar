@@ -26,11 +26,11 @@ public interface IngestionRunRepository extends JpaRepository<IngestionRun, Long
      */
     List<IngestionRun> findByOrderByStartedAtDesc(Pageable pageable);
 
-    /** 取り込み履歴の一覧（docs/api.md 第 5.7 節）。総件数をページャに出すため Page で返す。 */
+    /** 取り込み履歴の一覧（docs/api.md「取り込み履歴」）。総件数をページャに出すため Page で返す。 */
     Page<IngestionRun> findAllByOrderByStartedAtDesc(Pageable pageable);
 
     /**
-     * 最後に取り込みが成功した日時（FR-08 / docs/data-model.md 第 4.4 節）。
+     * 最後に取り込みが成功した日時（FR-08 / docs/data-model.md「ingestion_run — 取り込み実行ログ」）。
      *
      * <p>引数で状態を受け取らない。「成功した日時」であることが FR-08 の意味そのもので、
      * 呼び出し側が誤って FAILED を渡せる余地を残さない。
@@ -50,7 +50,7 @@ public interface IngestionRunRepository extends JpaRepository<IngestionRun, Long
      * 期間内の取得リソース数の合計（NFR-04）。
      *
      * <p>請求サイクルは購入日起点で切られ暦月と一致しないため、期間は呼び出し側が渡す
-     * （docs/runbook-x-api-setup.md 第 3.3 節）。
+     * （docs/runbook-x-api-setup.md「コンソールで紛らわしい点」）。
      */
     @Query("""
             SELECT coalesce(sum(r.fetchedResourceCount), 0)

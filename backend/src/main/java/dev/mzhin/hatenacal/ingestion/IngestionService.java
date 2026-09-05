@@ -20,15 +20,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * X の投稿を取り込んで出演情報にする（FR-40〜FR-43）。
  *
- * <p>設計は docs/x-integration.md 第 2 章。要点は 3 つ。
+ * <p>設計は docs/x-integration.md「取得フロー」。要点は 3 つ。
  *
  * <ul>
  *   <li><b>投稿は古い順に処理する。</b>「公演情報解禁 → タイムテーブル解禁」の順で
- *       反映しないと空欄補完が働かない（第 2.1 節）
+ *       反映しないと空欄補完が働かない（docs/x-integration.md「処理順序の原則」）
  *   <li><b>取得位置は全件処理後に一度だけ進める。</b>途中で失敗したら進めない。
- *       次回同じ範囲を取り直すほうが、位置を進めるより安全（第 2.1 節）
+ *       次回同じ範囲を取り直すほうが、位置を進めるより安全（docs/x-integration.md「処理順序の原則」）
  *   <li><b>連続失敗したら止まる。</b>失敗のたびに同じ範囲を取り直すため、
- *       放置すると 24 時間の重複排除が切れて再課金が積み上がる（第 7 章、FR-43）
+ *       放置すると 24 時間の重複排除が切れて再課金が積み上がる（docs/x-integration.md「エラーハンドリング」、FR-43）
  * </ul>
  */
 @Service
@@ -36,7 +36,7 @@ public class IngestionService {
 
     private static final Logger log = LoggerFactory.getLogger(IngestionService.class);
 
-    /** これを超えて RUNNING のままなら、落ちたとみなして倒す（第 10.1 節）。 */
+    /** これを超えて RUNNING のままなら、落ちたとみなして倒す（docs/x-integration.md「多重起動の防止」）。 */
     static final Duration STALE_RUN_THRESHOLD = Duration.ofMinutes(15);
 
     private final XApiClient client;
@@ -75,9 +75,9 @@ public class IngestionService {
         NOT_CONFIGURED,
         /** 情報源アカウントが DB に無い。 */
         NO_SOURCE_ACCOUNT,
-        /** 別の実行が動いている（第 10.1 節）。 */
+        /** 別の実行が動いている（docs/x-integration.md「多重起動の防止」）。 */
         ALREADY_RUNNING,
-        /** 連続失敗で打ち切られている。管理者の操作を待つ（第 7 章）。 */
+        /** 連続失敗で打ち切られている。管理者の操作を待つ（docs/x-integration.md「エラーハンドリング」）。 */
         HALTED,
         /** 実行して失敗した。 */
         FAILED
@@ -126,7 +126,7 @@ public class IngestionService {
                     counters.truncated ? " / 取りこぼしあり" : "");
             return Result.COMPLETED;
         } catch (RuntimeException e) {
-            // 取得位置は進めない。次回同じ範囲を取り直す（第 2.1 節）
+            // 取得位置は進めない。次回同じ範囲を取り直す（docs/x-integration.md「処理順序の原則」）
             Long runId = run.getId();
             String summary = summarize(e);
             tx.executeWithoutResult(s -> runs.findById(runId).ifPresent(r ->
@@ -141,7 +141,7 @@ public class IngestionService {
     /**
      * ページングしながら取得する。
      *
-     * <p>1 回の実行で取るページ数に上限を設ける（第 3.4 節）。暴走した課金を防ぐため。
+     * <p>1 回の実行で取るページ数に上限を設ける（docs/x-integration.md「ページング」）。暴走した課金を防ぐため。
      *
      * <p><b>上限に達したら、未取得の古い側は取得を諦める。</b> API は新しい順に返すため、
      * 打ち切ったときに残るのは古い側であり、取得位置を最新へ進めるとその区間は
@@ -178,7 +178,7 @@ public class IngestionService {
      * 取得範囲を決める。
      *
      * <p>取得済みの位置があれば差分取得。無ければ初回バックフィルで、
-     * 遡る範囲を月数で限定する（第 8 章）。無制限に遡ると課金が読めない。
+     * 遡る範囲を月数で限定する（docs/x-integration.md「初回バックフィル」）。無制限に遡ると課金が読めない。
      */
     private FetchWindow window(SourceAccount account, OffsetDateTime now) {
         Long last = account.getLastFetchedTweetId();
@@ -189,7 +189,7 @@ public class IngestionService {
 
     // ------------------------------------------------------------------ 処理
 
-    /** <b>古い順に処理する。</b>API は新しい順に返すため、並べ替えてから回す（第 2.1 節）。 */
+    /** <b>古い順に処理する。</b>API は新しい順に返すため、並べ替えてから回す（docs/x-integration.md「処理順序の原則」）。 */
     private void process(SourceAccount account, List<SourcePost> posts, Counters counters) {
         List<SourcePost> oldestFirst = posts.stream()
                 .sorted(Comparator.comparingLong(SourcePost::id))
@@ -219,7 +219,7 @@ public class IngestionService {
     private void register(SourceAccount account, SourcePost post,
             ParseResult.Extracted extracted, Counters counters) {
         /*
-         * 出演開始時刻の昇順で処理する（docs/data-model.md 第 7.1 節）。
+         * 出演開始時刻の昇順で処理する（docs/data-model.md「追加告知による空欄補完」）。
          * 順序を決めないと同じ入力から違う結果が出る。既存行を引き継ぐのが
          * どの枠かが処理順で入れ替わり、会場の内容が変わる。
          */
@@ -231,7 +231,7 @@ public class IngestionService {
         String sourceUrl = postUrl(account, post);
 
         /*
-         * 判定は投稿単位（docs/x-integration.md 第 5.10 節）。1 枠でも検証に
+         * 判定は投稿単位（docs/x-integration.md「1 投稿から複数の出演情報」）。1 枠でも検証に
          * 通らなければ、この投稿からは 1 件も登録せず未処理へ回す。
          *
          * 枠単位で捨てると、抽出できなかった枠がどこにも現れない。投稿は
@@ -299,10 +299,10 @@ public class IngestionService {
     // ------------------------------------------------------------------ 位置
 
     /**
-     * 取得位置を進める。<b>全件処理したあとに一度だけ</b>（第 2.1 節）。
+     * 取得位置を進める。<b>全件処理したあとに一度だけ</b>（docs/x-integration.md「処理順序の原則」）。
      *
      * <p>更新は前進するときだけ成立する（{@code advanceLastFetchedTweetId}）。
-     * 後退させると同じ投稿を翌日以降に取り直し、再課金になる（第 2.2 節）。
+     * 後退させると同じ投稿を翌日以降に取り直し、再課金になる（docs/x-integration.md「取得位置を後退させない」）。
      *
      * <p><b>ページ上限で打ち切った場合も進める</b>（ADR-0020）。進めない実装にすると
      * 滞留が解消せず、課金だけが積み上がる。
@@ -316,7 +316,7 @@ public class IngestionService {
     // ------------------------------------------------------------------ 門番
 
     /**
-     * 多重起動の判定（第 10.1 節）。
+     * 多重起動の判定（docs/x-integration.md「多重起動の防止」）。
      *
      * <p>「終わっていなければスキップ」だけにしない。RUNNING を書いた直後に
      * プロセスが落ちると、その行が残り続けて<b>以降の実行がすべてスキップされ、
@@ -341,7 +341,7 @@ public class IngestionService {
     }
 
     /**
-     * 連続失敗による打ち切り（第 7 章、FR-43）。
+     * 連続失敗による打ち切り（docs/x-integration.md「エラーハンドリング」、FR-43）。
      *
      * <p>失敗するたびに同じ範囲を取り直すため、失敗が UTC の日跨ぎで続くと
      * 24 時間の重複排除が切れて<b>毎日再課金される</b>。
@@ -372,7 +372,7 @@ public class IngestionService {
     private static final class Counters {
         private int resources;
         private int created;
-        /** ページ上限で打ち切ったか（第 3.4 節）。取りこぼしが確定した印。 */
+        /** ページ上限で打ち切ったか（docs/x-integration.md「ページング」）。取りこぼしが確定した印。 */
         private boolean truncated;
         private int unparsed;
     }

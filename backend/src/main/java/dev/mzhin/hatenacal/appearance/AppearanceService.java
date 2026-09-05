@@ -106,7 +106,7 @@ public class AppearanceService {
                 cmd.ticketUrl(), cmd.sourceUrl(),
                 post == null ? null : post.getId()));
 
-        // 処理済みの投稿を未処理一覧から外す（docs/api.md 第 5.2 節）。
+        // 処理済みの投稿を未処理一覧から外す（docs/api.md「手動登録」）。
         // これがないと登録しても一覧に残り続ける
         if (post != null) {
             post.markRegistered();
@@ -117,7 +117,7 @@ public class AppearanceService {
     /**
      * 自動取り込みからの登録・補完（FR-41）。
      *
-     * <p>照合と補完の規則は docs/data-model.md 第 7.1 節。
+     * <p>照合と補完の規則は docs/data-model.md「追加告知による空欄補完」。
      *
      * <ol>
      *   <li>日付・イベント・開始時刻が<b>すべて一致</b>する行があれば、その空欄を埋める
@@ -202,7 +202,7 @@ public class AppearanceService {
      * 削除（FR-23）。
      *
      * <p>物理削除する。ingested_post の記録は消さないため、同じ投稿から
-     * 再登録されることはない（docs/data-model.md 第 7.2 節）。
+     * 再登録されることはない（docs/data-model.md「削除と冪等性」）。
      */
     @Transactional
     public void delete(Long id) {
@@ -259,6 +259,6 @@ public class AppearanceService {
             throw new BadRequestException("物販の終了時刻が開始時刻より前です");
         }
         // 出演時刻と物販時刻の前後は問わない。並行物販は出演より前に始まりうる
-        // （docs/data-model.md 第 4.3.1 節）
+        // （docs/data-model.md「実際の告知投稿との対応」）
     }
 }

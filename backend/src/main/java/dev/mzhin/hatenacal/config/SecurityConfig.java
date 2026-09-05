@@ -42,7 +42,7 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable())
                 // 未認証と認可失敗をどちらも 403 にする。401 を返すと
                 // 「キーが無い」と「キーが違う」を区別できてしまう
-                // （docs/api.md 第 2.2 節）
+                // （docs/api.md「認可の実装方針」）
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((req, res, e) ->
                                 res.setStatus(HttpServletResponse.SC_FORBIDDEN))
@@ -51,7 +51,7 @@ public class SecurityConfig {
                 .addFilterBefore(new ApiKeyFilter(publicApiKey, adminApiKey),
                         UsernamePasswordAuthenticationFilter.class)
                 // 公開 API の総量制限。**キーの検証を通ったものだけ数える**ため
-                // ApiKeyFilter の後ろに置く（docs/architecture.md 第 5.5 節）
+                // ApiKeyFilter の後ろに置く（docs/architecture.md「公開ページのレート制限」）
                 .addFilterAfter(new PublicApiRateLimitFilter(rateLimiter), ApiKeyFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         // 公開 API は GET のみ。他のメソッドを許可しない

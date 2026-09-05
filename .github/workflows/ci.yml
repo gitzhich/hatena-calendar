@@ -84,18 +84,27 @@ jobs:
       - working-directory: frontend
         run: npm run build
 
+  # 変更範囲で絞らない。設計文書への参照はコード・設定・文書のどこにでもあり、
+  # 見出しを 1 つ変えるだけで別ディレクトリの参照が壊れるため。
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: 設計文書への参照を検査する
+        run: scripts/check-doc-refs.py
+
   # ブランチ保護の必須チェックはこのジョブだけにする。
   # パス絞り込みでジョブがスキップされると、そのチェックは報告されず
   # 保護ルールが永久に待ち続けるため、常に走る集約ジョブで受ける。
   ci:
-    needs: [backend, frontend]
+    needs: [backend, frontend, docs]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: 各ジョブの結果を集約する
         run: |
-          echo "backend=${{ needs.backend.result }} frontend=${{ needs.frontend.result }}"
-          for r in "${{ needs.backend.result }}" "${{ needs.frontend.result }}"; do
+          echo "backend=${{ needs.backend.result }} frontend=${{ needs.frontend.result }} docs=${{ needs.docs.result }}"
+          for r in "${{ needs.backend.result }}" "${{ needs.frontend.result }}" "${{ needs.docs.result }}"; do
             case "$r" in
               success|skipped) ;;
               *) echo "::error::CI が失敗した"; exit 1 ;;

@@ -8,7 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * データの状態が何をもって決まるか（FR-08 / docs/api.md 第 4.2 節）。
+ * データの状態が何をもって決まるか（FR-08 / docs/api.md「データの状態」）。
  *
  * <p>DB も HTTP も通さない。「24 時間以上」の境界は実時刻に依存せず 1 秒刻みで確かめられ、
  * 日時の正規化は<b>任意のオフセットを渡して</b>確かめられる。
@@ -62,7 +62,7 @@ class IngestionStatusTest {
     }
 
     @Test
-    @DisplayName("DTO は日時を UTC に正規化する（docs/api.md 第 4.2 節）")
+    @DisplayName("DTO は日時を UTC に正規化する（docs/api.md「データの状態」）")
     void dtoNormalizesToUtc() {
         OffsetDateTime jst = OffsetDateTime.of(2026, 8, 28, 10, 0, 0, 0, ZoneOffset.ofHours(9));
         PublicStatusDto dto = new PublicStatusDto(jst, false);
@@ -85,7 +85,7 @@ class IngestionStatusTest {
     @DisplayName("判定はオフセットに依存しない。同じ瞬間なら同じ結果")
     void offsetDoesNotAffectComparison() {
         // JST 表記の「24 時間前」。UTC 表記のときと同じ判定にならなければ、
-        // どこかで暦上の見た目を比べている（docs/data-model.md 第 6 章）
+        // どこかで暦上の見た目を比べている（docs/data-model.md「タイムゾーンの扱い」）
         OffsetDateTime jst = NOW.minusHours(24).withOffsetSameInstant(ZoneOffset.ofHours(9));
         assertThat(IngestionStatusService.isStale(jst, NOW)).isTrue();
 

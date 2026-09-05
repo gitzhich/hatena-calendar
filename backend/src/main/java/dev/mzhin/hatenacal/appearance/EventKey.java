@@ -4,7 +4,7 @@ import java.text.Normalizer;
 import java.util.regex.Pattern;
 
 /**
- * 照合用のイベント名キー（ADR-0006 / docs/data-model.md 第 4.3.2 節）。
+ * 照合用のイベント名キー（ADR-0006 / docs/data-model.md「同一イベントの一意性と event_key」）。
  *
  * <p>表示には使わない。画面に出すのは常に告知の原文（event_name）で、
  * 正規化した文字列を表示に回すと元の告知と違う名前がカレンダーに並ぶ。
@@ -25,7 +25,7 @@ public final class EventKey {
      *
      * <p><b>この集合は {@code EventKeyTest} が固定している。</b>
      * 変えると既存行のキーと新しい告知のキーが一致せず、照合が静かに壊れる。
-     * 落ちる文字の一覧は docs/data-model.md 第 4.3.2 節。
+     * 落ちる文字の一覧は docs/data-model.md「同一イベントの一意性と event_key」。
      */
     private static final Pattern DROP =
             Pattern.compile("[^\\p{IsHiragana}\\p{IsKatakana}\\p{IsHan}a-z0-9ー]");

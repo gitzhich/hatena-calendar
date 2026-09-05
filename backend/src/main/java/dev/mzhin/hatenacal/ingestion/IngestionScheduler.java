@@ -7,15 +7,15 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * 取り込みの定期実行（docs/x-integration.md 第 10 章）。
+ * 取り込みの定期実行（docs/x-integration.md「運用と監視」）。
  *
  * <p><b>ポーリング間隔を決めているのは X API ではない。</b>
  * 新規投稿がなければ返却リソースは 0 件で課金も 0 だが、実行のたびに
  * Neon のコンピュートが最低 5 分起動するため、間隔を詰めると無料枠の
- * CU-hours を圧迫する（docs/architecture.md 第 11 章）。
+ * CU-hours を圧迫する（docs/architecture.md「運用コストの試算」）。
  *
  * <p>{@code X_INGESTION_ENABLED=false} でこのビーン自体が作られなくなる。
- * トークンを消す以外の止め方（docs/security.md 第 9 章）。
+ * トークンを消す以外の止め方（docs/security.md「未決定事項」）。
  * <b>反映にはデプロイが要る。</b>
  */
 @Component
@@ -33,7 +33,7 @@ public class IngestionScheduler {
 
     /**
      * {@code fixedDelay} を使う。前回の完了からの間隔なので、実行が長引いても
-     * 重ならない。多重起動の防止は別途あるが（第 10.1 節）、そもそも重ねない。
+     * 重ならない。多重起動の防止は別途あるが（docs/x-integration.md「多重起動の防止」）、そもそも重ねない。
      *
      * <p>起動直後には走らせない。デプロイのたびに取得が走るのを避け、
      * テストの文脈でも発火しないようにするため。

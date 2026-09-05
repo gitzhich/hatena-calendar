@@ -44,4 +44,4 @@ Spring Boot が最初からインターネットに露出する。
 
 ## 関連
 
-- [docs/architecture.md](../architecture.md) 第 1 章、第 5 章
+- [docs/architecture.md](../architecture.md)「全体構成」、[architecture.md](../architecture.md)「フロントエンド構成とキャッシュ戦略」

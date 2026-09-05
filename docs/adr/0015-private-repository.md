@@ -7,14 +7,14 @@
 
 `docs/x-post-sample/` には XINXIN 公式アカウントの投稿本文をそのまま置いている
 （実サンプル 13 件）。抽出ルールはすべてこの実データから導出され、
-第 5.11 節の期待値と第 9 章のテストもここに依存している。
+[x-integration.md](../x-integration.md)「実サンプルでの検証結果」の期待値と[x-integration.md](../x-integration.md)「テスト方針」のテストもここに依存している。
 
 一方で [security.md](../security.md) T-07 は、これを
 「公開すると転載にあたる。`.gitignore` へ移すか、架空のデータに差し替える」としていた。
 つまり**サンプルを保持し続けることと、リポジトリを公開することが両立しない**状態だった。
 
 サンプルはレビューのたびに増える運用でもある
-（[security.md](../security.md) 第 6.3 節: 抽出ミスがあれば投稿を追加してテストを増やす）。
+（[security.md](../security.md)「誤った出演情報の公開が判明した場合」: 抽出ミスがあれば投稿を追加してテストを増やす）。
 先送りするほど選択肢が狭まるため、実装前に決着させる必要があった。
 
 ## 決定
@@ -59,5 +59,5 @@
 
 - [docs/security.md](../security.md) T-07
 - [docs/requirements.md](../requirements.md) LR-02
-- [docs/x-integration.md](../x-integration.md) 第 5.11 節 / 第 9 章
+- [docs/x-integration.md](../x-integration.md)「実サンプルでの検証結果」 / [x-integration.md](../x-integration.md)「テスト方針」
 - [ADR-0003](0003-no-approval-flow.md) 取り込み結果に承認フローを設けない

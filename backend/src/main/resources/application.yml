@@ -3,7 +3,7 @@ spring:
     name: hatenacal
   datasource:
     # 認証情報は URL に含める。username / password を別に渡さない
-    # （docs/architecture.md 第 7.2 節）。両方を渡すと、URL のクエリと
+    # （docs/architecture.md「接続情報は `DATABASE_URL` 1 本で渡す」）。両方を渡すと、URL のクエリと
     # 明示プロパティのどちらが勝つかがドライバとプールの実装依存になり、
     # 本番で接続できずに起動しない側へ倒れうる。ローカルは既定値が
     # compose.yaml と一致するため、この食い違いが表に出ない。
@@ -12,10 +12,10 @@ spring:
     # 必ず user= / password= のクエリパラメータで渡す
     # （Neon は Connect ダイアログのスニペットを Java にすればこの形で出る。
     #  psql などのスニペットは postgresql://user:pass@host の形で、そのままでは
-    #  使えない。取得手順は docs/runbook-deploy.md 第 2.3 節）。
+    #  使えない。取得手順は docs/runbook-deploy.md「接続文字列を JDBC の形で取る」）。
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/hatenacal?user=hatenacal&password=hatenacal}
   jpa:
-    # docs/data-model.md 第 8 章：update は消した列が残るため本番でもローカルでも使わない
+    # docs/data-model.md「マイグレーション運用（Flyway）」：update は消した列が残るため本番でもローカルでも使わない
     hibernate:
       ddl-auto: validate
     open-in-view: false
@@ -23,13 +23,13 @@ spring:
     # これを UTC にすると DATE / TIME 列にも変換がかかり、
     # DB の 21:05 が JVM 側で 06:05 になる（JST との差 +9）。
     # イベントの開催日・出演時刻は JST のローカル値であり、
-    # 変換してはいけない（docs/data-model.md 第 6 章 / ADR-0005）。
+    # 変換してはいけない（docs/data-model.md「タイムゾーンの扱い」 / ADR-0005）。
     # TIMESTAMPTZ は絶対時刻なのでこの設定なしでも UTC で正しく往復する。
   flyway:
     enabled: true
     locations: classpath:db/migration
 
-# docs/data-model.md 第 6 章：システムの時刻は UTC で保存し、表示時に JST へ変換する。
+# docs/data-model.md「タイムゾーンの扱い」：システムの時刻は UTC で保存し、表示時に JST へ変換する。
 # イベントの開催日・出演時刻は DATE / TIME の JST ローカル値で、UTC 変換しない。
 server:
   port: ${PORT:8080}
@@ -43,15 +43,15 @@ management:
     health:
       show-details: never
 
-# X API 連携（docs/x-integration.md 第 3 章 / docs/architecture.md 第 7 章）
+# X API 連携（docs/x-integration.md「API 呼び出し仕様」 / docs/architecture.md「設定と環境変数」）
 x:
   # 課金に直結するシークレット。ログ・エラー・フロントに出さない（NFR-03）
   bearer-token: ${X_BEARER_TOKEN:}
   source-username: ${X_SOURCE_USERNAME:}
   base-url: https://api.x.com
-  # 5〜100。ページング回数を減らすため上限に張る（第 3.2 節）
+  # 5〜100。ページング回数を減らすため上限に張る（docs/x-integration.md「投稿の取得」）
   max-results: 100
-  # 1 回の実行で取るページ数の上限。暴走した課金を防ぐ（第 3.4 節）
+  # 1 回の実行で取るページ数の上限。暴走した課金を防ぐ（docs/x-integration.md「ページング」）
   max-pages: 10
   # 429 / 5xx / 通信失敗のみ再試行する。無限リトライにしない（FR-43）
   max-retries: 3
@@ -59,21 +59,21 @@ x:
   max-backoff: 60s
   connect-timeout: 5s
   read-timeout: 30s
-  # 初回バックフィルで遡る月数。無制限に遡ると課金が読めない（第 8 章）
+  # 初回バックフィルで遡る月数。無制限に遡ると課金が読めない（docs/x-integration.md「初回バックフィル」）
   backfill-months: 3
   # 請求サイクルの起点日（1〜31）。X はクレジットの購入日を起点に切るため
-  # 暦月ではない（docs/runbook-x-api-setup.md 第 3.3 節）。
+  # 暦月ではない（docs/runbook-x-api-setup.md「コンソールで紛らわしい点」）。
   # 現在の値は GET /2/usage/tweets の cap_reset_day で確認できる。
   # 1 にすると暦月と一致する
   billing-cycle-start-day: 2
 
-# 取り込みジョブ（docs/x-integration.md 第 10 章）
+# 取り込みジョブ（docs/x-integration.md「運用と監視」）
 ingestion:
   # false でスケジューラ自体を作らない。トークンを消す以外の止め方
-  # （docs/security.md 第 9 章）。反映にはデプロイが要る
+  # （docs/security.md「未決定事項」）。反映にはデプロイが要る
   enabled: ${X_INGESTION_ENABLED:true}
   # 間隔は X API のコストではなく Neon の CU-hours で決まっている
-  # （docs/architecture.md 第 11 章）
+  # （docs/architecture.md「運用コストの試算」）
   interval: PT30M
   # 起動直後には走らせない
   initial-delay: PT1M

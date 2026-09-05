@@ -19,7 +19,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * <p>JUnit のセッション開始時に 1 度だけ起動し、接続先をシステムプロパティで
  * 渡す。システムプロパティは環境変数より優先されるため、CI で
  * {@code DATABASE_URL} が設定されていてもこちらが勝つ
- * （docs/architecture.md 第 7 章）。
+ * （docs/architecture.md「設定と環境変数」）。
  *
  * <p><b>テストクラスには何も足さない。</b>継承や {@code @Import} を要求すると
  * 付け忘れた 1 クラスが開発用 DB を触りにいく。
@@ -42,7 +42,7 @@ public class PostgresContainerListener implements LauncherSessionListener {
         Runtime.getRuntime().addShutdownHook(new Thread(container::stop));
 
         // **認証情報を URL に含める。** 本番は DATABASE_URL 1 本で渡すため
-        // （docs/architecture.md 第 7.2 節）、テストも同じ経路にする。
+        // （docs/architecture.md「接続情報は `DATABASE_URL` 1 本で渡す」）、テストも同じ経路にする。
         // username / password を別に渡すと、テストだけが本番と違う渡し方になり、
         // URL に埋めた認証情報が効くかどうかを一度も検証しないまま出すことになる。
         String url = container.getJdbcUrl();

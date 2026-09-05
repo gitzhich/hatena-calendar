@@ -6,10 +6,10 @@
 ## 背景
 
 取り込みは 1 回の実行で取るページ数に上限を設けている（既定 10 ページ = 最大 1,000 件）。
-暴走した課金を防ぐためである（[x-integration.md](../x-integration.md) 第 3.4 節）。
+暴走した課金を防ぐためである（[x-integration.md](../x-integration.md)「ページング」）。
 
 **上限に達したときの取得位置の扱いが決まっていなかった。**
-第 3.4 節は「次回の実行に持ち越す」と書き、第 2.1 節は
+[x-integration.md](../x-integration.md)「ページング」は「次回の実行に持ち越す」と書き、[x-integration.md](../x-integration.md)「処理順序の原則」は
 「`last_fetched_tweet_id` は取得できた最大 ID で更新する」と書いている。
 実装は後者に従っている。
 
@@ -41,7 +41,7 @@ X API の 24 時間の重複排除は UTC の日跨ぎで切れるため、
 失うことそのものは、既に受け入れている性質と同じである。
 タイムラインは約 3,200 件までしか遡れず、
 **過去分の完全な取り込みは要件の非スコープ**としている
-（[requirements.md](../requirements.md) 第 9 章、[x-integration.md](../x-integration.md) 第 8 章）。
+（[requirements.md](../requirements.md)「外部依存と制約」、[x-integration.md](../x-integration.md)「初回バックフィル」）。
 新しい妥協を持ち込むのではなく、既にある限界の延長として扱う。
 
 **ただし黙って起きてはいけない。** 諦めたことを知らなければ、
@@ -62,13 +62,13 @@ X API の 24 時間の重複排除は UTC の日跨ぎで切れるため、
 
 - 1,000 件を超える滞留が起きた場合、**古い側の投稿は手動登録で補う**運用になる
 - 実測では 3 か月分のバックフィルが 338 件だったため、通常運用で上限に届かない
-  （[requirements.md](../requirements.md) 第 11 章）
+  （[requirements.md](../requirements.md)「リリース判定基準（Definition of Done）」）
 - `ingestion_run` に列が 1 つ増えた（`V2__ingestion_run_truncated.sql`）
 - 取りこぼしの起きた実行を後から SQL で特定できる
   （`SELECT * FROM ingestion_run WHERE truncated`）
 
 ## 関連
 
-- [docs/x-integration.md](../x-integration.md) 第 2.1 節 / 第 3.4 節 / 第 8 章
-- [docs/data-model.md](../data-model.md) 第 4.4 節
+- [docs/x-integration.md](../x-integration.md)「処理順序の原則」 / [x-integration.md](../x-integration.md)「ページング」 / [x-integration.md](../x-integration.md)「初回バックフィル」
+- [docs/data-model.md](../data-model.md)「ingestion_run — 取り込み実行ログ」
 - [ADR-0002](0002-official-api-only.md) 取得は公式 API のみ

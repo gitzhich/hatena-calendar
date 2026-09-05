@@ -9,7 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * API キーの比較が固定時間であることの検査（docs/api.md 第 2.2 節）。
+ * API キーの比較が固定時間であることの検査（docs/api.md「認可の実装方針」）。
  *
  * <p><b>これはソースを読む検査で、振る舞いのテストではない。</b>
  * String#equals と MessageDigest#isEqual は、どちらも同じ真偽値を返す。

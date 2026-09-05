@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
- * RFC 7807（Problem Details）で返す（docs/api.md 第 3.3 節）。
+ * RFC 7807（Problem Details）で返す（docs/api.md「エラー」）。
  *
  * <p><b>スタックトレース・SQL・内部のクラス名をレスポンスに含めない</b>（NFR-03）。
  * 詳細はログにのみ残す。
@@ -53,7 +53,7 @@ public class ApiExceptionHandler {
     }
 
     /**
-     * クエリパラメータの欠落（docs/api.md 第 3.3 節「クエリパラメータの形式不正」）。
+     * クエリパラメータの欠落（docs/api.md「エラー」「クエリパラメータの形式不正」）。
      *
      * <p><b>個別に受けないと 500 になる。</b> {@code @ExceptionHandler(Exception.class)} は
      * この例外にも一致し、Spring の既定の変換（{@code DefaultHandlerExceptionResolver}）より
@@ -91,7 +91,7 @@ public class ApiExceptionHandler {
         return detail;
     }
 
-    /** 400 は形が同じなので 1 か所で組む。title は第 3.3 節の例に合わせる。 */
+    /** 400 は形が同じなので 1 か所で組む。title はdocs/api.md「エラー」の例に合わせる。 */
     private static ProblemDetail badRequest(String message) {
         ProblemDetail detail = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
         detail.setTitle("Validation Failed");
