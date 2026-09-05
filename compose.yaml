@@ -1,5 +1,5 @@
 # ローカル開発用の PostgreSQL。
-# Neon が提供するのは 16 / 17 系なので 17 に合わせる（docs/architecture.md 第 2.2 節）。
+# Neon が提供するのは 16 / 17 系なので 17 に合わせる（docs/architecture.md「Neon を選んだ理由と制約」）。
 services:
   db:
     image: postgres:17-alpine

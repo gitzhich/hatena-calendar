@@ -89,7 +89,7 @@ fi
 
 # --- 記録 ------------------------------------------------------------------
 
-# システムの時刻は UTC で残す（docs/data-model.md 第 6 章）。
+# システムの時刻は UTC で残す（docs/data-model.md「タイムゾーンの扱い」）。
 # Z を付けてタイムゾーンの読み違えを防ぐ
 tag="backend-deploy-$(date -u +%Y%m%dT%H%MZ)"
 git tag "$tag" "$sha"

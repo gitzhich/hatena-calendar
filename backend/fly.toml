@@ -1,4 +1,4 @@
-# Fly.io の設定（docs/architecture.md 第 8 章 / docs/runbook-deploy.md）。
+# Fly.io の設定（docs/architecture.md「デプロイ」 / docs/runbook-deploy.md）。
 #
 # **シークレットをここに書かない。** `fly secrets set` で入れる。
 # fly.toml はリポジトリに入るため、書けばそのままコミットされる
@@ -27,7 +27,7 @@ primary_region = "sin"
   force_https = true
 
   # **止めない。** auto_stop で寝かせると @Scheduled の取り込みが動かなくなる
-  # （CLAUDE.md「Fly.io は常時起動」）。
+  # （CLAUDE.md「構成の原則」）。
   auto_stop_machines = false
   auto_start_machines = false
 
@@ -40,7 +40,7 @@ primary_region = "sin"
   #
   # **台数を 1 に保つのは fly.toml ではなく `fly deploy --ha=false`。**
   # fly.toml に予備機を止める設定は無い。デプロイ後に `fly status` で
-  # 1 台であることを必ず確かめる（docs/runbook-deploy.md 第 3.4 節）。
+  # 1 台であることを必ず確かめる（docs/runbook-deploy.md「起動を確認する」）。
   min_machines_running = 0
 
   [[http_service.checks]]
@@ -55,12 +55,12 @@ primary_region = "sin"
   # 1 台構成なので、入れ替えは停止 → 起動になる（数十秒の断）。
   # 2 台を同時に走らせる方式にしない。取り込みの多重起動を避けるため。
   # なお重なっても ingestion_run の RUNNING 行で弾かれる
-  # （docs/x-integration.md 第 10.1 節）が、構成側でも起こさない。
+  # （docs/x-integration.md「多重起動の防止」）が、構成側でも起こさない。
   strategy = "rolling"
 
 [[vm]]
   size = "shared-cpu-1x"
   # JVM に 256MB は狭い。512MB で常時起動して月 $3 前後
-  # （docs/architecture.md 第 11 章の $2〜5 に収まる）
+  # （docs/architecture.md「運用コストの試算」の $2〜5 に収まる）
   memory = "512mb"
   cpus = 1
