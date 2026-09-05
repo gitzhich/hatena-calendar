@@ -525,7 +525,9 @@ CREATE INDEX idx_ingestion_run_status_finished
 - 月次クエリは `WHERE appearance_date BETWEEN '2026-08-01' AND '2026-08-31'` と書ける
 - サーバやコンテナの `TZ` 設定に結果が依存しない
 - `performance_start_time` が `NULL` でも日付は確定する
-  （出演時刻がまだ告知されていない公演を、管理者が手で登録できる）
+  （タイムテーブルがまだ告知されていない公演を登録できる。
+  管理者の手動登録と、自動取り込みの経路 B の両方から生まれる。
+  [x-integration.md](x-integration.md) 第 5.2 節）
 
 **深夜公演の扱い。** 「26:00 開演」のような 24 時以上の表記は、
 **時刻が実際に属する暦日**に置く。`appearance_date` を翌日、
