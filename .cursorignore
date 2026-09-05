@@ -1,0 +1,21 @@
+# Cursor のインデックスとエージェントから隠すもの。
+# .gitignore の書式に従う。ここに書いたものは Cursor が読めなくなる。
+
+# --- シークレット ---
+# 値を観測しないだけでなく、そもそも外部へ送らない
+.env
+.env.*
+!.env.example
+**/application-local.yml
+**/application-local.yaml
+**/application-secret*.yml
+**/application-secret*.yaml
+
+# --- X の投稿本文 ---
+# 転載にあたるためリポジトリを非公開にしている（docs/adr/0015-private-repository.md）。
+# その判断と整合させ、インデックス化による外部送信の対象からも外す。
+#
+# 代償: パーサの抽出テストを Cursor から触れなくなる。
+# あちらは Claude Code 側で扱うため、UI 作業には支障がない。
+docs/x-post-sample/
+backend/src/test/resources/x-post-sample/
