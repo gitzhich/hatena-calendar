@@ -67,7 +67,7 @@ git status --short                       # 作業ツリーが汚れていない�
 
 ## 2. Neon（DB）
 
-### 2.1 プロジェクトを作る
+### 2.1 Neon のプロジェクトを作る
 
 - リージョンは **`AWS Asia Pacific 1 (Singapore)`**。
   **Neon に東京（日本）リージョンは無い**（[ADR-0018](adr/0018-regions.md)）。
@@ -123,7 +123,7 @@ jdbc:postgresql://ep-xxx-pooler.ap-southeast-1.aws.neon.tech/hatenacal?user=myus
 
 **この文字列はパスワードを含む。** 扱いは他のシークレットと同じにする。
 
-### 2.4 確認
+### 2.4 接続の確認
 
 手元から繋がることを先に確かめる。**Fly.io に載せてから間違いに気づくと、
 原因がネットワークなのか文字列なのか切り分けられない。**
@@ -241,7 +241,7 @@ curl -s https://hatenacal.fly.dev/actuator/health
 
 ## 5. Vercel（フロントエンド）
 
-### 5.1 プロジェクトを作る
+### 5.1 Vercel のプロジェクトを作る
 
 GitHub 連携で `main` を自動デプロイする（[architecture.md](architecture.md) 第 8 章）。
 
@@ -313,7 +313,7 @@ Vercel が**コミット作者を Hobby アカウント所有者と照合**し�
 `git config user.email` が GitHub の検証済みメールでない場合がこれに当たる。
 **本番は影響を受けない** — マージコミットは GitHub がアカウント名義で作るため。
 
-### 5.4 確認
+### 5.4 公開ページの確認
 
 - [ ] `/` が表示され、**カレンダーに出演情報が出る**（バックエンドまで繋がっている）
 - [ ] `/2020/01` が **404**（範囲外。[ADR-0014](adr/0014-bounded-calendar-range.md)）
