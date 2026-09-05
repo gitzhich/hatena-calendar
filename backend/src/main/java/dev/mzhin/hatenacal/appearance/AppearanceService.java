@@ -122,9 +122,13 @@ public class AppearanceService {
      * <ol>
      *   <li>日付・イベント・開始時刻が<b>すべて一致</b>する行があれば、その空欄を埋める
      *   <li>無ければ、同じ日付・イベントで<b>開始時刻が NULL</b> の行を探す。
-     *       あればそこへ時刻を書き込む（管理者が時刻なしで登録した行に、
+     *       あればそこへ時刻を書き込む（時刻なしで登録された行に、
      *       後続の「タイムテーブル解禁」が時刻を入れる流れ）
-     *   <li>どちらも無ければ新規登録する
+     *   <li>登録しようとしているのが<b>時刻なし</b>で、同じ日付・イベントの行が
+     *       既にあるなら何もしない。一意キーは開始時刻を含むため、
+     *       時刻ありの行があっても時刻なしの行は作れてしまい、
+     *       カレンダーに同じ公演が 2 行並ぶ
+     *   <li>どれにも当てはまらなければ新規登録する
      * </ol>
      *
      * <p>手順 2 は手順 1 が空振りしたときにだけ走るため、
@@ -157,6 +161,11 @@ public class AppearanceService {
                 fillBlanks(timeless.get(), cmd);
                 return IngestionOutcome.COMPLETED;
             }
+        } else if (repository.existsByAppearanceDateAndEventKey(cmd.appearanceDate(), key)) {
+            // タイムテーブル未確定の告知が、既に時刻付きで登録済みの公演に届いた場合
+            // （ADR-0021）。足せる情報が無いので行を増やさない。どの枠の空欄を
+            // 埋めるべきかは決まらないため、補完もしない
+            return IngestionOutcome.UNCHANGED;
         }
 
         repository.save(Appearance.create(key, SourceType.AUTO,

@@ -38,3 +38,4 @@
 | [0018](0018-regions.md) | Neon を Singapore に置き、Fly.io を同居させる | 承認済み |
 | [0019](0019-deploy-triggers-and-records.md) | デプロイの起動条件をリポジトリ側で決め、記録をデプロイの副作用として残す | 承認済み |
 | [0020](0020-drop-posts-beyond-page-limit.md) | 1 回の取り込みを 1,000 件で頭打ちにし、超過分は取得を諦める | 承認済み |
+| [0021](0021-register-appearances-without-timetable.md) | タイムテーブル未確定の告知を、出演時刻なしで登録する | 承認済み |

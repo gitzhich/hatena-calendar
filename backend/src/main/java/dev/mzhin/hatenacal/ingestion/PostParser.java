@@ -6,6 +6,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -19,7 +20,8 @@ import org.springframework.stereotype.Component;
  * DB も HTTP も触らない（docs/architecture.md 第 4.2 節）。
  * 実サンプルに対するテストをここに集約する。
  *
- * <p>扱うのは<b>タイムテーブルが確定した公演告知だけ</b>（第 5.2 節）。
+ * <p>扱うのは<b>公演告知だけ</b>（第 5.2 節）。タイムテーブルが確定していれば
+ * 出演時刻まで、確定していなければ日付・会場・イベント名だけを取る。
  * それ以外は Unparsed にして管理者へ回す。
  */
 @Component
@@ -75,14 +77,18 @@ public class PostParser {
         // 後続ブロックの 📍 を前ブロックの「枠の会場」と誤認して連結し、
         // イベント名は前ブロックのものが使い回される（実サンプル 16.txt）
         List<Integer> starts = blockStarts(lines);
-        if (starts.size() <= 1) {
+        if (starts.isEmpty()) {
+            // 日付行と会場行が別になっている告知（実サンプル 6.txt / 23.txt）。
+            // 境界が取れないので投稿全体を 1 ブロックとして扱う
             return parseBlock(lines, postedAt);
         }
         List<ParsedAppearance> merged = new ArrayList<>();
         for (int i = 0; i < starts.size(); i++) {
             // 最初のブロックも境界行から始める。前置きは捨てる。
             // まとめ告知は冒頭で両方の会場を並べることがあり（実サンプル 17.txt）、
-            // そこに 📍 が付くとヘッダ会場に採られる（「📍大阪・Music Club JANUSと」）
+            // そこに 📍 が付くとヘッダ会場に採られる（「📍大阪・Music Club JANUSと」）。
+            // ブロックが 1 つの投稿にも同じ規則を適用する。前置きの 📍 を
+            // 会場に採る余地を、ブロック数によらず無くしておく
             int from = starts.get(i);
             int to = i + 1 < starts.size() ? starts.get(i + 1) : lines.size();
             ParseResult block = parseBlock(lines.subList(from, to), postedAt);
@@ -133,13 +139,15 @@ public class PostParser {
         }
         String headerVenue = afterMarker(header.get(venueLine), PIN);
 
-        // ---- 第 5.2 節 条件 4：イベント名が取れるか（第 5.5 節）----
-        String eventName = eventNameIn(header, venueLine);
-        if (eventName == null) {
+        // ---- 第 5.2 節 共通条件 3：イベント名が取れるか（第 5.5 節）----
+        EventName eventName = eventNameIn(header, venueLine);
+        if (eventName.value() == null) {
             return ParseResult.unparsed("イベント名が見つからない");
         }
 
-        // ---- 第 5.2 節 条件 1：XINXIN を含む 🎤 行があるか（第 5.6 節）----
+        String ticketUrl = ticketUrlIn(lines);
+
+        // ---- 第 5.2 節：XINXIN を含む 🎤 行の有無で経路が分かれる（第 5.6 節）----
         List<Integer> micLines = new ArrayList<>();
         for (int i = 0; i < lines.size(); i++) {
             if (lines.get(i).contains("XINXIN") && MIC.matcher(lines.get(i)).find()) {
@@ -147,10 +155,14 @@ public class PostParser {
             }
         }
         if (micLines.isEmpty()) {
-            return ParseResult.unparsed("XINXIN を含む 🎤 行がない（タイムテーブル未確定）");
+            if (indexOfContaining(lines, MIC_MARKER) >= 0) {
+                // 🎤 行はあるが XINXIN が入っていない。タイムテーブルは公開済みで、
+                // そこに XINXIN が載っていないということ。「まだ出ていない」とは
+                // 別の状態であり、時刻なしの出演情報にしてはいけない
+                return ParseResult.unparsed("XINXIN を含む 🎤 行がない（タイムテーブルに載っていない）");
+            }
+            return timetableUnknown(header, headerVenue, eventName, ticketUrl, postedAt);
         }
-
-        String ticketUrl = ticketUrlIn(lines);
 
         List<ParsedAppearance> results = new ArrayList<>();
         for (int idx = 0; idx < micLines.size(); idx++) {
@@ -178,7 +190,7 @@ public class PostParser {
             String venue = venueFor(lines, line, prevMic, headerEnd, headerVenue);
             TimeRange merch = merchFor(lines, line, nextMic, slot.carried());
 
-            results.add(new ParsedAppearance(slot.date(), eventName, venue,
+            results.add(new ParsedAppearance(slot.date(), eventName.value(), venue,
                     slot.start(), slot.end(),
                     merch == null ? null : merch.start(),
                     merch == null ? null : merch.end(),
@@ -188,18 +200,94 @@ public class PostParser {
         return new ParseResult.Extracted(List.copyOf(sorted(results)));
     }
 
+    // ------------------------------------------------------------------
+    // 第 5.2 節 経路 B：タイムテーブルが未確定の告知（ADR-0021）
+    // ------------------------------------------------------------------
+
+    /**
+     * 出演時刻を持たない出演情報を 1 件だけ作る（第 5.2 節 経路 B）。
+     *
+     * <p>公式は「公演情報解禁 / 出演日程解禁」と「タイムテーブル解禁」を分けて
+     * 告知する。前者だけでも日付・会場・イベント名は確定しており、
+     * <b>タイムテーブルが出るまでの間もカレンダーに載せられる</b>。
+     * 後続の告知は空欄補完で時刻を埋める（docs/data-model.md 第 7.1 節）。
+     *
+     * <p><b>🎤 行を必須から外した分を、3 つの条件で埋め合わせる。</b>
+     * 🎤 行は出演時刻の出どころであると同時に「これは公演告知だ」という証拠でもあり、
+     * 外すだけでは次回予告つきのお礼投稿（実サンプル 7.txt）を弾く根拠が無くなる。
+     */
+    private static ParseResult timetableUnknown(List<String> header, String headerVenue,
+            EventName eventName, String ticketUrl, OffsetDateTime postedAt) {
+        // 条件 B-1：📍 の行から公演日がちょうど 1 つ取れる（第 5.3 節）。
+        // この経路では ▪️ も 🎤 も無いため探索範囲が本文の末尾まで広がり、
+        // 「探索範囲の全日付」というフォールバックが販売期間の日付を拾う。
+        // 実サンプル 23.txt は候補が 8 個になり、うち 8/9(日) は曜日が正しいので
+        // 曜日検証でも落とせない。📍 の行に限ることで、第 5.1 節の基本形
+        // {M}/{D}({曜日})📍{都道府県}・{会場} そのものを条件にできる
+        List<MonthDay> onPinLines = datesOnPinLines(header);
+        if (onPinLines.size() != 1) {
+            return ParseResult.unparsed("📍 の行から公演日を 1 つに絞れない");
+        }
+
+        // 条件 B-2：イベント名が括弧付きで取れる（第 5.5 節）。
+        // 連結でのフォールバックを許すと、括弧も空行も無い投稿で本文の後半を
+        // 名前にしてしまう。表示が汚れるだけでなく、event_key が後続の
+        // タイムテーブル解禁と一致せず、消えない重複行になる
+        if (!eventName.bracketed()) {
+            return ParseResult.unparsed("イベント名が括弧で囲まれていない");
+        }
+
+        // 条件 B-3：チケット URL がある（第 5.8 節）。
+        // 「これから行われる公演の告知にはチケット情報が付き、過ぎた公演の
+        // お礼投稿には付かない」という意味の違いを条件にする。🔗 は保持する項目で、
+        // 捨てる値の書き方が抽出の成否を決める形にならない
+        if (ticketUrl == null) {
+            return ParseResult.unparsed("チケット URL（🔗）がない");
+        }
+
+        LocalDate date = resolveYear(onPinLines.get(0), postedAt);
+        if (date == null) {
+            return ParseResult.unparsed("告知の曜日と実際の曜日が一致しない");
+        }
+        return new ParseResult.Extracted(List.of(new ParsedAppearance(
+                date, eventName.value(), confirmedVenue(headerVenue),
+                null, null, null, null, ticketUrl)));
+    }
+
+    /**
+     * 1 つに確定できる会場だけを返す。羅列なら {@code null}。
+     *
+     * <p>会場が並んでいる告知（実サンプル 1.txt は 7 会場、22.txt は 2 会場）では
+     * <b>XINXIN がどこに出るかがタイムテーブルまで決まらない</b>。ここで羅列を
+     * 入れてしまうと、値のある列は空欄補完で上書きされないため
+     * （ADR-0004）、タイムテーブルが出た後も羅列が残り続ける。
+     *
+     * <p>区切りは {@code /} と {@code &} の 2 種類。実データはどちらも使う
+     * （1.txt が {@code /}、22.txt が {@code &}）。第 5.4 節のサーキット判定が
+     * {@code /} だけなのは、そちらを変える失敗ケースが実サンプルに無いため。
+     */
+    private static String confirmedVenue(String headerVenue) {
+        return headerVenue.indexOf('/') >= 0 || headerVenue.indexOf('&') >= 0
+                ? null : headerVenue;
+    }
+
     /**
      * 第 5.10 節：登録処理へ渡す順を出演開始時刻の昇順に固定する。
      *
      * <p>順序を決めないと、既存行を引き継ぐ枠が入れ替わって結果が
      * 非決定的になる（docs/data-model.md 第 7.1 節）。
      * ブロックをまたいで並べ替えるため、投稿全体の結合後にも同じ順を適用する。
+     *
+     * <p><b>時刻なしを先に置く。</b>タイムテーブル未確定の枠（経路 B）は開始時刻が
+     * {@code null} になる。時刻ありを先に登録すると、後から来た時刻なしが
+     * {@code (日付, event_key, NULL)} という別の行を作ってしまう。
+     * 先に登録しておけば後続の時刻ありがその行を埋める。
+     * {@code IngestionService.register} の並べ替えと同じ規則にしてある。
      */
     private static List<ParsedAppearance> sorted(List<ParsedAppearance> results) {
-        results.sort((a, b) -> {
-            int c = a.appearanceDate().compareTo(b.appearanceDate());
-            return c != 0 ? c : a.performanceStartTime().compareTo(b.performanceStartTime());
-        });
+        results.sort(Comparator.comparing(ParsedAppearance::appearanceDate)
+                .thenComparing(ParsedAppearance::performanceStartTime,
+                        Comparator.nullsFirst(Comparator.naturalOrder())));
         return results;
     }
 
@@ -242,10 +330,18 @@ public class PostParser {
      * 探索範囲の日付をすべて候補にする。
      */
     private static List<MonthDay> performanceDatesIn(List<String> header) {
-        List<MonthDay> onPinLines = monthDaysIn(header.stream()
-                .filter(line -> line.contains(PIN))
-                .toList());
+        List<MonthDay> onPinLines = datesOnPinLines(header);
         return onPinLines.isEmpty() ? monthDaysIn(header) : onPinLines;
+    }
+
+    /**
+     * 📍 の行に書かれた日付だけ（第 5.3 節）。
+     *
+     * <p>フォールバックを挟まない。経路 B は探索範囲を ▪️ / 🎤 で切れず、
+     * フォールバックが販売期間の日付まで拾うため、この形が要る。
+     */
+    private static List<MonthDay> datesOnPinLines(List<String> header) {
+        return monthDaysIn(header.stream().filter(line -> line.contains(PIN)).toList());
     }
 
     private static List<MonthDay> monthDaysIn(List<String> lines) {
@@ -351,14 +447,31 @@ public class PostParser {
      * （「#ﾆｷﾌﾟﾚ『カンシャサイ。-秋-』」は区切りの空白がなく、
      * 除去しようとすると行全体が消える）。
      */
-    private static String eventNameIn(List<String> header, int venueLine) {
+    /**
+     * イベント名と、それを<b>括弧付きで</b>取れたか。
+     *
+     * <p>経路 B（第 5.2 節）は括弧付きしか受け付けないため、どちらの規則で
+     * 取れたかを呼び出し側まで持ち回る必要がある。{@code value} は
+     * 取れなければ {@code null}。
+     */
+    private record EventName(String value, boolean bracketed) {
+    }
+
+    /**
+     * イベント名を取る。
+     *
+     * <p><b>開き括弧が見つかったら、結果が {@code null} でも連結へ落とさない。</b>
+     * 落とすと「空行までに閉じなければ Unparsed」（{@link #bracketedName}）が
+     * 効かなくなり、閉じ括弧の無い行の後ろが連結されてしまう。
+     */
+    private static EventName eventNameIn(List<String> header, int venueLine) {
         for (int i = venueLine + 1; i < header.size(); i++) {
             int kind = openBracketKind(header.get(i));
             if (kind >= 0) {
-                return bracketedName(header, i, kind);
+                return new EventName(bracketedName(header, i, kind), true);
             }
         }
-        return joinedEventName(header, venueLine);
+        return new EventName(joinedEventName(header, venueLine), false);
     }
 
     /** 行に最初に現れる開き括弧の種類。無ければ -1。 */

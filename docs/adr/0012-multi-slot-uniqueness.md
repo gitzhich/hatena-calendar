@@ -86,6 +86,14 @@ CONSTRAINT appearance_unique_event
   （[x-integration.md](../x-integration.md) 第 5.2 節）。
   制約が必要である結論は変わらないため決定内容は変更しない
 
+- 2026-09-05: 上の追記を取り消す。[ADR-0021](0021-register-appearances-without-timetable.md)
+  でタイムテーブル未確定の告知を対象に入れたため、**時刻 `NULL` の行は再び
+  自動取り込みからも生まれる**。当初この ADR が想定していた状況に戻った。
+  あわせて、この制約が保証するのは「時刻なしの行が 1 日 1 イベントにつき 1 行」までで
+  あることを明記しておく。`(d, k, NULL)` と `(d, k, 16:45)` は別の行として通るため、
+  **同じ公演が 2 行並ぶのを防ぐのはアプリ側の責務**である
+  （[data-model.md](../data-model.md) 第 7.1 節 手順 3）。決定内容は変更しない
+
 ## 関連
 
 - [ADR-0006](0006-event-key-separation.md) イベント名を表示用と照合用に分離する
