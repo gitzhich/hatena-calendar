@@ -31,6 +31,14 @@ SKIP_SUFFIX = (".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".pdf",
 SKIP_PREFIX = ("docs/x-post-sample/", ".claude/")
 # この検査自身。照合パターンそのものを含むので、自分を検査すると必ず落ちる
 SKIP_FILES = ("scripts/check-doc-refs.py",)
+# シークレットが入りうるファイルは、指摘は出すが**行の中身を出さない**。
+# この検査は CI のログに出る。追跡外のファイルは git ls-files に載らないので
+# 本来ここへは来ないが、誤ってコミットされたときに値がログへ写る経路を残さない。
+SECRET_LIKE = re.compile(
+    r"(^|/)\.env"
+    r"|\.(pem|key|p8|p12|jks|keystore)$"
+    r"|(^|/)(secrets|credentials|service-account[^/]*)\.json$"
+    r"|application-(local|secret)")
 
 # 見出しは "### 5.3 日付" の形。番号を落としたテキストが参照キーになる
 HEADING = re.compile(r"^#{2,6}\s+(?:[0-9]+(?:\.[0-9]+)*[.．]?\s+)?(.*?)\s*$")
@@ -94,6 +102,7 @@ def main():
             lines = open(os.path.join(ROOT, rel), encoding="utf-8").read().splitlines()
         except (UnicodeDecodeError, IsADirectoryError):
             continue                      # バイナリ・サブモジュールは読み飛ばす
+        redact = bool(SECRET_LIKE.search(rel))
         in_fence = False
         for no, line in enumerate(lines, 1):
             if rel.endswith(".md") and FENCE.match(line):
@@ -102,7 +111,8 @@ def main():
             if in_fence:
                 continue
             def err(msg):
-                errors.append(f"{rel}:{no}: {msg}\n      {line.strip()[:110]}")
+                body = "（内容は表示しない）" if redact else line.strip()[:110]
+                errors.append(f"{rel}:{no}: {msg}\n      {body}")
 
             spans = [m.span() for m in CODE_SPAN.finditer(line)]
 
