@@ -27,8 +27,16 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SKIP_SUFFIX = (".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".pdf",
                ".woff", ".woff2", ".ttf", ".jar", ".zip")
 # 投稿本文をそのまま置いてあるだけ（参照は書かれていない）と、
-# このリポジトリの設計ではない Claude Code のスキル定義
-SKIP_PREFIX = ("docs/x-post-sample/", ".claude/")
+# このリポジトリの設計ではない Claude Code のスキル定義と、
+# **適用済みのマイグレーション**。
+#
+# マイグレーションは 1 バイトでも変えると Flyway のチェックサムが変わり、
+# 起動時の検証で落ちる。コメントも計算対象に入る。参照の書き方を直すために
+# 触ってよいファイルではないので、検査の対象から外す。
+# 実際に一括置換でコメントを書き換えてしまい、ローカルの起動が止まった
+# （backend MigrationsAreFrozenTest がこれを検知する）。
+SKIP_PREFIX = ("docs/x-post-sample/", ".claude/",
+               "backend/src/main/resources/db/migration/")
 # この検査自身。照合パターンそのものを含むので、自分を検査すると必ず落ちる
 SKIP_FILES = ("scripts/check-doc-refs.py",)
 # シークレットが入りうるファイルは、指摘は出すが**行の中身を出さない**。

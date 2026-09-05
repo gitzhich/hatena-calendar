@@ -1,5 +1,5 @@
 -- 打ち切り（連続 10 回失敗）から戻すための状態を足す。
--- docs/runbook-x-api-setup.md「打ち切りから戻す」 / docs/x-integration.md「エラーハンドリング」。
+-- docs/runbook-x-api-setup.md 第 9 章 / docs/x-integration.md 第 7 章。
 --
 -- 打ち切られると新しい ingestion_run が作られないため、直近 10 件は永久に
 -- FAILED のままになる。戻す手段が SUCCESS への書き換え（走っていない実行を
