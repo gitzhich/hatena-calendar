@@ -302,6 +302,24 @@ echo "${#X_BEARER_TOKEN}"                 # 値を観測する: 禁止
 
 各文書に固有の未決定事項は、それぞれの文書末尾を参照する。
 
+## エージェントの役割分担
+
+**UI の実装は Cursor、レビューは Claude Code** に分けている。
+トークンの節約と、実装とレビューを別の目で行うため。
+
+| ファイル | 読む主体 |
+| --- | --- |
+| `CLAUDE.md`（本ファイル） | Claude Code |
+| `AGENTS.md` | Cursor。**Cursor は `CLAUDE.md` を読まない**（[公式ドキュメント](https://cursor.com/docs/rules)が挙げるのは `.cursor/rules` と `AGENTS.md`）ため、正本への導線をそこに置いている |
+| `frontend/AGENTS.md` | 両方。`frontend/CLAUDE.md` が `@AGENTS.md` で取り込む |
+| `.cursorignore` | Cursor。`.env` と `docs/x-post-sample/` を隠す（[ADR-0015](docs/adr/0015-private-repository.md) と整合させる） |
+
+**規約の正本は本ファイルと `docs/`。** `AGENTS.md` に書き写さない。
+写すと必ず食い違い、どちらが正しいか分からなくなる。
+
+Cursor は**作業ブランチを切って PR を出すところまで**を行い、
+マージとデプロイはしない。
+
 ## Git 運用
 
 - **`main` ブランチに直接コミットしない**。変更は必ず作業ブランチを切って行い、
