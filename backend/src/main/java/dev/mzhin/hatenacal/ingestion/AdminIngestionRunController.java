@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 取り込み履歴（docs/api.md 第 5.7 節）。認証必須。
+ * 取り込み履歴（docs/api.md「取り込み履歴」）。認証必須。
  *
  * <p>NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
  *

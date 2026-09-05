@@ -8,10 +8,10 @@ import { createRateLimiter } from "./rate-limit.ts";
 /**
  * ログイン試行のレート制限（FR-20 / T-02）。
  *
- * **Spring Boot 側にも同じ制限がある**（docs/api.md 第 6 章）。
+ * **Spring Boot 側にも同じ制限がある**（docs/api.md「内部 API」）。
  * こちらは実クライアントの IP で絞れるのが利点。Spring Boot 側から見た
  * 送信元は Vercel の egress IP なので、そこだけでは全利用者が
- * まとめて絞られてしまう（docs/architecture.md 第 5.5 節）。
+ * まとめて絞られてしまう（docs/architecture.md「公開ページのレート制限」）。
  *
  * **数えるのは失敗だけ。** 成功したらカウンタを捨てる。
  * 正しいパスワードを入れている管理者を締め出さないため。

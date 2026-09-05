@@ -45,5 +45,5 @@
 
 ## 関連
 
-- [docs/data-model.md](../data-model.md) 第 7.1 節
+- [docs/data-model.md](../data-model.md)「追加告知による空欄補完」
 - [docs/requirements.md](../requirements.md) FR-40, FR-41

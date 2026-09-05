@@ -5,7 +5,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 /**
- * 連続失敗による打ち切りの判定規則（FR-43 / NFR-09、docs/x-integration.md 第 7 章）。
+ * 連続失敗による打ち切りの判定規則（FR-43 / NFR-09、docs/x-integration.md「エラーハンドリング」）。
  *
  * <p><b>規則をここ 1 か所に置く。</b> 実際に取り込みを止める側（{@link IngestionService}）と
  * 管理画面に警告を出す側（{@link IngestionRunQueryService}）が別々に判定すると、

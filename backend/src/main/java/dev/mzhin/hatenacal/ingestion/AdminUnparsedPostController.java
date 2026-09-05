@@ -30,7 +30,7 @@ public class AdminUnparsedPostController {
 
     /**
      * 投稿 URL に使うハンドル。<b>正本は {@code source_account} の行</b>
-     * （docs/data-model.md 第 4.1 節 / docs/architecture.md 第 7 章）。
+     * （docs/data-model.md「source_account — 情報源アカウント」 / docs/architecture.md「設定と環境変数」）。
      *
      * <p>以前は {@code X_SOURCE_USERNAME} を既定値つきで読んでいた。
      * 設定漏れのとき、<b>実在しうる無関係のアカウント名を指す URL</b> を

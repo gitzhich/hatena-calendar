@@ -3,7 +3,7 @@ package dev.mzhin.hatenacal.ingestion;
 import java.time.OffsetDateTime;
 
 /**
- * 未処理投稿（docs/api.md 第 5.5 節）。
+ * 未処理投稿（docs/api.md「未処理投稿の一覧」）。
  *
  * <p><b>投稿本文を返さない</b>（LR-02。そもそも保持していない）。
  * 管理者は postUrl を開いて X 上で原文を読む。

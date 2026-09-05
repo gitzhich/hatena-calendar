@@ -81,15 +81,15 @@ Vercel 側は変えなくてよい。
 
 - `backend/fly.toml` の `primary_region` が `sin`
 - `frontend/vercel.json` が `regions: ["hnd1"]` を持つ（**新規ファイル**）
-- [runbook-deploy.md](../runbook-deploy.md) の第 2.1 節・第 3 章・第 5 章を更新した。
+- [runbook-deploy.md](../runbook-deploy.md) の[runbook-deploy.md](../runbook-deploy.md)「Neon のプロジェクトを作る」・[runbook-deploy.md](../runbook-deploy.md)「Fly.io（バックエンド）」・[runbook-deploy.md](../runbook-deploy.md)「Vercel（フロントエンド）」を更新した。
   **Vercel の関数リージョンは元の手順書に記載が無く、既定の `iad1` のまま
   デプロイされるところだった**
-- [architecture.md](../architecture.md) 第 8 章にリージョンの表を足した
+- [architecture.md](../architecture.md)「デプロイ」にリージョンの表を足した
 - **NFR-01 の実測時にこの構成を評価する。** 想定と違えば Vercel 側から調整する
 
 ## 関連
 
 - [ADR-0009](0009-hosting.md)（Vercel + Fly.io + Neon の選定）
-- [docs/architecture.md](../architecture.md) 第 8 章 / 第 11 章
+- [docs/architecture.md](../architecture.md)「デプロイ」 / [architecture.md](../architecture.md)「運用コストの試算」
 - [docs/runbook-deploy.md](../runbook-deploy.md)
 - [docs/requirements.md](../requirements.md) NFR-01

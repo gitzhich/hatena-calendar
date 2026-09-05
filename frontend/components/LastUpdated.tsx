@@ -9,7 +9,7 @@ import { formatJst } from "@/lib/last-updated";
  * 手動登録だけで運用している間ずっと警告が出続けるのも避けたい
  * （常時出ている警告は読み飛ばされる）。
  *
- * ここでは 24 時間の判定をしない。基準はバックエンドが持つ（docs/api.md 第 4.2 節）。
+ * ここでは 24 時間の判定をしない。基準はバックエンドが持つ（docs/api.md「データの状態」）。
  */
 export function LastUpdated({ status }: { status: SiteStatus }) {
   const iso = status.lastSuccessfulIngestionAt;

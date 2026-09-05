@@ -15,10 +15,10 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 /**
- * 出演情報。docs/data-model.md 第 4.3 節。
+ * 出演情報。docs/data-model.md「appearance — 出演情報」。
  *
  * <p>appearance_date と performance_start_time / merch_start_time は
- * <b>JST のローカル値</b>であり、UTC へ変換しない（同 第 6 章 / ADR-0005）。
+ * <b>JST のローカル値</b>であり、UTC へ変換しない（同 docs/data-model.md「タイムゾーンの扱い」 / ADR-0005）。
  * LocalDate / LocalTime を使うのはそのため。OffsetDateTime を使うと
  * 月境界で日付がずれる。
  *
@@ -111,7 +111,7 @@ public class Appearance {
     }
 
     /**
-     * 追加告知による空欄補完（docs/data-model.md 第 7.1 節、FR-41）。
+     * 追加告知による空欄補完（docs/data-model.md「追加告知による空欄補完」、FR-41）。
      *
      * <p><b>値が入っている列は上書きしない。</b>これにより、管理者が手で直した
      * 内容が後続の取り込みで巻き戻らない（FR-22）。日程変更や中止の反映は
@@ -164,12 +164,12 @@ public class Appearance {
     }
 
     /**
-     * 全項目を差し替える。部分更新にしない理由は docs/api.md 第 5.3 節。
+     * 全項目を差し替える。部分更新にしない理由は docs/api.md「編集」。
      *
      * <p><b>{@code ingestedPostId} と {@code sourceType} は引数に取らない。</b>
      * どちらも「誰が作ったか」の記録で、管理者が編集で選ぶ値ではない。
      * とくに {@code ingestedPostId} は {@code sourceUrl} と<b>常に同じ投稿を指す</b>
-     * 導出値であり（docs/data-model.md 第 7.1 節）、ここで差し替えられるようにすると
+     * 導出値であり（docs/data-model.md「追加告知による空欄補完」）、ここで差し替えられるようにすると
      * 2 つが別の投稿を指せてしまう。
      */
     void replace(String eventKey, LocalDate appearanceDate, String eventName,

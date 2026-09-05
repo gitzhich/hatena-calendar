@@ -6,7 +6,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 
 /**
- * 管理 API のレスポンス項目（docs/api.md 第 5.1 節）。
+ * 管理 API のレスポンス項目（docs/api.md「出演情報の一覧と個別取得（点検用）」）。
  *
  * <p>公開 API と違い内部項目も返す。点検（FR-24）では eventKey や
  * 登録経路が判断材料になるため。

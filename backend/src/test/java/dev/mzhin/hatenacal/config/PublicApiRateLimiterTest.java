@@ -79,7 +79,7 @@ class PublicApiRateLimiterTest {
     @Test
     @DisplayName("上限は ISR の最悪値に対して十分な余裕がある")
     void limitHasHeadroom() {
-        // 34 ページ × 2 リクエスト ÷ 5 分 ≒ 14 回/分（docs/security.md 第 4.2 節）。
+        // 34 ページ × 2 リクエスト ÷ 5 分 ≒ 14 回/分（docs/security.md「レート制限の構成と値」）。
         // ここを下げすぎると、正常な再検証で 429 を返して公開画面が壊れる
         assertThat(PublicApiRateLimiter.MAX_REQUESTS_PER_WINDOW)
                 .as("最悪値 14 回/分の 10 倍は確保する")

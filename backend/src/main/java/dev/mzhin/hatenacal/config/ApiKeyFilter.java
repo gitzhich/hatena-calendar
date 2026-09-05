@@ -15,7 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Next.js から渡される内部 API キーを検証する（docs/api.md 第 2 章 / ADR-0010）。
+ * Next.js から渡される内部 API キーを検証する（docs/api.md「認証」 / ADR-0010）。
  *
  * <p><b>キーは公開用と管理用の 2 種類。</b> 1 種類だと、公開ページの
  * レンダリングで使うキーが漏れただけで管理操作まで通ってしまう。
@@ -56,7 +56,7 @@ public class ApiKeyFilter extends OncePerRequestFilter {
                     UsernamePasswordAuthenticationToken.authenticated("internal", null, granted));
         }
         // 一致しなければ認証を設定しないだけ。理由を区別できる応答を返さない
-        // （docs/api.md 第 2.2 節）。拒否は認可層が 403 で行う
+        // （docs/api.md「認可の実装方針」）。拒否は認可層が 403 で行う
         chain.doFilter(request, response);
     }
 

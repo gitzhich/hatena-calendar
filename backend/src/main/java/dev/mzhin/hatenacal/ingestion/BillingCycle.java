@@ -5,12 +5,12 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 /**
- * X API の請求サイクル（NFR-04 / docs/api.md 第 5.7 節）。
+ * X API の請求サイクル（NFR-04 / docs/api.md「取り込み履歴」）。
  *
  * <p><b>暦月ではない。</b> クレジットの購入日を起点に切られる
  * （例: {@code Sep 2 - Oct 2}）。支出上限のリセット日と集計期間がずれていると、
  * 「想定を超えたら気づける」が成り立たない
- * （docs/runbook-x-api-setup.md 第 3.3 節）。
+ * （docs/runbook-x-api-setup.md「コンソールで紛らわしい点」）。
  *
  * <p>起点の日は設定値（{@code x.billing-cycle-start-day}）で持つ。
  * <b>1 を指定すると暦月と一致する</b>ので、暦月は特殊ケースであって別の分岐ではない。

@@ -4,7 +4,7 @@ import { backendBaseUrl } from "./backend-url";
 /**
  * Spring Boot の公開 API を呼ぶ。
  *
- * **Server Component からのサーバ間通信でのみ使う**（docs/architecture.md 第 5.3 節）。
+ * **Server Component からのサーバ間通信でのみ使う**（docs/architecture.md「データ取得の方向」）。
  * 内部 API キーがブラウザに渡らないよう "server-only" を付け、
  * クライアントバンドルへの混入をビルド時に落とす。
  */
@@ -38,7 +38,7 @@ export async function fetchAppearances(from: string, to: string): Promise<FetchR
   try {
     const res = await fetch(url, {
       headers: { "X-Api-Key": process.env.BACKEND_API_KEY ?? "" },
-      // ISR。docs/architecture.md 第 5.2 節
+      // ISR。docs/architecture.md「キャッシュ戦略」
       next: { revalidate: 300 },
     });
     if (!res.ok) {
@@ -57,7 +57,7 @@ export async function fetchAppearances(from: string, to: string): Promise<FetchR
 }
 
 /**
- * データの鮮度（FR-08 / docs/api.md 第 4.2 節）。
+ * データの鮮度（FR-08 / docs/api.md「データの状態」）。
  *
  * `stale` の判定はバックエンドが持つ。基準（24 時間）をこちらに複製すると、
  * 片方だけ変えたときに食い違っても誰も気づけない。
@@ -80,7 +80,7 @@ export async function fetchStatus(): Promise<StatusResult> {
   try {
     const res = await fetch(`${BASE_URL}/api/public/status`, {
       headers: { "X-Api-Key": process.env.BACKEND_API_KEY ?? "" },
-      // カレンダー本体と同じ ISR に載せる（docs/architecture.md 第 5.2 節）。
+      // カレンダー本体と同じ ISR に載せる（docs/architecture.md「キャッシュ戦略」）。
       // 別のキャッシュにすると「日時だけ新しくてカレンダーは古い」という
       // 食い違いが起き、鮮度表示そのものが信用できなくなる
       next: { revalidate: 300 },

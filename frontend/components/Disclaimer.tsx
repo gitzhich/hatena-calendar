@@ -5,7 +5,7 @@ import { CONTACT_EMAIL } from "@/lib/contact";
  *
  * **ハンドルの正本はバックエンドの `source_account.username`**（出典 URL の生成に使う）。
  * ここはフッタの固定リンク 1 か所だけなので、API を 1 本増やすより定数で持つ
- * （docs/coding-guidelines.md 第 11 章「定数はそれを解釈する側に置く」）。
+ * （docs/coding-guidelines.md「定数の置き場所」「定数はそれを解釈する側に置く」）。
  * ハンドルが変わったら両方を直す。
  */
 const OFFICIAL_X_HANDLE = "xinxin_official";

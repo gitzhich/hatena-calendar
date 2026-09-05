@@ -16,7 +16,7 @@ const LOCAL_DEFAULT = "http://localhost:8080";
  * リクエスト先が壊れる。
  *
  * <p>同じ罠を backend の `${VAR:default}` でも踏んでいる
- * （docs/architecture.md 第 7 章）。空文字は「設定済み」と見なされる。
+ * （docs/architecture.md「設定と環境変数」）。空文字は「設定済み」と見なされる。
  */
 export function backendBaseUrl(): string {
   const configured = process.env.BACKEND_BASE_URL?.trim();

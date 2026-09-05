@@ -14,9 +14,9 @@
 | 主キー | `BIGSERIAL`（連番）。公開情報のみを扱うため連番の推測可能性は問題にならない |
 | マイグレーション | Flyway（番号付き SQL） |
 | 文字型 | 可変長は一律 `TEXT`。PostgreSQL では `VARCHAR(n)` に性能上の利点がなく、長さ制限は用途に応じて `CHECK` で表現する |
-| 時刻型 | 用途により `TIMESTAMPTZ` と `DATE` / `TIME` を使い分ける（第 6 章） |
+| 時刻型 | 用途により `TIMESTAMPTZ` と `DATE` / `TIME` を使い分ける（本書「タイムゾーンの扱い」） |
 
-テーブルは 4 つ。要件（[docs/requirements.md](requirements.md) 第 8 章）で定めた
+テーブルは 4 つ。要件（[docs/requirements.md](requirements.md)「データ要件（概要）」）で定めた
 「保持するもの」に一対一で対応する。
 
 ---
@@ -145,7 +145,7 @@ CREATE TABLE ingested_post (
 | `status` | 意味 |
 | --- | --- |
 | `REGISTERED` | 出演情報が登録済み。自動抽出に成功した場合と、管理者が未処理から手で登録した場合の両方を含む |
-| `UNPARSED` | 抽出できず未処理、または抽出結果がサーバ側検証に通らなかった。管理者の手動処理を待つ（FR-25）。判定は投稿単位（[x-integration.md](x-integration.md) 第 5.10 節） |
+| `UNPARSED` | 抽出できず未処理、または抽出結果がサーバ側検証に通らなかった。管理者の手動処理を待つ（FR-25）。判定は投稿単位（[x-integration.md](x-integration.md)「1 投稿から複数の出演情報」） |
 | `EXCLUDED` | 出演告知ではないと管理者が判断した（FR-25） |
 
 **投稿本文を保持しない**（LR-02）。未処理投稿を手で処理する管理者は、
@@ -200,9 +200,9 @@ CREATE TABLE appearance (
 
 | 列 | 説明 |
 | --- | --- |
-| `appearance_date` | **JST の暦日**。カレンダーの配置に使う（第 6 章） |
+| `appearance_date` | **JST の暦日**。カレンダーの配置に使う（本書「タイムゾーンの扱い」） |
 | `event_name` | **表示用のイベント名。告知の原文をそのまま保持する** |
-| `event_key` | **照合用の正規化済みイベント名。** 画面には出さない。生成規則と一意性は第 4.3.2 節 |
+| `event_key` | **照合用の正規化済みイベント名。** 画面には出さない。生成規則と一意性は本書「同一イベントの一意性と event_key」 |
 | `venue_name` | 会場名。**都道府県とステージ名を含めた形**で保持する（下記） |
 | `performance_start_time` | **XINXIN の出演開始時刻**（JST）。告知の 🎤 行から抽出する |
 | `performance_end_time` | XINXIN の出演終了時刻（JST） |
@@ -228,7 +228,7 @@ CREATE TABLE appearance (
 
 **1 つの投稿が複数の行になることがある。** 実サンプル 6.txt のように、
 同じ日・同じイベントで XINXIN が複数回出演する告知がある。
-この場合は出演枠ごとに `appearance` を 1 行ずつ作る（第 4.3.2 節）。
+この場合は出演枠ごとに `appearance` を 1 行ずつ作る（本書「同一イベントの一意性と event_key」）。
 会場も枠ごとに変わりうるため、行ごとに別の `venue_name` を持つ。
 
 **`venue_name` に都道府県とステージ名を含める。** 告知は必ず「愛知・大須RADHALL」の形式で
@@ -248,7 +248,7 @@ CREATE TABLE appearance (
 **`📸` 行には `XINXIN` の語が入らない。** `🎤` 行は「同じ行に XINXIN を含むこと」で
 他の出演者の枠と区別できるが、物販行にはその手がかりがない。
 どの `📸` 行を採用するかの規則は
-[x-integration.md](x-integration.md) 第 5.7 節で定める。
+[x-integration.md](x-integration.md)「物販時刻」で定める。
 
 **イベントの OPEN / START 時刻は保持しない。** `⏰OPEN 17:00 / START 17:30` は
 会場全体の時刻であり、XINXIN の出演時刻と物販時刻が分かればファンの行動には足りる。
@@ -296,14 +296,14 @@ DB が別物として通してしまい、二重登録を防げない。
 `NULL` 同士を「異なる値」として扱うため、これを付けないと
 `performance_start_time` が `NULL` の行を何行でも作れてしまう。
 時刻が `NULL` の行は、管理者の手動登録と、**タイムテーブルが未確定の告知の
-自動取り込み**（[x-integration.md](x-integration.md) 第 5.2 節 経路 B /
+自動取り込み**（[x-integration.md](x-integration.md)「抽出対象の判定」経路 B /
 [ADR-0021](adr/0021-register-appearances-without-timetable.md)）から生まれる。
 `NULLS NOT DISTINCT` により「時刻未定の行は 1 日 1 イベントにつき 1 行」を
 DB 側で保証する。
 
 > **これは「同じ公演の行が 1 行」の保証ではない。** 一意キーは開始時刻を含むため、
 > `(d, k, NULL)` と `(d, k, 16:45)` は別の行として通る。同じ公演が 2 行並ぶのを
-> 防ぐのはアプリ側の責務になる（第 7.1 節 手順 3）。
+> 防ぐのはアプリ側の責務になる（本書「追加告知による空欄補完」手順 3）。
 
 > `NULLS NOT DISTINCT` は **PostgreSQL 15 以降**の構文。
 > Neon が提供するのは 16 / 17 系なので利用できる。
@@ -411,7 +411,7 @@ Java 側の `java.text.Normalizer` で確実に処理するほうが挙動を検
 ② 「XINXIN千葉公演タイムテーブル解禁」→ 出演時刻を後から告知
 ```
 
-この制約と第 7.1 節の補完ルールにより、②が①の行を二重に作らず、空欄を埋める形で反映される。
+この制約と本書「追加告知による空欄補完」の補完ルールにより、②が①の行を二重に作らず、空欄を埋める形で反映される。
 
 同じ日に別のイベントへ掛け持ち出演する場合は `event_key` が異なるため制約に触れない。
 複数日開催のイベントは `appearance_date` が異なるため同様。
@@ -459,8 +459,8 @@ CREATE TABLE ingestion_run (
 | 列 | 説明 |
 | --- | --- |
 | `fetched_resource_count` | **レスポンスで返ってきたリソース数**。X API の課金単位そのもの。これを期間で合計すれば消費額を算出できる |
-| `truncated` | ページ数の上限で打ち切ったか（[x-integration.md](x-integration.md) 第 3.4 節 / [ADR-0020](adr/0020-drop-posts-beyond-page-limit.md)）。**取りこぼしが確定した実行**を後から特定できるようにする |
-| `status` | `RUNNING` / `SUCCESS` / `FAILED` と、**`CANCELLED`**（管理者が原因を確認し、打ち切りカウントから外した失敗。[runbook-x-api-setup.md](runbook-x-api-setup.md) 第 9 章）。アプリは `CANCELLED` へ遷移させない |
+| `truncated` | ページ数の上限で打ち切ったか（[x-integration.md](x-integration.md)「ページング」 / [ADR-0020](adr/0020-drop-posts-beyond-page-limit.md)）。**取りこぼしが確定した実行**を後から特定できるようにする |
+| `status` | `RUNNING` / `SUCCESS` / `FAILED` と、**`CANCELLED`**（管理者が原因を確認し、打ち切りカウントから外した失敗。[runbook-x-api-setup.md](runbook-x-api-setup.md)「打ち切りから戻す」）。アプリは `CANCELLED` へ遷移させない |
 | `error_summary` | 失敗理由の要約。**スタックトレースやトークンを入れない**（NFR-03, NFR-09） |
 
 **`status` に値を足すのは、打ち切りの判定を変えたいときだけ。**
@@ -471,7 +471,7 @@ CREATE TABLE ingestion_run (
   成功した実行に付く注記である
 - `CANCELLED` は逆に、**判定を切るためにある**。打ち切られると新しい実行記録が
   作られず、直近 10 件は永久に `FAILED` のままになる。復帰の手順は
-  [runbook-x-api-setup.md](runbook-x-api-setup.md) 第 9 章
+  [runbook-x-api-setup.md](runbook-x-api-setup.md)「打ち切りから戻す」
 
 FR-08 の「最後に取り込みが成功した日時」は
 `SELECT max(finished_at) FROM ingestion_run WHERE status = 'SUCCESS'` で得る。
@@ -495,7 +495,7 @@ CREATE INDEX idx_ingestion_run_status_finished
 ```
 
 `UNIQUE` 制約には自動でインデックスが作られるため、別途定義しない。
-これには `appearance_unique_event`（第 4.3 節）も含まれる。
+これには `appearance_unique_event`（本書「appearance — 出演情報」）も含まれる。
 **先頭列が `appearance_date` なので、月次の範囲検索にそのまま使える。**
 1 か月分の取得は `WHERE appearance_date BETWEEN ? AND ?` の 1 クエリで完結する（NFR-01）。
 `appearance_date` 単独のインデックスは重複するため作らない。
@@ -527,7 +527,7 @@ CREATE INDEX idx_ingestion_run_status_finished
 - `performance_start_time` が `NULL` でも日付は確定する
   （タイムテーブルがまだ告知されていない公演を登録できる。
   管理者の手動登録と、自動取り込みの経路 B の両方から生まれる。
-  [x-integration.md](x-integration.md) 第 5.2 節）
+  [x-integration.md](x-integration.md)「抽出対象の判定」）
 
 **深夜公演の扱い。** 「26:00 開演」のような 24 時以上の表記は、
 **時刻が実際に属する暦日**に置く。`appearance_date` を翌日、
@@ -549,7 +549,7 @@ CREATE INDEX idx_ingestion_run_status_finished
 **出演枠そのものが日を跨ぐ場合**（「23:50-24:30」のような表記）は、
 `performance_start_time` > `performance_end_time` となり
 `appearance_performance_time_order` 制約に反する。この場合は自動登録せず、
-投稿を `UNPARSED` として管理者に回す（[x-integration.md](x-integration.md) 第 5.6 節）。
+投稿を `UNPARSED` として管理者に回す（[x-integration.md](x-integration.md)「XINXIN の出演時刻」）。
 実サンプルの出演枠はいずれも 15〜30 分で、日を跨ぐ枠は想定していない。
 
 **物販時刻の繰り上げは出演時刻に従う。** `appearance_date` は出演時刻で決まるため、
@@ -565,11 +565,11 @@ CREATE INDEX idx_ingestion_run_status_finished
 
 ### 7.1 追加告知による空欄補完
 
-公式は 1 つのイベントを複数回に分けて告知する（第 4.3.2 節）。
+公式は 1 つのイベントを複数回に分けて告知する（本書「同一イベントの一意性と event_key」）。
 後続の告知は既存の行を二重に作らず、**空欄を埋める形で反映する**。
 
 1. `appearance_date` / `event_key` / `performance_start_time` が**すべて一致**する
-   既存行を探す（`event_key` の作り方は第 4.3.2 節）
+   既存行を探す（`event_key` の作り方は本書「同一イベントの一意性と event_key」）
 2. 見つからなければ、同じ `appearance_date` と `event_key` を持ち
    `performance_start_time` が `NULL` の行を探す。あればその行へ時刻を書き込む
    （時刻なしの行に、後続の「タイムテーブル解禁」が時刻を入れる流れ）。
@@ -631,15 +631,15 @@ CREATE INDEX idx_ingestion_run_status_finished
   （MVP の非スコープ）
 
 この値は**導出値**であって管理者が選ぶものではないため、
-編集（[api.md](api.md) 第 5.3 節）では変更できない。
+編集（[api.md](api.md)「編集」）では変更できない。
 用途は 2 つに限られ、どちらも「誰が作ったか」の記録である。
 
 | 用途 | 場所 |
 | --- | --- |
 | `AUTO` の行が取り込み由来であることの保証 | `appearance_auto_requires_post` |
-| 未処理一覧から作った投稿を `REGISTERED` へ進める | [api.md](api.md) 第 5.2 節 |
+| 未処理一覧から作った投稿を `REGISTERED` へ進める | [api.md](api.md)「手動登録」 |
 
-**公開 API では返さない**（同 第 4.1 節）。閲覧者に見せる出典は `source_url` である。
+**公開 API では返さない**（同 本書「source_account — 情報源アカウント」）。閲覧者に見せる出典は `source_url` である。
 
 照合に使うのは `event_key` であり、`UNIQUE` 制約も同じ列に張られているため、
 **アプリケーションの判定と DB の制約が食い違わない**。
@@ -704,7 +704,7 @@ FR-23 の「削除しても同じ投稿から再び出演情報が作られな�
 backend/src/main/resources/db/migration/
 ├── V1__init_schema.sql              # 上記 4 テーブル + インデックス
 ├── V2__ingestion_run_truncated.sql  # ingestion_run.truncated（ADR-0020）
-└── V3__ingestion_run_cancelled.sql  # status に CANCELLED（第 4.4 節）
+└── V3__ingestion_run_cancelled.sql  # status に CANCELLED（本書「ingestion_run — 取り込み実行ログ」）
 ```
 
 - 適用済みのマイグレーションファイルを**後から編集しない**。
@@ -729,12 +729,12 @@ backend/src/main/resources/db/migration/
 | FR-08 最終更新日時 | `ingestion_run.finished_at` (`status = 'SUCCESS'`) |
 | FR-22 編集 | `appearance.updated_at` |
 | FR-23 削除の冪等性 | `ingested_post.tweet_id` の `UNIQUE` |
-| 追加告知の補完 | `appearance_unique_event` + 第 7.1 節 |
+| 追加告知の補完 | `appearance_unique_event` + 本書「追加告知による空欄補完」 |
 | FR-24 自動登録の点検 | `appearance.source_type` + `idx_appearance_source_type_created` |
 | FR-25 未処理投稿 | `ingested_post.status = 'UNPARSED'` |
 | FR-40 差分取得 | `source_account.last_fetched_tweet_id` |
 | FR-42 コスト記録 | `ingestion_run.fetched_resource_count` |
-| NFR-05 タイムゾーン | 第 6 章 |
+| NFR-05 タイムゾーン | 本書「タイムゾーンの扱い」 |
 | LR-02 本文を保持しない | 投稿本文の列が存在しない |
 
 要件に対応しない列は作らない。将来必要になった時点でマイグレーションを追加する。
@@ -745,16 +745,16 @@ backend/src/main/resources/db/migration/
 
 **番号で参照しない**（項目を消すと番号がずれる）。他の文書からは**項目名**で参照する。
 
-1. **正規化で吸収できない表記ゆれへの対処**（第 4.3.2 節）。
+1. **正規化で吸収できない表記ゆれへの対処**（本書「同一イベントの一意性と event_key」）。
    正規化ルール自体は確定したが、略称と正式名称の使い分け、
    サブタイトルの有無といった違いは吸収できない。
    実運用で取りこぼしが目立つようなら、類似度による候補提示などを検討する
 2. **`event_name` と `venue_name` の正規化（テーブル分割）**。現時点では
    `appearance` に文字列で持たせる。会場別の絞り込みは非スコープであり、
    会場名の表記ゆれを吸収する必要が出るまで別テーブルにしない
-3. **イベントの OPEN / START 時刻を将来持つか**（第 4.3.1 節）。
+3. **イベントの OPEN / START 時刻を将来持つか**（本書「実際の告知投稿との対応」）。
    MVP では持たない。物販時刻は保持することにしたが（同節）、
    OPEN / START は XINXIN の出演時刻と物販時刻が分かれば行動に足りるため見送る
 4. **タイムゾーンをアプリ全体でどう固定するか**（JVM の `user.timezone`、
-   PostgreSQL の `timezone` 設定、コンテナの `TZ`）。第 6 章の設計は
+   PostgreSQL の `timezone` 設定、コンテナの `TZ`）。本書「タイムゾーンの扱い」の設計は
    これらに依存しないが、`TIMESTAMPTZ` の表示変換には影響する

@@ -16,10 +16,10 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
      * 期間内の出演情報を、カレンダーに並べる順で返す。
      *
      * <p>並び順は日付昇順 → 出演開始時刻昇順で、<b>時刻が未設定のものは同じ日付の末尾</b>
-     * （FR-03、docs/api.md 第 4.1 節）。
+     * （FR-03、docs/api.md「期間内の出演情報一覧」）。
      *
      * <p>1 か月分を 1 クエリで取り切る（NFR-01）。先頭列が appearance_date の
-     * appearance_unique_event がそのまま範囲検索に使える（docs/data-model.md 第 5 章）。
+     * appearance_unique_event がそのまま範囲検索に使える（docs/data-model.md「インデックス」）。
      */
     @Query("""
             SELECT a FROM Appearance a
@@ -31,7 +31,7 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
             """)
     List<Appearance> findForCalendar(@Param("from") LocalDate from, @Param("to") LocalDate to);
 
-    /** 点検一覧（FR-24）。登録日時の新しい順（docs/api.md 第 5.1 節）。 */
+    /** 点検一覧（FR-24）。登録日時の新しい順（docs/api.md「出演情報の一覧と個別取得（点検用）」）。 */
     Page<Appearance> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     Page<Appearance> findBySourceTypeOrderByCreatedAtDesc(SourceType sourceType,
@@ -59,7 +59,7 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
      * その日・そのイベントの行が 1 つでもあるか（開始時刻は問わない）。
      *
      * <p>時刻なしの取り込みが重複行を作らないための判定に使う
-     * （docs/data-model.md 第 7.1 節）。一意キーは開始時刻を含むため、
+     * （docs/data-model.md「追加告知による空欄補完」）。一意キーは開始時刻を含むため、
      * 時刻ありの行があっても時刻なしの行は制約に触れずに作れてしまう。
      */
     boolean existsByAppearanceDateAndEventKey(LocalDate appearanceDate, String eventKey);

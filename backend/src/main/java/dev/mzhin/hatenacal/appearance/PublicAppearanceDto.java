@@ -5,12 +5,12 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 /**
- * 公開 API のレスポンス項目（docs/api.md 第 4.1 節）。
+ * 公開 API のレスポンス項目（docs/api.md「期間内の出演情報一覧」）。
  *
  * <p><b>eventKey / sourceType / createdAt / ingestedPostId は返さない。</b>
  * 内部の実装詳細であり、閲覧者に出す値ではない。
  *
- * <p>日付と時刻に<b>タイムゾーン情報を付けない</b>（同 第 3.2 節）。
+ * <p>日付と時刻に<b>タイムゾーン情報を付けない</b>（同 docs/api.md「日付と時刻」）。
  * これらは特定の瞬間ではなく暦日・ローカル時刻で、
  * オフセットを付けるとクライアント側の変換で日付がずれる。
  */

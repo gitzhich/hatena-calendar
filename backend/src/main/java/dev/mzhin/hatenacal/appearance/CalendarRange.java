@@ -29,7 +29,7 @@ public final class CalendarRange {
     /** 何か月先まで表示できるか。 */
     public static final int MAX_FUTURE_MONTHS = 24;
 
-    /** 1 リクエストで取れる最大日数（docs/api.md 第 4.1 節）。 */
+    /** 1 リクエストで取れる最大日数（docs/api.md「期間内の出演情報一覧」）。 */
     public static final int MAX_SPAN_DAYS = 62;
 
     private CalendarRange() {

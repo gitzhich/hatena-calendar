@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * 境界ケース。docs/x-integration.md 第 9 章「必ず書くテスト」に対応する。
+ * 境界ケース。docs/x-integration.md「テスト方針」「必ず書くテスト」に対応する。
  *
  * <p>実サンプルに現れないパターンは、告知の形を模した本文を組み立てて確かめる。
  * 実データの検証は PostParserSampleTest が受け持つ。
@@ -130,7 +130,7 @@ class PostParserBoundaryTest {
     }
 
     @Nested
-    @DisplayName("年の補完と曜日検証（第 5.3 節）")
+    @DisplayName("年の補完と曜日検証（docs/x-integration.md「日付」）")
     class YearInference {
 
         @Test
@@ -161,7 +161,7 @@ class PostParserBoundaryTest {
     }
 
     @Nested
-    @DisplayName("探索範囲（第 5.3 節）")
+    @DisplayName("探索範囲（docs/x-integration.md「日付」）")
     class SearchScope {
 
         @Test
@@ -292,7 +292,7 @@ class PostParserBoundaryTest {
     }
 
     @Nested
-    @DisplayName("イベント名（第 5.5 節）")
+    @DisplayName("イベント名（docs/x-integration.md「イベント名」）")
     class EventName {
 
         /** 会場行の次にタイトルを置いた告知。⏰ 行までがヘッダになる。 */
@@ -339,7 +339,7 @@ class PostParserBoundaryTest {
         void closedBracketDoesNotSwallowTheNextLine() {
             assertThat(only(withTitle("『テストイベント』\n-DAY1-"), posted(2026, 8, 1))
                     .eventName())
-                    .as("括弧の後ろの行はタイトルの一部とは限らない（第 5.5 節）")
+                    .as("括弧の後ろの行はタイトルの一部とは限らない（docs/x-integration.md「イベント名」）")
                     .isEqualTo("『テストイベント』");
         }
 
@@ -353,7 +353,7 @@ class PostParserBoundaryTest {
     }
 
     @Nested
-    @DisplayName("複数枠（第 5.10 節）")
+    @DisplayName("複数枠（docs/x-integration.md「1 投稿から複数の出演情報」）")
     class MultipleSlots {
 
         @Test
@@ -420,7 +420,7 @@ class PostParserBoundaryTest {
     }
 
     @Nested
-    @DisplayName("1 投稿に複数イベント（第 5.10 節 パターン C）")
+    @DisplayName("1 投稿に複数イベント（docs/x-integration.md「1 投稿から複数の出演情報」パターン C）")
     class MultipleEvents {
 
         /** ブロックを 1 つ組み立てる。日付と 📍 が同じ行にあるので境界になる。 */
@@ -473,13 +473,13 @@ class PostParserBoundaryTest {
 
             assertThat(reason(body, posted(2026, 8, 1)))
                     .as("取れたブロックだけ登録すると、投稿が REGISTERED になり"
-                            + "未処理一覧に現れない（第 5.10 節 判定の単位は投稿）")
+                            + "未処理一覧に現れない（docs/x-integration.md「1 投稿から複数の出演情報」判定の単位は投稿）")
                     .contains("🎤");
         }
     }
 
     @Nested
-    @DisplayName("物販時刻（第 5.7 節）")
+    @DisplayName("物販時刻（docs/x-integration.md「物販時刻」）")
     class Merch {
 
         @Test
@@ -517,7 +517,7 @@ class PostParserBoundaryTest {
     }
 
     @Nested
-    @DisplayName("チケット URL（第 5.8 節 / T-03）")
+    @DisplayName("チケット URL（docs/x-integration.md「チケット URL」 / T-03）")
     class TicketUrl {
 
         @Test
@@ -558,7 +558,7 @@ class PostParserBoundaryTest {
     }
 
     @Nested
-    @DisplayName("マーカーと値の間の空白（第 5.12 節）")
+    @DisplayName("マーカーと値の間の空白（docs/x-integration.md「実 API で見つかった表記ゆれ」）")
     class MarkerWhitespace {
 
         /**
@@ -637,7 +637,7 @@ class PostParserBoundaryTest {
     }
 
     @Nested
-    @DisplayName("タイムテーブル未確定の告知（第 5.2 節 経路 B / ADR-0021）")
+    @DisplayName("タイムテーブル未確定の告知（docs/x-integration.md「抽出対象の判定」経路 B / ADR-0021）")
     class TimetableUnknown {
 
         /** 出演決定の告知。🎤 行を持たない。 */

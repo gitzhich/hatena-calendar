@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import { HSTS, NOSNIFF, REFERRER_POLICY } from "./lib/security-headers.ts";
 
 /**
- * 常時付けるセキュリティヘッダ（NFR-03 / docs/security.md 第 4 章）。
+ * 常時付けるセキュリティヘッダ（NFR-03 / docs/security.md「対策が効く場所の一覧」）。
  *
  * **CSP はここに置かない。** proxy.ts が付ける。両方から出すと
  * `Content-Security-Policy` が 2 本になり、ブラウザは両方を同時に適用する

@@ -117,7 +117,7 @@ function toPayload(formData: FormData) {
     merchEndTime: withSeconds(orNull(formData.get("merchEndTime"))),
     ticketUrl: orNull(formData.get("ticketUrl")),
     sourceUrl: orNull(formData.get("sourceUrl")),
-    // 効くのは登録のときだけ。編集ではサーバが無視する（docs/api.md 第 5.3 節）
+    // 効くのは登録のときだけ。編集ではサーバが無視する（docs/api.md「編集」）
     ingestedPostId: orNull(formData.get("ingestedPostId")) === null
       ? null
       : Number(formData.get("ingestedPostId")),

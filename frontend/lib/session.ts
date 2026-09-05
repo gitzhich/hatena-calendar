@@ -1,5 +1,5 @@
 /**
- * 管理者セッション（docs/architecture.md 第 3.2 節）。
+ * 管理者セッション（docs/architecture.md「管理者の認証フロー」）。
  *
  * **"server-only" を付けていない。** proxy.ts（Edge ランタイム）と
  * Server Component の両方から使うのと、暗号処理を素の Node で

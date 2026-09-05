@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 公開 API（docs/api.md 第 4 章）。
+ * 公開 API（docs/api.md「公開 API」）。
  *
  * <p><b>更新系のメソッドをこのクラスに書かない</b>（NFR-03）。
  * 公開 API は読み取り専用であり、GET 以外を提供しない。

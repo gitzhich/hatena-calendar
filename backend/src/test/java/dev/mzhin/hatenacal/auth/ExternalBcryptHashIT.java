@@ -63,7 +63,7 @@ class ExternalBcryptHashIT {
      * 認証できたか。
      *
      * <p><b>ステータスコードで判定しない。</b>この API は総当たりの判定材料に
-     * ならないよう、失敗時も 200 を返す（docs/api.md 第 6.1 節 / T-02）。
+     * ならないよう、失敗時も 200 を返す（docs/api.md「管理者パスワードの検証」 / T-02）。
      * 200 を見るだけのテストは、認証が失敗していても通ってしまう。
      */
     private boolean authenticated(String password) throws IOException, InterruptedException {

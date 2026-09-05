@@ -68,7 +68,7 @@ export default async function IngestionPage({
  * 現在の請求サイクルの消費と概算コスト（NFR-04）。
  *
  * <b>期間を明示する。</b> X の請求サイクルはクレジットの購入日を起点に切られ、
- * 暦月と一致しない（docs/runbook-x-api-setup.md 第 3.3 節）。
+ * 暦月と一致しない（docs/runbook-x-api-setup.md「コンソールで紛らわしい点」）。
  * 「当月」とだけ書くと、支出上限のリセット日とずれた値を月の合計だと読まれる。
  */
 function CostSummary({
@@ -120,7 +120,7 @@ const STATUS_LABEL: Record<IngestionRun["status"], string> = {
 };
 
 function RunItem({ run }: { run: IngestionRun }) {
-  // バックエンドは UTC で返す。JST への変換は表示側の責務（docs/data-model.md 第 6 章）
+  // バックエンドは UTC で返す。JST への変換は表示側の責務（docs/data-model.md「タイムゾーンの扱い」）
   const startedAt = formatJst(run.startedAt);
 
   return (

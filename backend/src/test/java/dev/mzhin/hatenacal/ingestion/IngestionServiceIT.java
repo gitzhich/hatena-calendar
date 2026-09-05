@@ -186,7 +186,7 @@ class IngestionServiceIT {
         service.run();
 
         assertThat(client.windows).singleElement()
-                .as("無制限に遡ると課金が読めない（第 8 章）")
+                .as("無制限に遡ると課金が読めない（docs/x-integration.md「初回バックフィル」）")
                 .isInstanceOf(FetchWindow.From.class);
     }
 
@@ -205,7 +205,7 @@ class IngestionServiceIT {
     }
 
     @Test
-    @DisplayName("ページ数の上限で打ち切り、暴走した課金を防ぐ（第 3.4 節）")
+    @DisplayName("ページ数の上限で打ち切り、暴走した課金を防ぐ（docs/x-integration.md「ページング」）")
     void stopsAtPageLimit() {
         for (int i = 0; i < 30; i++) {
             client.responses.add(page("next-token",
@@ -266,7 +266,7 @@ class IngestionServiceIT {
     // ------------------------------------------------------------ 処理順
 
     @Test
-    @DisplayName("投稿を古い順に処理し、後続の告知が空欄を埋める（第 2.1 節）")
+    @DisplayName("投稿を古い順に処理し、後続の告知が空欄を埋める（docs/x-integration.md「処理順序の原則」）")
     void processesOldestFirstSoLaterPostsFillBlanks() {
         /*
          * API は新しい順に返す。並べ替えていなければ結果が変わるように組む。
@@ -292,7 +292,7 @@ class IngestionServiceIT {
                 .as("あとから来た告知が空欄を埋める")
                 .isNotNull();
         assertThat(column("SELECT source_url FROM appearance"))
-                .as("補完した告知が出典になる（第 7.1 節）")
+                .as("補完した告知が出典になる（docs/data-model.md「追加告知による空欄補完」）")
                 .isEqualTo("https://x.com/xinxin_official/status/2100");
     }
 
@@ -338,12 +338,12 @@ class IngestionServiceIT {
         assertThat(column("SELECT performance_start_time FROM appearance"))
                 .hasToString("19:50");
         assertThat(column("SELECT source_url FROM appearance"))
-                .as("何も埋まらないので出典も動かさない（第 7.1 節）")
+                .as("何も埋まらないので出典も動かさない（docs/data-model.md「追加告知による空欄補完」）")
                 .isEqualTo("https://x.com/xinxin_official/status/2099");
     }
 
     @Test
-    @DisplayName("1 投稿の複数枠は出演開始時刻の昇順で処理する（第 7.1 節）")
+    @DisplayName("1 投稿の複数枠は出演開始時刻の昇順で処理する（docs/data-model.md「追加告知による空欄補完」）")
     void multipleSlotsAreProcessedInAscendingOrder() {
         /*
          * 時刻なしの既存行を「引き継ぐのは最も早い枠」と決まっている。
@@ -380,7 +380,7 @@ class IngestionServiceIT {
     }
 
     @Test
-    @DisplayName("1 枠でも検証に落ちたら投稿ごと未処理にする（第 5.10 節）")
+    @DisplayName("1 枠でも検証に落ちたら投稿ごと未処理にする（docs/x-integration.md「1 投稿から複数の出演情報」）")
     void postWithAnyInvalidSlotIsUnparsed() {
         /*
          * 枠単位で捨てると、落ちた枠がどこにも現れない。投稿は REGISTERED として
@@ -433,7 +433,7 @@ class IngestionServiceIT {
     // ------------------------------------------------------------ 取得位置
 
     @Test
-    @DisplayName("取得位置は全件処理後に、取得できた最大 ID で進む（第 2.1 節）")
+    @DisplayName("取得位置は全件処理後に、取得できた最大 ID で進む（docs/x-integration.md「処理順序の原則」）")
     void advancesToMaxIdAfterProcessing() {
         client.responses.add(page(null,
                 post(2510, "お礼", at(2026, 9, 2)),
@@ -446,7 +446,7 @@ class IngestionServiceIT {
     }
 
     @Test
-    @DisplayName("取得位置は後退しない（第 2.2 節）")
+    @DisplayName("取得位置は後退しない（docs/x-integration.md「取得位置を後退させない」）")
     void neverMovesBackwards() {
         tx.executeWithoutResult(s -> em.createNativeQuery(
                 "UPDATE source_account SET last_fetched_tweet_id = 9999").executeUpdate());
@@ -486,7 +486,7 @@ class IngestionServiceIT {
     // ------------------------------------------------------------ 門番
 
     @Test
-    @DisplayName("実行中の記録があれば今回はスキップする（第 10.1 節）")
+    @DisplayName("実行中の記録があれば今回はスキップする（docs/x-integration.md「多重起動の防止」）")
     void skipsWhileAnotherRunIsActive() {
         insertRun("RUNNING", OffsetDateTime.now(ZoneOffset.UTC).minusMinutes(1));
 
@@ -495,7 +495,7 @@ class IngestionServiceIT {
     }
 
     @Test
-    @DisplayName("閾値を超えた実行中の記録は倒して、今回の実行を続ける（第 10.1 節）")
+    @DisplayName("閾値を超えた実行中の記録は倒して、今回の実行を続ける（docs/x-integration.md「多重起動の防止」）")
     void reapsStaleRunAndContinues() {
         insertRun("RUNNING", OffsetDateTime.now(ZoneOffset.UTC).minusMinutes(30));
 
@@ -506,7 +506,7 @@ class IngestionServiceIT {
     }
 
     @Test
-    @DisplayName("連続 10 回失敗したら止まり、自動で再開しない（第 7 章 / FR-43）")
+    @DisplayName("連続 10 回失敗したら止まり、自動で再開しない（docs/x-integration.md「エラーハンドリング」 / FR-43）")
     void haltsAfterConsecutiveFailures() {
         for (int i = 0; i < 10; i++) {
             insertRun("FAILED", OffsetDateTime.now(ZoneOffset.UTC).minusHours(10 - i));
@@ -540,7 +540,7 @@ class IngestionServiceIT {
     }
 
     @Test
-    @DisplayName("最新の失敗を CANCELLED にすれば打ち切りから戻る（runbook 第 9 章）")
+    @DisplayName("最新の失敗を CANCELLED にすれば打ち切りから戻る（runbook docs/runbook-x-api-setup.md「打ち切りから戻す」）")
     void cancellingTheLatestFailureResumesIngestion() {
         /*
          * 打ち切られると新しい実行記録が作られないため、直近 10 件は永久に FAILED の
@@ -578,7 +578,7 @@ class IngestionServiceIT {
     }
 
     @Test
-    @DisplayName("時刻なしで手動登録された行に、後続の告知が時刻を入れる（第 7.1 節）")
+    @DisplayName("時刻なしで手動登録された行に、後続の告知が時刻を入れる（docs/data-model.md「追加告知による空欄補完」）")
     void fillsTimeIntoManuallyCreatedRow() {
         insertManual("", "");
         client.responses.add(page(null,
@@ -615,7 +615,7 @@ class IngestionServiceIT {
     }
 
     @Test
-    @DisplayName("補完が起きたら出典 URL をその告知のものへ更新する（第 7.1 節）")
+    @DisplayName("補完が起きたら出典 URL をその告知のものへ更新する（docs/data-model.md「追加告知による空欄補完」）")
     void completionUpdatesSourceUrl() {
         insertManual("", "");
         client.responses.add(page(null,

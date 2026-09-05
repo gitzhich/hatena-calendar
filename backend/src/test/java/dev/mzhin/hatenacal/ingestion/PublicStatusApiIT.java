@@ -23,7 +23,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * データの状態 API の契約（docs/api.md 第 4.2 節、FR-08）を通しで確かめる。
+ * データの状態 API の契約（docs/api.md「データの状態」、FR-08）を通しで確かめる。
  *
  * <p>JDK の HttpClient を直に使う。フレームワークの変換を挟まず、
  * <b>ワイヤ上に実際に何が出るか</b>を検証するため。
@@ -115,7 +115,7 @@ class PublicStatusApiIT {
     }
 
     @Test
-    @DisplayName("日時は UTC で返す。JST への変換は表示側の責務（docs/api.md 第 4.2 節）")
+    @DisplayName("日時は UTC で返す。JST への変換は表示側の責務（docs/api.md「データの状態」）")
     void returnsUtc() throws Exception {
         insertRun(IngestionRunStatus.SUCCESS,
                 OffsetDateTime.of(2026, 8, 28, 1, 0, 0, 0, ZoneOffset.UTC));

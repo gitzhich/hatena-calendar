@@ -11,12 +11,12 @@ import org.springframework.stereotype.Component;
 /**
  * ログイン試行のレート制限（FR-20 / NFR-03 / T-02）。
  *
- * <p><b>Next.js 側にも同じ制限を置くが、こちらも要る</b>（docs/api.md 第 6 章）。
+ * <p><b>Next.js 側にも同じ制限を置くが、こちらも要る</b>（docs/api.md「内部 API」）。
  * Next.js だけだと、内部 API キーを持つ攻撃者が /internal/auth を
  * 直接叩けてしまう。
  *
  * <p>単一管理者・単一インスタンス前提のメモリ実装。Fly.io は 1 台に固定して
- * 運用するため（docs/architecture.md 第 4.3 節）、共有ストアを増やさない。
+ * 運用するため（docs/architecture.md「取り込みジョブ」）、共有ストアを増やさない。
  * 再起動でカウンタが消えるのは許容する。
  */
 @Component

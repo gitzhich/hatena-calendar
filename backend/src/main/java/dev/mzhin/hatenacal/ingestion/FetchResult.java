@@ -25,7 +25,7 @@ public record FetchResult(List<SourcePost> posts, String nextToken) {
      *
      * <p>課金はリクエスト数ではなく<b>返却されたリソース数</b>に対して発生する。
      * 5 件取得で使用量がちょうど 5 増えることを実測で確認している
-     * （docs/x-integration.md 第 4.2 節）。
+     * （docs/x-integration.md「記録」）。
      */
     public int resourceCount() {
         return posts.size();

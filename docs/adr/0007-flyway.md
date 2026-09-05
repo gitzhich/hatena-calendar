@@ -44,4 +44,4 @@ Spring Boot では Flyway、Liquibase、JPA の自動 DDL が主な選択肢に�
 
 ## 関連
 
-- [docs/data-model.md](../data-model.md) 第 8 章
+- [docs/data-model.md](../data-model.md)「マイグレーション運用（Flyway）」

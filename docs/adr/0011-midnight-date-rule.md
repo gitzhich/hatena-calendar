@@ -72,7 +72,7 @@ CLAUDE.md と [requirements.md](../requirements.md) では暫定的に
 
 ## 関連
 
-- [docs/data-model.md](../data-model.md) 第 6 章
-- [docs/x-integration.md](../x-integration.md) 第 5.6 節
+- [docs/data-model.md](../data-model.md)「タイムゾーンの扱い」
+- [docs/x-integration.md](../x-integration.md)「XINXIN の出演時刻」
 - [docs/requirements.md](../requirements.md) NFR-05
 - [ADR-0005](0005-local-date-storage.md) イベントの開催日を JST のローカル値で保存する

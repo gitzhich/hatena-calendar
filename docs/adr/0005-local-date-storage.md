@@ -50,5 +50,5 @@ CLAUDE.md には当初「**DB には UTC で保存し、表示時に変換する
 
 ## 関連
 
-- [docs/data-model.md](../data-model.md) 第 6 章
-- [docs/api.md](../api.md) 第 3.2 節
+- [docs/data-model.md](../data-model.md)「タイムゾーンの扱い」
+- [docs/api.md](../api.md)「日付と時刻」

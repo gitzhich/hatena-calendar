@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 管理者パスワードの検証（docs/api.md 第 6.1 節）。
+ * 管理者パスワードの検証（docs/api.md「管理者パスワードの検証」）。
  *
  * <p>Next.js のログイン処理からのみ呼ばれる。DB にユーザーテーブルを持たず、
  * 環境変数の BCrypt ハッシュと照合する（FR-20）。
@@ -42,7 +42,7 @@ public class InternalAuthController {
 
     /**
      * <b>失敗時も 200 を返す。</b> ステータスコードで成否を区別すると
-     * 総当たりの判定材料になる（docs/api.md 第 6.1 節 / T-02）。
+     * 総当たりの判定材料になる（docs/api.md「管理者パスワードの検証」 / T-02）。
      */
     @PostMapping
     public AuthResponse authenticate(@RequestBody AuthRequest request,

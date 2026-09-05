@@ -1,5 +1,5 @@
 /**
- * セキュリティヘッダ（NFR-03 / docs/security.md 第 4 章）。
+ * セキュリティヘッダ（NFR-03 / docs/security.md「対策が効く場所の一覧」）。
  *
  * **CSP は proxy.ts で 1 度だけ付ける。** next.config.ts と proxy.ts の
  * 両方から出すと `Content-Security-Policy` が 2 本になり、ブラウザは

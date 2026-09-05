@@ -9,7 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * 請求サイクルの区切り（NFR-04 / NFR-05、docs/api.md 第 5.7 節）。
+ * 請求サイクルの区切り（NFR-04 / NFR-05、docs/api.md「取り込み履歴」）。
  *
  * <p><b>実時刻に依存させずに確かめる。</b> 境界の前後 30 分という条件は実行日を選ぶため、
  * 結合テストでは狙って踏めない。

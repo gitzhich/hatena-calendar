@@ -14,13 +14,13 @@ import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 
 /**
- * 投稿本文から出演情報を抽出する。仕様は docs/x-integration.md 第 5 章。
+ * 投稿本文から出演情報を抽出する。仕様は docs/x-integration.md「出演情報の抽出（パース）仕様」。
  *
  * <p><b>副作用を持たない。</b> 本文と投稿日時を受け取り、抽出結果を返すだけで
- * DB も HTTP も触らない（docs/architecture.md 第 4.2 節）。
+ * DB も HTTP も触らない（docs/architecture.md「設計上の原則」）。
  * 実サンプルに対するテストをここに集約する。
  *
- * <p>扱うのは<b>公演告知だけ</b>（第 5.2 節）。タイムテーブルが確定していれば
+ * <p>扱うのは<b>公演告知だけ</b>（docs/x-integration.md「抽出対象の判定」）。タイムテーブルが確定していれば
  * 出演時刻まで、確定していなければ日付・会場・イベント名だけを取る。
  * それ以外は Unparsed にして管理者へ回す。
  */
@@ -28,7 +28,7 @@ import org.springframework.stereotype.Component;
 public class PostParser {
 
     /**
-     * マーカーと値の間に入りうる空白（第 5.12 節）。
+     * マーカーと値の間に入りうる空白（docs/x-integration.md「実 API で見つかった表記ゆれ」）。
      *
      * <p>サンプル 13 件はすべてマーカー直後に値が続いていたが、実 API で
      * 取得した投稿は {@code 🔗 https://...} とスペースを挟んでいた。
@@ -36,26 +36,26 @@ public class PostParser {
      */
     private static final String SP = "[ \u3000\t]*";
 
-    /** 第 5.3 節。年は書かれないので投稿日時から補う。 */
+    /** docs/x-integration.md「日付」。年は書かれないので投稿日時から補う。 */
     private static final Pattern DATE =
             Pattern.compile("(\\d{1,2})/(\\d{1,2})\\((月|火|水|木|金|土|日)(?:祝)?\\)");
 
-    /** 第 5.6 節。同じ行に XINXIN を含むことを別途要求する。 */
+    /** docs/x-integration.md「XINXIN の出演時刻」。同じ行に XINXIN を含むことを別途要求する。 */
     private static final Pattern MIC =
             Pattern.compile("🎤" + SP + "(\\d{1,2}):(\\d{2})-(\\d{1,2}):(\\d{2})");
 
-    /** 第 5.7 節。XINXIN の語が入らないため、🎤 との位置関係で決める。 */
+    /** docs/x-integration.md「物販時刻」。XINXIN の語が入らないため、🎤 との位置関係で決める。 */
     private static final Pattern CAMERA =
             Pattern.compile("📸" + SP + "(\\d{1,2}):(\\d{2})-(\\d{1,2}):(\\d{2})");
 
-    /** 第 5.8 節。🔗 マーカーの付いた URL のみを対象にする。 */
+    /** docs/x-integration.md「チケット URL」。🔗 マーカーの付いた URL のみを対象にする。 */
     private static final Pattern TICKET =
             Pattern.compile("🔗" + SP + "(https?://\\S+)");
 
     private static final String PIN = "📍";      // 📍
     private static final String MIC_MARKER = "🎤";     // 🎤
     private static final String SECTION = "▪️";  // ▪️
-    /** 対応する開き括弧と閉じ括弧。実データは 3 種類が混在する（第 5.5 節）。 */
+    /** 対応する開き括弧と閉じ括弧。実データは 3 種類が混在する（docs/x-integration.md「イベント名」）。 */
     private static final char[] OPEN_BRACKETS = {'『', '「', '｢'};
     private static final char[] CLOSE_BRACKETS = {'』', '」', '｣'};
 
@@ -66,13 +66,13 @@ public class PostParser {
     private static final String JP_WEEKDAY_CHARS = "月火水木金土日";
 
     /**
-     * @param body 投稿本文。note_tweet があればそちら（第 3.3 節）
+     * @param body 投稿本文。note_tweet があればそちら（docs/x-integration.md「本文の取り出し」）
      * @param postedAt 投稿日時。年の補完に使う
      */
     public ParseResult parse(String body, OffsetDateTime postedAt) {
         List<String> lines = body.lines().toList();
 
-        // ---- 第 5.10 節 パターン C：1 投稿に複数イベント ----
+        // ---- docs/x-integration.md「1 投稿から複数の出演情報」パターン C：1 投稿に複数イベント ----
         // ブロックごとに独立して解析する。投稿全体を 1 イベントとして扱うと、
         // 後続ブロックの 📍 を前ブロックの「枠の会場」と誤認して連結し、
         // イベント名は前ブロックのものが使い回される（実サンプル 16.txt）
@@ -93,7 +93,7 @@ public class PostParser {
             int to = i + 1 < starts.size() ? starts.get(i + 1) : lines.size();
             ParseResult block = parseBlock(lines.subList(from, to), postedAt);
             if (block instanceof ParseResult.Unparsed unparsed) {
-                // 判定の単位は投稿（第 5.10 節）。1 ブロックでも成立しなければ
+                // 判定の単位は投稿（docs/x-integration.md「1 投稿から複数の出演情報」）。1 ブロックでも成立しなければ
                 // 投稿ごと管理者へ回す。取れたブロックだけ登録すると、
                 // 投稿が REGISTERED になって未処理一覧に現れない
                 return unparsed;
@@ -104,7 +104,7 @@ public class PostParser {
     }
 
     /**
-     * イベントブロックの開始行（第 5.10 節 パターン C）。
+     * イベントブロックの開始行（docs/x-integration.md「1 投稿から複数の出演情報」パターン C）。
      *
      * <p><b>日付と 📍 を同じ行に持つ行</b>を境界にする。実サンプル 13 件では
      * この形の行は多くても 1 行しかなく、複数あるのはまとめ告知だけだった。
@@ -126,20 +126,20 @@ public class PostParser {
         int headerEnd = headerEnd(lines);
         List<String> header = lines.subList(0, headerEnd);
 
-        // ---- 第 5.2 節 条件 2：探索範囲に日付候補があるか ----
+        // ---- docs/x-integration.md「抽出対象の判定」条件 2：探索範囲に日付候補があるか ----
         List<MonthDay> headerDates = performanceDatesIn(header);
         if (headerDates.isEmpty()) {
             return ParseResult.unparsed("公演日の候補が見つからない");
         }
 
-        // ---- 第 5.2 節 条件 3：探索範囲に 📍 があるか ----
+        // ---- docs/x-integration.md「抽出対象の判定」条件 3：探索範囲に 📍 があるか ----
         int venueLine = indexOfContaining(header, PIN);
         if (venueLine < 0) {
             return ParseResult.unparsed("会場（📍）が見つからない");
         }
         String headerVenue = afterMarker(header.get(venueLine), PIN);
 
-        // ---- 第 5.2 節 共通条件 3：イベント名が取れるか（第 5.5 節）----
+        // ---- docs/x-integration.md「抽出対象の判定」共通条件 3：イベント名が取れるか（docs/x-integration.md「イベント名」）----
         EventName eventName = eventNameIn(header, venueLine);
         if (eventName.value() == null) {
             return ParseResult.unparsed("イベント名が見つからない");
@@ -147,7 +147,7 @@ public class PostParser {
 
         String ticketUrl = ticketUrlIn(lines);
 
-        // ---- 第 5.2 節：XINXIN を含む 🎤 行の有無で経路が分かれる（第 5.6 節）----
+        // ---- docs/x-integration.md「抽出対象の判定」：XINXIN を含む 🎤 行の有無で経路が分かれる（docs/x-integration.md「XINXIN の出演時刻」）----
         List<Integer> micLines = new ArrayList<>();
         for (int i = 0; i < lines.size(); i++) {
             if (lines.get(i).contains("XINXIN") && MIC.matcher(lines.get(i)).find()) {
@@ -170,7 +170,7 @@ public class PostParser {
             int nextMic = idx + 1 < micLines.size() ? micLines.get(idx + 1) : lines.size();
             int prevMic = idx > 0 ? micLines.get(idx - 1) : -1;
 
-            // ---- 第 5.10 節 パターン B：どの日付ブロックに属するか ----
+            // ---- docs/x-integration.md「1 投稿から複数の出演情報」パターン B：どの日付ブロックに属するか ----
             MonthDay md = blockDateFor(lines, line, headerDates);
             if (md == null) {
                 return ParseResult.unparsed("出演枠を日付に対応付けられない");
@@ -201,16 +201,16 @@ public class PostParser {
     }
 
     // ------------------------------------------------------------------
-    // 第 5.2 節 経路 B：タイムテーブルが未確定の告知（ADR-0021）
+    // docs/x-integration.md「抽出対象の判定」経路 B：タイムテーブルが未確定の告知（ADR-0021）
     // ------------------------------------------------------------------
 
     /**
-     * 出演時刻を持たない出演情報を 1 件だけ作る（第 5.2 節 経路 B）。
+     * 出演時刻を持たない出演情報を 1 件だけ作る（docs/x-integration.md「抽出対象の判定」経路 B）。
      *
      * <p>公式は「公演情報解禁 / 出演日程解禁」と「タイムテーブル解禁」を分けて
      * 告知する。前者だけでも日付・会場・イベント名は確定しており、
      * <b>タイムテーブルが出るまでの間もカレンダーに載せられる</b>。
-     * 後続の告知は空欄補完で時刻を埋める（docs/data-model.md 第 7.1 節）。
+     * 後続の告知は空欄補完で時刻を埋める（docs/data-model.md「追加告知による空欄補完」）。
      *
      * <p><b>🎤 行を必須から外した分を、3 つの条件で埋め合わせる。</b>
      * 🎤 行は出演時刻の出どころであると同時に「これは公演告知だ」という証拠でもあり、
@@ -218,18 +218,18 @@ public class PostParser {
      */
     private static ParseResult timetableUnknown(List<String> header, String headerVenue,
             EventName eventName, String ticketUrl, OffsetDateTime postedAt) {
-        // 条件 B-1：📍 の行から公演日がちょうど 1 つ取れる（第 5.3 節）。
+        // 条件 B-1：📍 の行から公演日がちょうど 1 つ取れる（docs/x-integration.md「日付」）。
         // この経路では ▪️ も 🎤 も無いため探索範囲が本文の末尾まで広がり、
         // 「探索範囲の全日付」というフォールバックが販売期間の日付を拾う。
         // 実サンプル 23.txt は候補が 8 個になり、うち 8/9(日) は曜日が正しいので
-        // 曜日検証でも落とせない。📍 の行に限ることで、第 5.1 節の基本形
+        // 曜日検証でも落とせない。📍 の行に限ることで、docs/x-integration.md「実際の投稿構造」の基本形
         // {M}/{D}({曜日})📍{都道府県}・{会場} そのものを条件にできる
         List<MonthDay> onPinLines = datesOnPinLines(header);
         if (onPinLines.size() != 1) {
             return ParseResult.unparsed("📍 の行から公演日を 1 つに絞れない");
         }
 
-        // 条件 B-2：イベント名が括弧付きで取れる（第 5.5 節）。
+        // 条件 B-2：イベント名が括弧付きで取れる（docs/x-integration.md「イベント名」）。
         // 連結でのフォールバックを許すと、括弧も空行も無い投稿で本文の後半を
         // 名前にしてしまう。表示が汚れるだけでなく、event_key が後続の
         // タイムテーブル解禁と一致せず、消えない重複行になる
@@ -237,7 +237,7 @@ public class PostParser {
             return ParseResult.unparsed("イベント名が括弧で囲まれていない");
         }
 
-        // 条件 B-3：チケット URL がある（第 5.8 節）。
+        // 条件 B-3：チケット URL がある（docs/x-integration.md「チケット URL」）。
         // 「これから行われる公演の告知にはチケット情報が付き、過ぎた公演の
         // お礼投稿には付かない」という意味の違いを条件にする。🔗 は保持する項目で、
         // 捨てる値の書き方が抽出の成否を決める形にならない
@@ -263,7 +263,7 @@ public class PostParser {
      * （ADR-0004）、タイムテーブルが出た後も羅列が残り続ける。
      *
      * <p>区切りは {@code /} と {@code &} の 2 種類。実データはどちらも使う
-     * （1.txt が {@code /}、22.txt が {@code &}）。第 5.4 節のサーキット判定が
+     * （1.txt が {@code /}、22.txt が {@code &}）。docs/x-integration.md「会場」のサーキット判定が
      * {@code /} だけなのは、そちらを変える失敗ケースが実サンプルに無いため。
      */
     private static String confirmedVenue(String headerVenue) {
@@ -272,10 +272,10 @@ public class PostParser {
     }
 
     /**
-     * 第 5.10 節：登録処理へ渡す順を出演開始時刻の昇順に固定する。
+     * docs/x-integration.md「1 投稿から複数の出演情報」：登録処理へ渡す順を出演開始時刻の昇順に固定する。
      *
      * <p>順序を決めないと、既存行を引き継ぐ枠が入れ替わって結果が
-     * 非決定的になる（docs/data-model.md 第 7.1 節）。
+     * 非決定的になる（docs/data-model.md「追加告知による空欄補完」）。
      * ブロックをまたいで並べ替えるため、投稿全体の結合後にも同じ順を適用する。
      *
      * <p><b>時刻なしを先に置く。</b>タイムテーブル未確定の枠（経路 B）は開始時刻が
@@ -292,14 +292,14 @@ public class PostParser {
     }
 
     // ------------------------------------------------------------------
-    // 第 5.3 節：探索範囲と日付
+    // docs/x-integration.md「日付」：探索範囲と日付
     // ------------------------------------------------------------------
 
     /**
-     * 先頭 〜 タイムテーブルが始まる直前（第 5.3 節）。
+     * 先頭 〜 タイムテーブルが始まる直前（docs/x-integration.md「日付」）。
      *
      * <p><b>境界は保持する項目だけで決める。</b>開演時刻（⏰ OPEN / START）は
-     * 保持しない項目であり（第 5.1 節）、そこに境界を置くと
+     * 保持しない項目であり（docs/x-integration.md「実際の投稿構造」）、そこに境界を置くと
      * <b>捨てる値の書き方が抽出の成否を決めてしまう</b>。
      * 実サンプル 19.txt は ⏰ が落ちて {@code OPEN 19:00 / START 19:30} だけになっており、
      * これで探索範囲が広がって投稿ごと Unparsed になっていた。
@@ -320,11 +320,11 @@ public class PostParser {
     }
 
     /**
-     * 公演日の候補（第 5.3 節）。
+     * 公演日の候補（docs/x-integration.md「日付」）。
      *
      * <p><b>📍 の行に書かれた日付を第一の手がかりにする。</b>
      * 基本形は {@code {M}/{D}({曜日})📍{都道府県}・{会場}} で日付と会場が同一行にあり
-     * （第 5.1 節）、販売期間の日付が 📍 の行に載ることはない。
+     * （docs/x-integration.md「実際の投稿構造」）、販売期間の日付が 📍 の行に載ることはない。
      *
      * <p>📍 の行に日付が無い告知（実サンプル 6.txt は日付行と会場行が別）では、
      * 探索範囲の日付をすべて候補にする。
@@ -335,7 +335,7 @@ public class PostParser {
     }
 
     /**
-     * 📍 の行に書かれた日付だけ（第 5.3 節）。
+     * 📍 の行に書かれた日付だけ（docs/x-integration.md「日付」）。
      *
      * <p>フォールバックを挟まない。経路 B は探索範囲を ▪️ / 🎤 で切れず、
      * フォールバックが販売期間の日付まで拾うため、この形が要る。
@@ -379,7 +379,7 @@ public class PostParser {
     }
 
     // ------------------------------------------------------------------
-    // 第 5.10 節 パターン B：タイムテーブル見出しによる日付の対応付け
+    // docs/x-integration.md「1 投稿から複数の出演情報」パターン B：タイムテーブル見出しによる日付の対応付け
     // ------------------------------------------------------------------
 
     private static MonthDay blockDateFor(List<String> lines, int micLine,
@@ -405,14 +405,14 @@ public class PostParser {
     }
 
     // ------------------------------------------------------------------
-    // 第 5.4 節：会場
+    // docs/x-integration.md「会場」：会場
     // ------------------------------------------------------------------
 
     private static String venueFor(List<String> lines, int micLine, int prevMic,
             int headerEnd, String headerVenue) {
         // 枠の 📍 は、その 🎤 行より前で最も近いもの。前の 🎤 行を越えない。
         // ヘッダにも 📍 があるため、探索はヘッダ部へ入らない位置で止める。
-        // 「▪️ より後の 📍 が出演枠ごとの会場」（第 5.4 節）
+        // 「▪️ より後の 📍 が出演枠ごとの会場」（docs/x-integration.md「会場」）
         int lowerBound = Math.max(prevMic, headerEnd - 1);
         String slotVenue = null;
         for (int i = micLine - 1; i > lowerBound; i--) {
@@ -436,7 +436,7 @@ public class PostParser {
     }
 
     // ------------------------------------------------------------------
-    // 第 5.5 節：イベント名
+    // docs/x-integration.md「イベント名」：イベント名
     // ------------------------------------------------------------------
 
     /**
@@ -450,7 +450,7 @@ public class PostParser {
     /**
      * イベント名と、それを<b>括弧付きで</b>取れたか。
      *
-     * <p>経路 B（第 5.2 節）は括弧付きしか受け付けないため、どちらの規則で
+     * <p>経路 B（docs/x-integration.md「抽出対象の判定」）は括弧付きしか受け付けないため、どちらの規則で
      * 取れたかを呼び出し側まで持ち回る必要がある。{@code value} は
      * 取れなければ {@code null}。
      */
@@ -496,7 +496,7 @@ public class PostParser {
      * <b>閉じ括弧の無い値</b>ができ、そのまま公開される。
      *
      * <p>空行までに閉じなければ {@code null} を返し、投稿ごと Unparsed にする。
-     * 壊れた名前を登録するより取りこぼす（第 5.10 節と同じ判断）。
+     * 壊れた名前を登録するより取りこぼす（docs/x-integration.md「1 投稿から複数の出演情報」と同じ判断）。
      */
     private static String bracketedName(List<String> header, int line, int kind) {
         char open = OPEN_BRACKETS[kind];
@@ -604,7 +604,7 @@ public class PostParser {
             boolean endCarried = eh >= 24;
             // 繰り上げの判定が出演時刻と一致しないときは保存しない。
             // 行の暦日は出演時刻で決まるため、食い違いを行の中に持ち込まない
-            // （docs/data-model.md 第 6 章）
+            // （docs/data-model.md「タイムゾーンの扱い」）
             if (startCarried != endCarried || startCarried != performanceCarried) {
                 return null;
             }
@@ -616,7 +616,7 @@ public class PostParser {
     }
 
     // ------------------------------------------------------------------
-    // 第 5.8 節：チケット URL
+    // docs/x-integration.md「チケット URL」：チケット URL
     // ------------------------------------------------------------------
 
     private static String ticketUrlIn(List<String> lines) {

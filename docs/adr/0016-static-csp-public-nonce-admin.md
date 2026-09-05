@@ -5,8 +5,8 @@
 
 ## 背景
 
-NFR-03 と [security.md](../security.md) 第 4 章はレスポンスヘッダに
-CSP を設定することを求めている。第 9 章の未決定事項にあった
+NFR-03 と [security.md](../security.md)「対策が効く場所の一覧」はレスポンスヘッダに
+CSP を設定することを求めている。[security.md](../security.md)「未決定事項」の未決定事項にあった
 **「CSP の適用範囲」**は
 「Next.js のインラインスクリプトとの兼ね合いで `nonce` の設定が必要になる。
 実装時に詰める」としていた。
@@ -99,7 +99,7 @@ CSRF トークンを取り出して管理操作を実行できる。
 - 開発時は `'unsafe-eval'` を許す（React が eval でエラースタックを復元するため）。
   `upgrade-insecure-requests` は本番だけに付ける。
   ローカルは HTTP で動かすため、開発で付けると開発サーバに繋がらなくなる
-- [security.md](../security.md) 第 9 章の未決定事項
+- [security.md](../security.md)「未決定事項」の未決定事項
   **「CSP の適用範囲」**が決着した（項目は削除済み）
 
 ### 実測（2026-09-02、本番ビルドをローカルで起動して確認）
@@ -119,7 +119,7 @@ CSRF トークンを取り出して管理操作を実行できる。
 
 ## 関連
 
-- [docs/security.md](../security.md) 第 4 章 / 第 5 章 / T-02 / T-04
+- [docs/security.md](../security.md)「対策が効く場所の一覧」 / [security.md](../security.md)「実装チェックリスト」 / T-02 / T-04
 - [docs/requirements.md](../requirements.md) NFR-03
 - [ADR-0014](0014-bounded-calendar-range.md)（ISR が可用性の防御である理由）
 - [ADR-0013](0013-site-kill-switch.md)（`proxy.ts` の役割）

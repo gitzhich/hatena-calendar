@@ -2,7 +2,7 @@
 
 最終更新: 2026-09-04
 
-関連文書: [architecture.md](architecture.md) 第 7 章・第 8 章・第 11 章 /
+関連文書: [architecture.md](architecture.md)「設定と環境変数」・[architecture.md](architecture.md)「デプロイ」・[architecture.md](architecture.md)「運用コストの試算」 /
 [security.md](security.md) / [runbook-x-api-setup.md](runbook-x-api-setup.md) /
 [ADR-0009](adr/0009-hosting.md)
 
@@ -74,7 +74,7 @@ git status --short                       # 作業ツリーが汚れていない�
   **作成後に変更できない。** 変えるには別プロジェクトを作ってデータを移行することになる
 - PostgreSQL のバージョンは **17**。ローカルの `compose.yaml` と CI に合わせる
 - Project name は `hatena-calendar`、Database name は **`hatenacal`**（ローカルと揃える）
-- **Neon Auth は off。** 管理者認証は自前で持っている（[architecture.md](architecture.md) 第 3.2 節）
+- **Neon Auth は off。** 管理者認証は自前で持っている（[architecture.md](architecture.md)「管理者の認証フロー」）
 
 ### 2.2 autoscaling の下限を 0.25 CU に固定する
 
@@ -82,11 +82,11 @@ git status --short                       # 作業ツリーが汚れていない�
 
 `Settings → Compute` で **最小と最大の両方を `0.25 CU`** にする。
 上振れするとコンピュート時間に比例して CU-hours が増え、
-[architecture.md](architecture.md) 第 11 章の「月 31 CU-hours」という見積もりが成立しない。
+[architecture.md](architecture.md)「運用コストの試算」の「月 31 CU-hours」という見積もりが成立しない。
 **無料枠（100 CU-hours/月）を超えると翌請求月までコンピュートが停止し、
 サイトが閲覧不能になる**（NFR-02）。
 
-**suspend までの時間は既定（5 分）のままでよい。** 第 11 章の試算はこれが前提。
+**suspend までの時間は既定（5 分）のままでよい。** [architecture.md](architecture.md)「運用コストの試算」の試算はこれが前提。
 
 ### 2.3 接続文字列を JDBC の形で取る
 
@@ -96,7 +96,7 @@ git status --short                       # 作業ツリーが汚れていない�
 1. **Connect** を押す（サイドバー上部、または「Connection string」カード）
 2. スニペットの種類を **`Java`** にする
 3. **プーリングが有効**であることを確かめる。ホスト名に `-pooler` が入っていればよい
-   （[architecture.md](architecture.md) 第 8 章）
+   （[architecture.md](architecture.md)「デプロイ」）
 4. コピーして `DATABASE_URL` に使う
 
 出てくるのはこの形。
@@ -116,7 +116,7 @@ jdbc:postgresql://ep-xxx-pooler.ap-southeast-1.aws.neon.tech/hatenacal?user=myus
 | DB 名 | `hatenacal` |
 
 **要点は 3 つ目。** pgjdbc は `user:password@host` の形を受け付けない
-（[architecture.md](architecture.md) 第 7.2 節）。`Java` 以外のスニペット
+（[architecture.md](architecture.md)「接続情報は `DATABASE_URL` 1 本で渡す」）。`Java` 以外のスニペット
 （`psql` など）はその形で出るため、**そのままでは使えない**。
 
 **ポート番号は無くてよい。** pgjdbc は省略時に 5432 を使い、Neon も 5432 で待つ。
@@ -132,7 +132,7 @@ jdbc:postgresql://ep-xxx-pooler.ap-southeast-1.aws.neon.tech/hatenacal?user=myus
 psql "postgresql://myuser:mypassword@ep-xxx-pooler.../hatenacal?sslmode=require" -c '\dt'
 ```
 
-`psql` が無ければ次章の `fly deploy` 後のログで判断する（第 9 章）。
+`psql` が無ければ次章の `fly deploy` 後のログで判断する（本書「うまくいかないとき」）。
 
 ---
 
@@ -158,19 +158,19 @@ Neon と同居させて、バックエンド↔DB の往復を消す（[ADR-0018
 **`fly.toml` に書かない**（[security.md](security.md) T-01）。
 `fly secrets set KEY=VALUE` は値がシェル履歴に残るので、標準入力から流す。
 
-必要な変数は [architecture.md](architecture.md) 第 7 章が正本。
+必要な変数は [architecture.md](architecture.md)「設定と環境変数」が正本。
 
 | 変数 | 値 |
 | --- | --- |
-| `DATABASE_URL` | 第 2.3 節で作った JDBC の文字列 |
-| `X_BEARER_TOKEN` | [runbook-x-api-setup.md](runbook-x-api-setup.md) 第 4 章 |
+| `DATABASE_URL` | 本書「接続文字列を JDBC の形で取る」で作った JDBC の文字列 |
+| `X_BEARER_TOKEN` | [runbook-x-api-setup.md](runbook-x-api-setup.md)「Bearer Token を取得して置く」 |
 | `X_SOURCE_USERNAME` | `xinxin_official` |
-| `ADMIN_PASSWORD_HASH` | [architecture.md](architecture.md) 第 7.1 節の手順で作る |
+| `ADMIN_PASSWORD_HASH` | [architecture.md](architecture.md)「値の作り方」の手順で作る |
 | `INTERNAL_API_KEY` | `openssl rand -base64 32` |
 | `INTERNAL_ADMIN_API_KEY` | 同上。**上と別の値**（[ADR-0010](adr/0010-split-api-keys.md)） |
 
 **`DATABASE_USER` / `DATABASE_PASSWORD` は入れない。** 認証情報は
-`DATABASE_URL` に含める（第 7.2 節）。
+`DATABASE_URL` に含める（[architecture.md](architecture.md)「接続情報は `DATABASE_URL` 1 本で渡す」）。
 
 ```bash
 fly secrets import      # KEY=VALUE を 1 行ずつ貼り、Ctrl-D
@@ -221,7 +221,7 @@ curl -s https://hatenacal.fly.dev/actuator/health
       **複数台だと取り込みが多重起動し、X API の課金が倍になる**
 - [ ] `https://` で応答する（`http://` はリダイレクトされる）
 - [ ] `/api/public/appearances?from=...&to=...` が**キー無しで 403**
-      （デフォルト拒否。[security.md](security.md) 第 5 章）
+      （デフォルト拒否。[security.md](security.md)「実装チェックリスト」）
 - [ ] `/actuator/env` が **403**（health 以外を公開していない）
 
 ---
@@ -231,7 +231,7 @@ curl -s https://hatenacal.fly.dev/actuator/health
 **ローカルと本番は別の DB。** `source_account` の行は自動では作られず、
 **無いと取り込みが毎回スキップされる**（ログに「情報源アカウントが DB に無い」）。
 
-手順は [runbook-x-api-setup.md](runbook-x-api-setup.md) 第 5.3 節。
+手順は [runbook-x-api-setup.md](runbook-x-api-setup.md)「`source_account` に投入する」。
 本番の接続文字列に対して同じことを行う。
 
 **`last_fetched_tweet_id` は NULL のまま入れる。** 値を入れるとそこから先だけを
@@ -243,7 +243,7 @@ curl -s https://hatenacal.fly.dev/actuator/health
 
 ### 5.1 Vercel のプロジェクトを作る
 
-GitHub 連携で `main` を自動デプロイする（[architecture.md](architecture.md) 第 8 章）。
+GitHub 連携で `main` を自動デプロイする（[architecture.md](architecture.md)「デプロイ」）。
 
 - **Root Directory を `frontend` にする。** モノレポなのでリポジトリ直下ではない
 - Framework Preset は Next.js（自動で判定される）
@@ -270,7 +270,7 @@ Root Directory を `frontend` にしても変わらない。
 Next.js は一切使わない。置き場所を増やすほど漏洩面が広がるだけ
 （[security.md](security.md) T-01）。
 
-[architecture.md](architecture.md) 第 7 章が正本。**`NEXT_PUBLIC_` を付けない。**
+[architecture.md](architecture.md)「設定と環境変数」が正本。**`NEXT_PUBLIC_` を付けない。**
 付けるとブラウザに露出する。
 
 | 変数 | 値 |
@@ -282,7 +282,7 @@ Next.js は一切使わない。置き場所を増やすほど漏洩面が広が
 | `SITE_DISABLED` | 設定しない（停止したいときだけ `true`） |
 
 **左右で変数名が違い、値は同じ**という対応を取り違えやすい。
-[architecture.md](architecture.md) 第 7.1 節の対応表を見ながら入れる。
+[architecture.md](architecture.md)「値の作り方」の対応表を見ながら入れる。
 
 **スコープは `Production` だけにする。** 既定の「Production and Preview」のままだと、
 PR ごとに作られる**プレビュー環境（公開 URL を持つ）から本番のバックエンドと
@@ -339,7 +339,7 @@ curl -sI https://<domain>/ | grep -iE 'content-security-policy|strict-transport|
 
 ## 6. デプロイ後にしか確認できないこと
 
-[requirements.md](requirements.md) 第 11 章の DoD のうち、ここで初めて埋まるもの。
+[requirements.md](requirements.md)「リリース判定基準（Definition of Done）」の DoD のうち、ここで初めて埋まるもの。
 
 - [x] **NFR-01 応答時間** — 2026-09-03 に本番で実測。ISR 命中が 135ms 前後、
       キャッシュに無い月の初回が 144ms / 324ms（目標は p95 で 300ms / 3 秒）。
@@ -347,8 +347,8 @@ curl -sI https://<domain>/ | grep -iE 'content-security-policy|strict-transport|
       DB を触るため起きたままになる。踏むには取り込みを止めて測る
 - [ ] **NFR-04 CU-hours** — 1 週間動かしてから Neon の消費を見る。
       月換算で 100 に対して余裕があるか（試算は約 31）
-- [x] **本番が HTTPS のみで動作する** — 2026-09-03 に確認（[security.md](security.md) 第 5 章）
-- [x] **Neon の autoscaling が下限・上限とも 0.25 CU** — 2026-09-03 に画面で確認（第 2.2 節）
+- [x] **本番が HTTPS のみで動作する** — 2026-09-03 に確認（[security.md](security.md)「実装チェックリスト」）
+- [x] **Neon の autoscaling が下限・上限とも 0.25 CU** — 2026-09-03 に画面で確認（本書「autoscaling の下限を 0.25 CU に固定する」）
 - [ ] **NFR-06 / NFR-08** — 実機の幅 360px で横スクロールが出ないか、
       コントラスト比 4.5:1 を満たすか
 
@@ -400,14 +400,14 @@ gh api repos/{owner}/{repo}/deployments?sha=$(git rev-parse main)   # フロン�
 
 | 症状 | 見るところ |
 | --- | --- |
-| 起動時に `FATAL: password authentication failed` | `DATABASE_URL` の形式（第 2.3 節）。`user=` / `password=` をクエリで渡しているか。パスワードの記号をエンコードしたか |
+| 起動時に `FATAL: password authentication failed` | `DATABASE_URL` の形式（本書「接続文字列を JDBC の形で取る」）。`user=` / `password=` をクエリで渡しているか。パスワードの記号をエンコードしたか |
 | 起動時に `Connection refused` / タイムアウト | ホストが `-pooler` 付きか。`sslmode=require` が付いているか |
 | Flyway が `Validate failed` | ローカルと本番でマイグレーションの履歴が食い違っている。**本番の `flyway_schema_history` を直接消さない**。原因を特定してから判断する |
 | 公開ページが 500 | `BACKEND_BASE_URL` の綴り、`BACKEND_API_KEY` と `INTERNAL_API_KEY` の値が一致しているか |
-| 公開ページが空だが 200 | バックエンドには繋がっているがデータが無い。本番 DB に出演情報が入っていない（第 4 章） |
+| 公開ページが空だが 200 | バックエンドには繋がっているがデータが無い。本番 DB に出演情報が入っていない（本書「本番 DB に情報源アカウントを入れる」） |
 | 管理画面だけ 403 | `BACKEND_ADMIN_API_KEY` と `INTERNAL_ADMIN_API_KEY` の不一致。**公開キーと取り違えていないか**（[ADR-0010](adr/0010-split-api-keys.md)） |
-| 取り込みが動かない | `source_account` の行があるか（第 4 章）。`X_BEARER_TOKEN` が入っているか。`fly logs` に「スキップする」が出ていないか |
+| 取り込みが動かない | `source_account` の行があるか（本書「本番 DB に情報源アカウントを入れる」）。`X_BEARER_TOKEN` が入っているか。`fly logs` に「スキップする」が出ていないか |
 | ヘルスチェックが通らず入れ替わらない | `grace_period` より起動が遅い。`fly logs` で Flyway の適用時間を見る |
 
 **課金が跳ねたときは `last_fetched_tweet_id` をまず疑う**
-（[runbook-x-api-setup.md](runbook-x-api-setup.md) 第 7 章）。
+（[runbook-x-api-setup.md](runbook-x-api-setup.md)「運用中の確認」）。

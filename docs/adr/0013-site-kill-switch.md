@@ -7,12 +7,12 @@
 
 [requirements.md](../requirements.md) LR-05 は、削除要請を受けた際に
 **サイト全体を非公開にできる手段**を管理者が持つことを求めている。
-これはリリース判定基準（第 11 章）にも入っているが、
+これはリリース判定基準（[requirements.md](../requirements.md)「リリース判定基準（Definition of Done）」）にも入っているが、
 実現方式が設計文書のどこにも定まっていなかった。
 
 方式を決めるうえで効いてくる制約が 1 つある。
 公開カレンダーは Vercel の ISR でキャッシュされており
-（[architecture.md](../architecture.md) 第 5.2 節）、
+（[architecture.md](../architecture.md)「キャッシュ戦略」）、
 **バックエンドを止めてもキャッシュ済みのページは配信され続ける**。
 Fly.io と Neon を落とす、環境変数でバックエンドの URL を外す、といった
 バックエンド側の対処では公開を止められない。
@@ -56,9 +56,9 @@ proxy.ts
 ## 結果
 
 - `SITE_DISABLED` が Next.js（Vercel）の環境変数に加わった
-  （[architecture.md](../architecture.md) 第 7 章）
+  （[architecture.md](../architecture.md)「設定と環境変数」）
 - `frontend/proxy.ts` と停止中の案内ページ `app/unavailable/` が
-  ルーティングに加わった（同 第 5.1 節）。
+  ルーティングに加わった（同 [architecture.md](../architecture.md)「ルーティング」）。
   Next.js 16 で `middleware.ts` は非推奨になり `proxy.ts` に改称された
 - 停止ページに載せる連絡先は[ADR-0017](0017-contact-channel.md)で決着した。
   **停止中に到達できるのがこのページと `/admin` だけであることが、
@@ -69,8 +69,8 @@ proxy.ts
 ## 関連
 
 - [docs/requirements.md](../requirements.md) LR-05
-- [docs/architecture.md](../architecture.md) 第 5.4 節
-- [docs/security.md](../security.md) 第 6.3 節 / T-04
+- [docs/architecture.md](../architecture.md)「サイト全体の停止」
+- [docs/security.md](../security.md)「誤った出演情報の公開が判明した場合」 / T-04
 
 ## 更新履歴
 

@@ -1,6 +1,6 @@
 package dev.mzhin.hatenacal.appearance;
 
-/** 取り込みが既存データに対して何をしたか（docs/data-model.md 第 7.1 節）。 */
+/** 取り込みが既存データに対して何をしたか（docs/data-model.md「追加告知による空欄補完」）。 */
 public enum IngestionOutcome {
     /** 新しい出演情報を登録した。 */
     CREATED,

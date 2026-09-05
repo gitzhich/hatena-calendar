@@ -7,7 +7,7 @@
 
 [requirements.md](../requirements.md) LR-05 は「サイト上に問い合わせ・削除要請のための
 連絡手段が記載されている」ことを求めているが、**手段そのものが決まっていなかった**
-（同 第 12 章 未決定事項の**「削除要請の連絡手段」**）。
+（同 [requirements.md](../requirements.md)「未決定事項（要件レベル）」未決定事項の**「削除要請の連絡手段」**）。
 デプロイ前に決着させる必要がある。
 
 前提が 2 つある。
@@ -30,7 +30,7 @@
 
 **アドレスは `frontend/lib/contact.ts` の定数 1 か所に置く。** 掲載箇所が増えても
 食い違わせないため、および将来アドレスを変えるときに 1 行で済ませるため
-（[coding-guidelines.md](../coding-guidelines.md) 第 11 章）。
+（[coding-guidelines.md](../coding-guidelines.md)「定数の置き場所」）。
 
 **難読化（画像化・JavaScript による組み立て）はしない。** アクセシビリティを落とすうえ、
 効果が限定的である。専用アドレスなので、スパムが来ても個人の受信箱は汚れない。
@@ -57,7 +57,7 @@ Gmail はスパム判定したメールを転送しないため、転送先に�
 
 フォームでメールアドレスを取得すると、個人情報保護法上、利用目的の明示が必要になり、
 実務上はプライバシーポリシーの掲示に行き着く。これは
-[requirements.md](../requirements.md) 第 12 章の「アクセス解析の導入有無」と同じ構図で、
+[requirements.md](../requirements.md)「未決定事項（要件レベル）」の「アクセス解析の導入有無」と同じ構図で、
 **MVP の要件が 1 つ増える**。メールで受け取るだけならその画面を作らずに済む。
 
 ## 検討した代替案
@@ -79,7 +79,7 @@ Gmail はスパム判定したメールを転送しないため、転送先に�
   「全ページ」を満たしていなかったのを、この作業で併せて直している
 - 要請時に記載してほしい項目（対象の出演情報 / 該当ページの URL / 要請の理由）を
   画面に明示する。往復を減らすため
-- [requirements.md](../requirements.md) 第 12 章 未決定事項の
+- [requirements.md](../requirements.md)「未決定事項（要件レベル）」未決定事項の
   **「削除要請の連絡手段」**が決着した（項目は削除済み）
 
 ### 将来の変更
@@ -97,6 +97,6 @@ Gmail はスパム判定したメールを転送しないため、転送先に�
 
 ## 関連
 
-- [docs/requirements.md](../requirements.md) LR-01 / LR-05 / 第 12 章
+- [docs/requirements.md](../requirements.md) LR-01 / LR-05 / [requirements.md](../requirements.md)「未決定事項（要件レベル）」
 - [ADR-0013](0013-site-kill-switch.md)（停止中に到達できる範囲）
-- [docs/coding-guidelines.md](../coding-guidelines.md) 第 11 章（定数の置き場所）
+- [docs/coding-guidelines.md](../coding-guidelines.md)「定数の置き場所」（定数の置き場所）

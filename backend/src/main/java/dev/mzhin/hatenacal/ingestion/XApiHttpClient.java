@@ -21,10 +21,10 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * {@code GET /2/users/{id}/tweets} で投稿を取得する（docs/x-integration.md 第 3.2 節）。
+ * {@code GET /2/users/{id}/tweets} で投稿を取得する（docs/x-integration.md「投稿の取得」）。
  *
  * <p>リトライは 429 / 5xx / 通信失敗のみ。401・403・404 は再試行しても直らないため
- * 即座に失敗させる（同 第 7 章）。リトライ回数には上限がある（FR-43）。
+ * 即座に失敗させる（同 docs/x-integration.md「エラーハンドリング」）。リトライ回数には上限がある（FR-43）。
  */
 @Component
 public class XApiHttpClient implements XApiClient {
@@ -32,7 +32,7 @@ public class XApiHttpClient implements XApiClient {
     private static final Logger log = LoggerFactory.getLogger(XApiHttpClient.class);
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
 
-    /** 画像を保持しないため expansions と media.fields は指定しない（LR-03 / 第 3.2 節）。 */
+    /** 画像を保持しないため expansions と media.fields は指定しない（LR-03 / docs/x-integration.md「投稿の取得」）。 */
     private static final String TWEET_FIELDS = "created_at,note_tweet";
     private static final String EXCLUDE = "replies,retweets";
 
@@ -132,7 +132,7 @@ public class XApiHttpClient implements XApiClient {
                             response.bodyTo(String.class),
                             response.getHeaders().getFirst("x-rate-limit-reset")), false);
         } catch (ResourceAccessException e) {
-            // 接続失敗・タイムアウト。リトライ対象（第 7 章）
+            // 接続失敗・タイムアウト。リトライ対象（docs/x-integration.md「エラーハンドリング」）
             return new Response(0, e.getClass().getSimpleName(), null);
         }
     }

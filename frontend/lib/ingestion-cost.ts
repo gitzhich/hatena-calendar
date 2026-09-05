@@ -1,5 +1,5 @@
 /**
- * X API の消費リソース数から概算コストを出す（NFR-04 / docs/api.md 第 5.7 節）。
+ * X API の消費リソース数から概算コストを出す（NFR-04 / docs/api.md「取り込み履歴」）。
  *
  * **課金単位はレスポンスで返ってきたリソース数**であり、リクエスト数ではない
  * （CLAUDE.md の X API 連携）。バックエンドはその合計だけを返し、
@@ -14,7 +14,7 @@ export const USD_PER_RESOURCE = 0.005;
  *
  * 比較の対象は**請求サイクル 1 回分**の合計（`BillingCycle`）で、暦月ではない。
  * X 側に設定した請求サイクルの支出上限も同じ $5
- * （docs/runbook-x-api-setup.md 手順 3.2）。
+ * （docs/runbook-x-api-setup.md「設定する値」）。
  */
 export const MONTHLY_BUDGET_USD = 5;
 

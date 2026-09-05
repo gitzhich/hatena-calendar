@@ -18,7 +18,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * 実サンプル 23 件に対する抽出テスト。期待値は
- * docs/x-integration.md 第 5.11 節。
+ * docs/x-integration.md「実サンプルでの検証結果」。
  *
  * <p>サンプルは docs/x-post-sample/ の写しを test/resources に置いている。
  * 実データにしか現れない崩れ方（半角カナ、3 種類の括弧、曜日の誤記、
@@ -47,7 +47,7 @@ class PostParserSampleTest {
      * 投稿日を指定して抽出する。
      *
      * <p>基準の {@link #POSTED} から 30 日以上前の公演は翌年と解釈されるため
-     * （第 5.3 節）、6 月の公演を扱う 18.txt では実際の投稿日に近い値が要る。
+     * （docs/x-integration.md「日付」）、6 月の公演を扱う 18.txt では実際の投稿日に近い値が要る。
      */
     private List<ParsedAppearance> extract(String name, OffsetDateTime postedAt)
             throws IOException {
@@ -273,7 +273,7 @@ class PostParserSampleTest {
                     .isEqualTo(LocalDate.of(2026, 10, 22));
             assertThat(a.venueName()).isEqualTo("愛知・NAGOYA JAMMIN'");
             assertThat(a.eventName())
-                    .as("主催者が別行にあると括弧の行だけが残る（第 5.5 節の既知の制限）")
+                    .as("主催者が別行にあると括弧の行だけが残る（docs/x-integration.md「イベント名」の既知の制限）")
                     .isEqualTo("「新進火花」");
             assertThat(a.performanceStartTime()).isEqualTo(LocalTime.of(20, 5));
             assertThat(a.performanceEndTime()).isEqualTo(LocalTime.of(20, 40));
@@ -393,7 +393,7 @@ class PostParserSampleTest {
         }
 
         @Test
-        @DisplayName("11.txt 出演時間の訂正。🎤 はあるが日付がない（第 11.2 節）")
+        @DisplayName("11.txt 出演時間の訂正。🎤 はあるが日付がない（docs/x-integration.md「出演時間の訂正（実サンプル 8.txt / 11.txt）」）")
         void sample11() throws IOException {
             ParseResult r = parser.parse(sample("11.txt"), POSTED);
             assertThat(((ParseResult.Unparsed) r).reason()).contains("公演日");

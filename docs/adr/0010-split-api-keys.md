@@ -50,7 +50,7 @@ Next.js は**管理者セッション Cookie の検証に成功した場合に�
 
 ## 関連
 
-- [docs/api.md](../api.md) 第 2 章
+- [docs/api.md](../api.md)「認証」
 - [docs/security.md](../security.md) T-02
 
 ## 更新履歴

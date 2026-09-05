@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>TIMESTAMPTZ は<b>絶対時刻</b>であり、OffsetDateTime で読み書きする限り
  * JVM の既定タイムゾーンに依存しない。DATE / TIME（暦日・ローカル時刻）とは
- * 性質が違う（docs/data-model.md 第 6 章）。
+ * 性質が違う（docs/data-model.md「タイムゾーンの扱い」）。
  */
 @SpringBootTest
 @Transactional
