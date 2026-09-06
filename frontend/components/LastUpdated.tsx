@@ -17,7 +17,7 @@ export function LastUpdated({ status }: { status: SiteStatus }) {
   if (iso === null || formatted === null) return null;
 
   return (
-    <section className="mt-8 text-xs text-neutral-600 dark:text-neutral-400">
+    <section className="mt-8 text-xs text-muted">
       <p>
         自動取り込みの最終更新{" "}
         <time dateTime={iso} className="tabular-nums">
@@ -26,7 +26,7 @@ export function LastUpdated({ status }: { status: SiteStatus }) {
       </p>
       {/* 色ではなく文言で伝える（NFR-08） */}
       {status.stale && (
-        <p className="mt-1 rounded border border-amber-500 bg-amber-50 dark:bg-amber-950 p-2 text-neutral-800 dark:text-neutral-200">
+        <p className="mt-2 rounded-card border border-warn-line bg-warn-bg p-3 text-warn-ink">
           24 時間以上、自動取り込みが成功していません。
           <strong>この後に出た告知が反映されていない可能性があります。</strong>
         </p>

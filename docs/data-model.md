@@ -724,7 +724,7 @@ backend/src/main/resources/db/migration/
 | --- | --- |
 | FR-01, FR-03 カレンダー表示 | `appearance.appearance_date`（`appearance_unique_event` のインデックスを利用） |
 | FR-03 出演の並び順 | `appearance.performance_start_time`（`NULL` は末尾に置く） |
-| FR-04 詳細表示 | `appearance` の各列（`NULL` の列は画面に出さない） |
+| FR-04 詳細表示 | `appearance` の各列（出演時刻が `NULL` のときは「時刻未定」。会場・物販・チケットは `NULL` なら出さない） |
 | FR-06 出典リンク | `appearance.source_url`（`NOT NULL`） |
 | FR-08 最終更新日時 | `ingestion_run.finished_at` (`status = 'SUCCESS'`) |
 | FR-22 編集 | `appearance.updated_at` |

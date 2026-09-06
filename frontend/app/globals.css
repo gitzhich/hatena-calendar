@@ -3,24 +3,182 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --canvas: #f6f3ef;
+  --ink: #3c3835;
+  --surface: #fffcf9;
+  --muted: #6b6560;
+  --line: #e4ddd6;
+  --accent: #b5486a;
+  --warn-bg: #fff4e5;
+  --warn-ink: #5c3d12;
+  --warn-line: #d4923a;
+  --chip-1: #f8d4d8;
+  --chip-1-ink: #5c3338;
+  --chip-2: #fde4cc;
+  --chip-2-ink: #6b4423;
+  --chip-3: #f7ebc0;
+  --chip-3-ink: #5c4e1a;
+  --chip-4: #d4eedd;
+  --chip-4-ink: #2a4a35;
+  --chip-5: #d3e7f5;
+  --chip-5-ink: #1e4560;
+  --chip-6: #e5d9f5;
+  --chip-6-ink: #4a3560;
+  --holiday: #be123c;
+  --saturday: #075985;
+  --shadow-card-value: 0 8px 24px rgb(60 56 53 / 0.08);
+  --shadow-sheet-value: 0 -8px 32px rgb(60 56 53 / 0.14);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --canvas: #2c2a28;
+    --ink: #f0ebe4;
+    --surface: #3a3734;
+    --muted: #c4bdb4;
+    --line: #524e4a;
+    --accent: #e8a0b4;
+    --warn-bg: #4a3518;
+    --warn-ink: #f5e6c8;
+    --warn-line: #c4923a;
+    --chip-1: #6e3d45;
+    --chip-1-ink: #fde8ea;
+    --chip-2: #6b4a2c;
+    --chip-2-ink: #fdecd8;
+    --chip-3: #5c5320;
+    --chip-3-ink: #f7f0c8;
+    --chip-4: #2f5a40;
+    --chip-4-ink: #d8f0e2;
+    --chip-5: #2a4e68;
+    --chip-5-ink: #d6ebf8;
+    --chip-6: #4a3a68;
+    --chip-6-ink: #ebe0f8;
+    --holiday: #fda4af;
+    --saturday: #7dd3fc;
+    --shadow-card-value: 0 8px 24px rgb(0 0 0 / 0.35);
+    --shadow-sheet-value: 0 -8px 32px rgb(0 0 0 / 0.45);
   }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-canvas: var(--canvas);
+  --color-ink: var(--ink);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-ink: var(--warn-ink);
+  --color-warn-line: var(--warn-line);
+  --color-chip-1: var(--chip-1);
+  --color-chip-1-ink: var(--chip-1-ink);
+  --color-chip-2: var(--chip-2);
+  --color-chip-2-ink: var(--chip-2-ink);
+  --color-chip-3: var(--chip-3);
+  --color-chip-3-ink: var(--chip-3-ink);
+  --color-chip-4: var(--chip-4);
+  --color-chip-4-ink: var(--chip-4-ink);
+  --color-chip-5: var(--chip-5);
+  --color-chip-5-ink: var(--chip-5-ink);
+  --color-chip-6: var(--chip-6);
+  --color-chip-6-ink: var(--chip-6-ink);
+  --color-holiday: var(--holiday);
+  --color-saturday: var(--saturday);
+  --font-sans: var(--font-rounded), "Hiragino Maru Gothic ProN", "Hiragino Sans",
+    "Yu Gothic", sans-serif;
+  --radius-card: 1.25rem;
+  --radius-chip: 9999px;
+  --radius-sheet: 1.5rem;
+  --shadow-card: var(--shadow-card-value);
+  --shadow-sheet: var(--shadow-sheet-value);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+body:has(.public-theme) {
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+.public-theme dialog.day-sheet {
+  position: fixed;
+  inset: auto 0 0;
+  margin: 0 auto;
+  width: min(100%, 42rem);
+  max-height: 80vh;
+  overflow: auto;
+  border: 0;
+  padding: 0;
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  box-shadow: var(--shadow-sheet);
+  translate: 0 100%;
+  transition:
+    translate 200ms ease-out,
+    overlay 200ms ease-out allow-discrete,
+    display 200ms allow-discrete;
+}
+
+.public-theme dialog.day-sheet[open] {
+  translate: 0 0;
+}
+
+@starting-style {
+  .public-theme dialog.day-sheet[open] {
+    translate: 0 100%;
+  }
+}
+
+.public-theme dialog.day-sheet::backdrop {
+  background: rgb(60 56 53 / 0.4);
+  opacity: 0;
+  transition:
+    opacity 200ms ease-out,
+    overlay 200ms ease-out allow-discrete,
+    display 200ms allow-discrete;
+}
+
+.public-theme dialog.day-sheet[open]::backdrop {
+  opacity: 1;
+}
+
+@starting-style {
+  .public-theme dialog.day-sheet[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+@keyframes public-fab-in {
+  from {
+    opacity: 0;
+    translate: 0 0.75rem;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+.public-theme .scroll-to-top {
+  animation: public-fab-in 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .public-theme dialog.day-sheet,
+  .public-theme dialog.day-sheet::backdrop {
+    transition: none;
+  }
+
+  .public-theme .scroll-to-top {
+    animation: none;
+  }
 }

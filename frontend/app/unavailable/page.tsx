@@ -15,29 +15,31 @@ export const metadata: Metadata = { title: "公開を停止しています" };
  */
 export default function Unavailable() {
   return (
-    <main className="mx-auto max-w-md p-6 space-y-4">
-      <h1 className="text-lg font-bold">公開を停止しています</h1>
-      <p className="text-sm">
-        現在このサイトは公開を停止しています。再開の予定は未定です。
-      </p>
-      <p className="text-sm">XINXIN の出演情報は公式 X をご確認ください。</p>
-
-      <section className="rounded border border-neutral-300 dark:border-neutral-700 p-4 space-y-2">
-        <h2 className="text-sm font-bold">お問い合わせ・削除要請</h2>
+    <main className="public-theme min-h-screen bg-canvas text-ink">
+      <div className="mx-auto max-w-md px-6 py-8 space-y-4">
+        <h1 className="text-lg font-bold">公開を停止しています</h1>
         <p className="text-sm">
-          <a href={`mailto:${CONTACT_EMAIL}`} className="underline break-all">
-            {CONTACT_EMAIL}
-          </a>
+          現在このサイトは公開を停止しています。再開の予定は未定です。
         </p>
-        <p className="text-xs text-neutral-600 dark:text-neutral-400">
-          次の内容を添えていただけると、対応が早くなります。
-        </p>
-        <ul className="list-disc pl-5 text-xs text-neutral-600 dark:text-neutral-400">
-          {CONTACT_REQUEST_ITEMS.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </section>
+        <p className="text-sm">XINXIN の出演情報は公式 X をご確認ください。</p>
+
+        <section className="rounded-card bg-surface shadow-card p-4 space-y-2">
+          <h2 className="text-sm font-bold">お問い合わせ・削除要請</h2>
+          <p className="text-sm">
+            <a href={`mailto:${CONTACT_EMAIL}`} className="underline break-all text-accent">
+              {CONTACT_EMAIL}
+            </a>
+          </p>
+          <p className="text-xs text-muted">
+            次の内容を添えていただけると、対応が早くなります。
+          </p>
+          <ul className="list-disc pl-5 text-xs text-muted">
+            {CONTACT_REQUEST_ITEMS.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      </div>
     </main>
   );
 }

@@ -4,6 +4,7 @@ import { monthBounds } from "@/lib/calendar-range";
 import { Calendar } from "@/components/Calendar";
 import { AppearanceList } from "@/components/AppearanceList";
 import { LastUpdated } from "@/components/LastUpdated";
+import { ScrollToTop } from "@/components/ScrollToTop";
 
 /** 当月ページと指定月ページで共有する本体。 */
 export async function CalendarPage({ year, month }: { year: number; month: number }) {
@@ -14,34 +15,36 @@ export async function CalendarPage({ year, month }: { year: number; month: numbe
   const appearances = result.ok ? result.appearances : [];
 
   return (
-    <main className="mx-auto max-w-2xl p-4">
-      <header className="mb-4">
-        <h1 className="text-xl font-bold">
-          <Link href="/">XINXIN 出演カレンダー</Link>
-        </h1>
-        {/* スクロールせずに免責へ到達できる導線（FR-07） */}
-        <a href="#disclaimer" className="text-xs underline">
-          このサイトについて（非公式）
-        </a>
-      </header>
+    <main className="public-theme min-h-screen bg-canvas text-ink">
+      <div className="mx-auto max-w-2xl px-4 py-5">
+        <header className="mb-5">
+          <h1 className="text-xl font-bold">
+            <Link href="/">XINXIN 出演カレンダー</Link>
+          </h1>
+          <a href="#disclaimer" className="text-xs underline text-muted min-h-11 inline-flex items-center">
+            このサイトについて（非公式）
+          </a>
+        </header>
 
-      {!result.ok && (
-        <p
-          role="status"
-          className="mb-4 rounded border border-amber-500 bg-amber-50 dark:bg-amber-950 p-3 text-sm"
-        >
-          出演情報を取得できませんでした。
-          <strong>この月に予定がないという意味ではありません。</strong>
-          時間をおいて再度お試しいただくか、公式 X をご確認ください。
-        </p>
-      )}
+        {!result.ok && (
+          <p
+            role="status"
+            className="mb-4 rounded-card border border-warn-line bg-warn-bg p-3 text-sm text-warn-ink"
+          >
+            出演情報を取得できませんでした。
+            <strong>この月に予定がないという意味ではありません。</strong>
+            時間をおいて再度お試しいただくか、公式 X をご確認ください。
+          </p>
+        )}
 
-      <Calendar year={year} month={month} appearances={appearances} />
+        <Calendar year={year} month={month} appearances={appearances} appearancesOk={result.ok} />
 
-      <h2 className="mt-8 mb-3 text-base font-bold">出演一覧</h2>
-      {result.ok && <AppearanceList appearances={appearances} />}
+        <h2 className="mt-8 mb-3 text-base font-bold">出演一覧</h2>
+        {result.ok && <AppearanceList appearances={appearances} />}
 
-      {status.ok && <LastUpdated status={status.status} />}
+        {status.ok && <LastUpdated status={status.status} />}
+      </div>
+      <ScrollToTop />
     </main>
   );
 }
