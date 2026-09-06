@@ -41,11 +41,10 @@ docker compose ps                # 状態の確認
 
 `Up ... (healthy)` かつ `0.0.0.0:5432->5432/tcp` が出ていれば接続できる。
 
-**`docker compose` を叩くと `.env` の `$` を変数参照として展開しようとし、
-警告が出る**（`ADMIN_PASSWORD_HASH` の bcrypt ハッシュが `$2b$12$...` の形のため）。
-`compose.yaml` はこの値を使っておらず実害はないが、
-警告を出したくなければ `--env-file /dev/null` を付ける
-（[architecture.md](architecture.md)「値の作り方」）。
+`The "..." variable is not set` という警告が出たら、`.env` に `$` を含む値が
+**クォートなしで**置かれている。`docker compose` はリポジトリ直下の `.env` を読み、
+値の中の `$` を変数参照として展開する。シングルクォートで囲めば消える
+（[runbook-x-api-setup.md](runbook-x-api-setup.md)「引用符の扱い」）。
 
 ---
 
