@@ -31,9 +31,8 @@ export async function CalendarPage({ year, month }: { year: number; month: numbe
             role="status"
             className="mb-4 rounded-card border border-warn-line bg-warn-bg p-3 text-sm text-warn-ink"
           >
-            出演情報を取得できませんでした。
-            <strong>この月に予定がないという意味ではありません。</strong>
-            時間をおいて再度お試しいただくか、公式 X をご確認ください。
+            {/* 1 行に収める。JSX は改行を半角スペースにするため、分けると文の間に空白が入る */}
+            出演情報を取得できませんでした。時間をおいて再度お試しいただくか、公式 X をご確認ください。
           </p>
         )}
 
