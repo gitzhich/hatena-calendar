@@ -24,6 +24,8 @@
   --chip-5-ink: #1e4560;
   --chip-6: #e5d9f5;
   --chip-6-ink: #4a3560;
+  --holiday: #be123c;
+  --saturday: #075985;
   --shadow-card-value: 0 8px 24px rgb(60 56 53 / 0.08);
   --shadow-sheet-value: 0 -8px 32px rgb(60 56 53 / 0.14);
 }
@@ -53,6 +55,8 @@
     --chip-5-ink: #d6ebf8;
     --chip-6: #4a3a68;
     --chip-6-ink: #ebe0f8;
+    --holiday: #fda4af;
+    --saturday: #7dd3fc;
     --shadow-card-value: 0 8px 24px rgb(0 0 0 / 0.35);
     --shadow-sheet-value: 0 -8px 32px rgb(0 0 0 / 0.45);
   }
@@ -82,6 +86,8 @@
   --color-chip-5-ink: var(--chip-5-ink);
   --color-chip-6: var(--chip-6);
   --color-chip-6-ink: var(--chip-6-ink);
+  --color-holiday: var(--holiday);
+  --color-saturday: var(--saturday);
   --font-sans: var(--font-rounded), "Hiragino Maru Gothic ProN", "Hiragino Sans",
     "Yu Gothic", sans-serif;
   --radius-card: 1.25rem;
@@ -118,7 +124,7 @@ body:has(.public-theme) {
   translate: 0 100%;
   transition:
     translate 200ms ease-out,
-    overlay 200ms ease-out,
+    overlay 200ms ease-out allow-discrete,
     display 200ms allow-discrete;
 }
 
@@ -137,7 +143,7 @@ body:has(.public-theme) {
   opacity: 0;
   transition:
     opacity 200ms ease-out,
-    overlay 200ms ease-out,
+    overlay 200ms ease-out allow-discrete,
     display 200ms allow-discrete;
 }
 

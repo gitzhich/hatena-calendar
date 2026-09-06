@@ -19,4 +19,8 @@ describe("chipIndex", () => {
     const cls = chipClass("NAGOYA Reny Limited");
     assert.equal(CHIP_CLASSES.includes(cls as (typeof CHIP_CLASSES)[number]), true);
   });
+
+  it("CHIP_COUNT は CHIP_CLASSES の長さそのもの", () => {
+    assert.equal(CHIP_COUNT, CHIP_CLASSES.length);
+  });
 });

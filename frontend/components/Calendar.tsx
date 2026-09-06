@@ -8,10 +8,12 @@ export function Calendar({
   year,
   month,
   appearances,
+  appearancesOk,
 }: {
   year: number;
   month: number;
   appearances: Appearance[];
+  appearancesOk: boolean;
 }) {
   const byDate: Record<string, Appearance[]> = {};
   for (const a of appearances) {
@@ -42,6 +44,7 @@ export function Calendar({
         year={year}
         month={month}
         chipsByDate={chipsByDate}
+        appearancesOk={appearancesOk}
         today={today}
         prev={isWithinRange(prev.year, prev.month) ? prev : null}
         next={isWithinRange(next.year, next.month) ? next : null}

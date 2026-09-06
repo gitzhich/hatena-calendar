@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Appearance } from "@/lib/api";
 import { formatTimeRange, performanceLabel } from "@/lib/appearance-display";
 
@@ -15,8 +16,24 @@ export function AppearanceCard({ appearance: a }: { appearance: Appearance }) {
       <h4 className="font-bold text-sm">{a.eventName}</h4>
       <dl className="mt-2 text-sm space-y-1">
         {a.venueName && <Row label="会場" value={a.venueName} />}
-        <Row label="出演" value={performanceLabel(a.performanceStartTime, a.performanceEndTime)} />
-        {merch && <Row label="物販" value={merch} />}
+        <Row
+          label="出演"
+          value={
+            a.performanceStartTime === null ? (
+              performanceLabel(a.performanceStartTime, a.performanceEndTime)
+            ) : (
+              <time dateTime={a.performanceStartTime}>
+                {performanceLabel(a.performanceStartTime, a.performanceEndTime)}
+              </time>
+            )
+          }
+        />
+        {merch && a.merchStartTime !== null && (
+          <Row
+            label="物販"
+            value={<time dateTime={a.merchStartTime}>{merch}</time>}
+          />
+        )}
       </dl>
       <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
         {a.ticketUrl && <External href={a.ticketUrl}>チケット</External>}
@@ -26,7 +43,7 @@ export function AppearanceCard({ appearance: a }: { appearance: Appearance }) {
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex gap-2">
       <dt className="shrink-0 w-10 text-muted">{label}</dt>

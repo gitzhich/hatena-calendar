@@ -37,7 +37,7 @@ export async function CalendarPage({ year, month }: { year: number; month: numbe
           </p>
         )}
 
-        <Calendar year={year} month={month} appearances={appearances} />
+        <Calendar year={year} month={month} appearances={appearances} appearancesOk={result.ok} />
 
         <h2 className="mt-8 mb-3 text-base font-bold">出演一覧</h2>
         {result.ok && <AppearanceList appearances={appearances} />}

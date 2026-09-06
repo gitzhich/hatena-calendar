@@ -3,7 +3,15 @@
 import { createContext, useContext, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { WEEKDAYS, chipLabel, formatIsoDateWithWeekday } from "@/lib/appearance-display";
+import {
+  WEEKDAYS,
+  chipLabel,
+  dayCellCountLabel,
+  daysInMonth as monthLength,
+  emptyDaySheetCopy,
+  firstWeekdayOfMonth,
+  formatIsoDateWithWeekday,
+} from "@/lib/appearance-display";
 import { chipClass } from "@/lib/chip-color";
 
 const MAX_VISIBLE_CHIPS = 2;
@@ -20,6 +28,7 @@ type DayGridProps = {
   year: number;
   month: number;
   chipsByDate: Record<string, ChipItem[]>;
+  appearancesOk: boolean;
   today: Today;
   prev: { year: number; month: number } | null;
   next: { year: number; month: number } | null;
@@ -40,6 +49,7 @@ export function DayGrid({
   year,
   month,
   chipsByDate,
+  appearancesOk,
   today,
   prev,
   next,
@@ -47,38 +57,86 @@ export function DayGrid({
 }: DayGridProps) {
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const closingRef = useRef(false);
+  const closeCleanupRef = useRef<(() => void) | null>(null);
   const titleId = useId();
   const pad = (n: number) => String(n).padStart(2, "0");
   const isCurrentMonth = today.year === year && today.month === month;
   const todayDay = isCurrentMonth ? today.day : null;
   const todayIso = `${today.year}-${pad(today.month)}-${pad(today.day)}`;
-  const firstWeekday = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
-  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const firstWeekday = firstWeekdayOfMonth(year, month);
+  const daysInMonth = monthLength(year, month);
   const cells: (number | null)[] = [
     ...Array<null>(firstWeekday).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
   while (cells.length % 7 !== 0) cells.push(null);
 
+  const cancelPendingClose = () => {
+    closeCleanupRef.current?.();
+    closeCleanupRef.current = null;
+  };
+
+  const openDay = (iso: string) => {
+    cancelPendingClose();
+    closingRef.current = false;
+    setSelectedIso(iso);
+  };
+
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (selectedIso !== null) {
+    if (selectedIso !== null && !closingRef.current) {
       if (!dialog.open) dialog.showModal();
-    } else if (dialog.open) {
-      dialog.close();
     }
   }, [selectedIso]);
 
-  const selectedIsEmpty =
-    selectedIso !== null && (chipsByDate[selectedIso] ?? []).length === 0;
+  useEffect(() => {
+    return () => {
+      closeCleanupRef.current?.();
+    };
+  }, []);
+
+  const finishClose = () => {
+    cancelPendingClose();
+    setSelectedIso(null);
+    closingRef.current = false;
+  };
+
+  const handleClose = () => {
+    closingRef.current = true;
+    const dialog = dialogRef.current;
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced || !dialog) {
+      finishClose();
+      return;
+    }
+    const onEnd = (event: TransitionEvent) => {
+      if (event.target !== dialog) return;
+      if (event.propertyName !== "translate") return;
+      finishClose();
+    };
+    dialog.addEventListener("transitionend", onEnd);
+    const timer = window.setTimeout(finishClose, 300);
+    closeCleanupRef.current = () => {
+      dialog.removeEventListener("transitionend", onEnd);
+      window.clearTimeout(timer);
+    };
+  };
+
+  const emptyCopy = emptyDaySheetCopy(
+    appearancesOk,
+    selectedIso !== null && (chipsByDate[selectedIso] ?? []).length > 0,
+  );
 
   return (
     <SelectedIsoContext.Provider value={selectedIso}>
       <nav className="flex items-center gap-2 mb-4">
         <TodayControl
           isCurrentMonth={isCurrentMonth}
-          onOpenToday={() => setSelectedIso(todayIso)}
+          onOpenToday={() => openDay(todayIso)}
         />
         <h2 id="calendar-heading" className="flex-1 text-center text-lg font-bold tabular-nums min-w-0 truncate">
           {year}年{month}月
@@ -93,8 +151,8 @@ export function DayGrid({
         {WEEKDAYS.map((w) => (
           <div
             key={w}
-            className={`text-center text-xs py-2 font-medium ${
-              w === "日" ? "text-rose-700 dark:text-rose-300" : w === "土" ? "text-sky-800 dark:text-sky-300" : "text-muted"
+            className={`text-center text-xs py-2 font-normal ${
+              w === "日" ? "text-holiday" : w === "土" ? "text-saturday" : "text-muted"
             }`}
           >
             {w}
@@ -119,8 +177,9 @@ export function DayGrid({
               day={day}
               iso={iso}
               items={items}
+              appearancesOk={appearancesOk}
               isToday={todayDay === day}
-              onSelect={setSelectedIso}
+              onSelect={openDay}
             />
           );
         })}
@@ -131,7 +190,7 @@ export function DayGrid({
         className="day-sheet"
         aria-labelledby={titleId}
         closedby="any"
-        onClose={() => setSelectedIso(null)}
+        onClose={handleClose}
         onClick={(event) => {
           if (event.target === event.currentTarget) {
             event.currentTarget.close();
@@ -142,18 +201,22 @@ export function DayGrid({
           <div className="mx-auto mb-3 h-1 w-10 rounded-chip bg-line" />
           <div className="flex items-start justify-between gap-3 mb-4">
             <h3 id={titleId} className="text-base font-bold tabular-nums pt-1">
-              {selectedIso === null ? "" : formatIsoDateWithWeekday(selectedIso)}
+              {selectedIso === null ? (
+                ""
+              ) : (
+                <time dateTime={selectedIso}>{formatIsoDateWithWeekday(selectedIso)}</time>
+              )}
             </h3>
             <button
               type="button"
-              className="min-w-11 min-h-11 rounded-card text-sm font-medium text-muted hover:bg-canvas"
+              className="min-w-11 min-h-11 rounded-card text-sm font-normal text-muted hover:bg-canvas"
               onClick={() => dialogRef.current?.close()}
             >
               閉じる
             </button>
           </div>
-          {selectedIsEmpty && (
-            <p className="text-sm text-muted py-4">この日の出演予定はありません。</p>
+          {selectedIso !== null && emptyCopy !== null && (
+            <p className="text-sm text-muted py-4">{emptyCopy}</p>
           )}
           {children}
         </div>
@@ -170,7 +233,7 @@ function TodayControl({
   onOpenToday: () => void;
 }) {
   const className =
-    "shrink-0 min-h-11 px-3 rounded-card bg-surface shadow-card text-sm font-medium hover:bg-canvas";
+    "shrink-0 min-h-11 px-3 rounded-card bg-surface shadow-card text-sm font-bold hover:bg-canvas";
 
   if (isCurrentMonth) {
     return (
@@ -218,18 +281,20 @@ function DayCell({
   day,
   iso,
   items,
+  appearancesOk,
   isToday,
   onSelect,
 }: {
   day: number;
   iso: string;
   items: ChipItem[];
+  appearancesOk: boolean;
   isToday: boolean;
   onSelect: (iso: string) => void;
 }) {
   const visible = items.slice(0, MAX_VISIBLE_CHIPS);
   const overflow = items.length - visible.length;
-  const countLabel = items.length > 0 ? `出演 ${items.length} 件` : "出演なし";
+  const countLabel = dayCellCountLabel(appearancesOk, items.length);
   const ariaLabel = `${day}日${isToday ? " 今日" : ""} ${countLabel}`;
 
   return (
@@ -250,7 +315,7 @@ function DayCell({
         >
           {day}
         </span>
-        {isToday && <span className="text-[10px] font-medium text-accent">今日</span>}
+        {isToday && <span className="text-[10px] font-bold text-accent">今日</span>}
         {items.length > 0 && (
           <span className="text-[10px] font-bold text-muted tabular-nums" aria-hidden="true">
             {items.length}
@@ -262,9 +327,7 @@ function DayCell({
           <span
             key={a.id}
             title={a.eventName}
-            className={`block max-w-full rounded-chip px-0.5 text-[9px] leading-3 ${
-              a.performanceStartTime ? "truncate" : ""
-            } ${chipClass(a.eventName)}`}
+            className={`block max-w-full truncate rounded-chip px-0.5 text-[9px] leading-3 ${chipClass(a.eventName)}`}
           >
             {chipLabel(a.performanceStartTime)}
           </span>

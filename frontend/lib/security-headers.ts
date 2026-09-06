@@ -51,7 +51,7 @@ export function buildCsp(options: { nonce?: string; isDev?: boolean } = {}): str
     `style-src ${styleSrc}`,
     // favicon などの data: を許す。外部ホストは一切読み込まない
     "img-src 'self' data:",
-    // next/font を使っておらず、システムフォントで足りている
+    // next/font でビルド時に自己ホストする。CDN は使わない
     "font-src 'self'",
     // XSS が成立しても外部へ送り出せないようにする
     "connect-src 'self'",

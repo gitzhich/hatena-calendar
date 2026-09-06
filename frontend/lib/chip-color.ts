@@ -2,8 +2,6 @@
  * カレンダーチップの色。意味は持たない（NFR-08）。
  * 同じイベント名なら同じ色になるよう、名前のハッシュで割り当てる。
  */
-export const CHIP_COUNT = 6;
-
 export const CHIP_CLASSES = [
   "bg-chip-1 text-chip-1-ink",
   "bg-chip-2 text-chip-2-ink",
@@ -12,6 +10,8 @@ export const CHIP_CLASSES = [
   "bg-chip-5 text-chip-5-ink",
   "bg-chip-6 text-chip-6-ink",
 ] as const;
+
+export const CHIP_COUNT = CHIP_CLASSES.length;
 
 export function chipIndex(eventName: string): number {
   let hash = 0;

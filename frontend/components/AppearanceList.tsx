@@ -25,8 +25,8 @@ export function AppearanceList({ appearances }: { appearances: Appearance[] }) {
   return (
     <div className="space-y-6">
       {[...byDate.entries()].map(([date, items]) => (
-        <section key={date} id={date} className="scroll-mt-4">
-          <h3 className="text-sm font-bold pb-1 mb-2 tabular-nums text-ink">
+        <section key={date}>
+          <h3 className="text-sm font-bold mb-2 tabular-nums text-ink">
             <time dateTime={date}>{formatIsoDate(date)}</time>
           </h3>
           <ul className="space-y-3">
