@@ -98,3 +98,16 @@ npm test          # node --test。lib/ のユニットテスト
 **見た目を変えたら、幅 360px と、ライト / ダークの両方を実際に確認する。**
 `prefers-color-scheme` で切り替わるため、片方だけ見て済ませると
 もう片方でコントラストが落ちる。
+
+### DB を変えたのに画面が変わらないとき
+
+Next.js の fetch キャッシュ（`revalidate: 300`）が残っている。**開発サーバの
+再起動だけでは消えない。**
+
+```bash
+trash-put frontend/.next/dev/cache/fetch-cache   # dev はこちら
+```
+
+**`.next/cache/fetch-cache` は本番ビルド用で、消しても効かない。**
+`next dev` が読むのは `.next/dev/` 配下。取り違えると「消したのに直らない」となる
+（実際に一度これで時間を溶かした）。消したあと `npm run dev` を再起動する。
