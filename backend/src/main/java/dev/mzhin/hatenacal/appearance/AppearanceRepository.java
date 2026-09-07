@@ -31,11 +31,14 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
             """)
     List<Appearance> findForCalendar(@Param("from") LocalDate from, @Param("to") LocalDate to);
 
-    /** 点検一覧（FR-24）。登録日時の新しい順（docs/api.md「出演情報の一覧と個別取得（点検用）」）。 */
-    Page<Appearance> findAllByOrderByCreatedAtDesc(Pageable pageable);
-
-    Page<Appearance> findBySourceTypeOrderByCreatedAtDesc(SourceType sourceType,
-            Pageable pageable);
+    /**
+     * 点検一覧（FR-24）の絞り込み。
+     *
+     * <p><b>並び順はメソッド名で固定しない。</b> 呼び出し側が {@link Pageable} に載せる
+     * （{@link AppearanceSort} / docs/api.md「出演情報の一覧と個別取得（点検用）」）。
+     * 絞り込み無しは継承した {@code findAll(Pageable)} を使う。
+     */
+    Page<Appearance> findBySourceType(SourceType sourceType, Pageable pageable);
 
     /**
      * 一意キーでの照合（ADR-0012）。開始時刻ありの場合。

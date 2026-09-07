@@ -10,6 +10,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -81,6 +83,73 @@ class AdminApiIT {
     }
 
     // ==================================================================
+
+    @Nested
+    @DisplayName("並び順（docs/api.md「出演情報の一覧と個別取得（点検用）」）")
+    class SortOrder {
+
+        private void create(String date, String name, String start) throws Exception {
+            assertThat(send("POST", PATH, ADMIN_KEY, payload(date, name, start)).statusCode())
+                    .isEqualTo(201);
+        }
+
+        private List<String> namesOf(String query) throws Exception {
+            JsonNode items = json.readTree(send("GET", PATH + query, ADMIN_KEY, null).body())
+                    .get("items");
+            List<String> names = new ArrayList<>();
+            items.forEach(item -> names.add(item.get("eventName").asString()));
+            return names;
+        }
+
+        /** 登録の順序と公演日の順序をわざと逆にする。既定が登録順のままだと落ちる。 */
+        private void createReversed() throws Exception {
+            create("2026-09-20", "『後の公演』", "18:00:00");
+            create("2026-09-10", "『前の公演』", "18:00:00");
+        }
+
+        @Test
+        @DisplayName("既定は公演日時の降順。登録順ではない")
+        void defaultIsAppearanceDateDesc() throws Exception {
+            createReversed();
+            assertThat(namesOf("")).containsExactly("『後の公演』", "『前の公演』");
+        }
+
+        @Test
+        @DisplayName("DATE_ASC は公演日時の昇順")
+        void ascending() throws Exception {
+            createReversed();
+            assertThat(namesOf("?sort=DATE_ASC")).containsExactly("『前の公演』", "『後の公演』");
+        }
+
+        @Test
+        @DisplayName("CREATED_DESC は登録の新しい順")
+        void createdDesc() throws Exception {
+            createReversed();
+            assertThat(namesOf("?sort=CREATED_DESC")).containsExactly("『前の公演』", "『後の公演』");
+        }
+
+        @Test
+        @DisplayName("知らない値は既定に倒す。400 にしない")
+        void unknownSortFallsBack() throws Exception {
+            createReversed();
+            HttpResponse<String> res = send("GET", PATH + "?sort=NOPE", ADMIN_KEY, null);
+            assertThat(res.statusCode()).isEqualTo(200);
+            assertThat(namesOf("?sort=NOPE")).containsExactly("『後の公演』", "『前の公演』");
+        }
+
+        @Test
+        @DisplayName("時刻未定は昇順でも降順でも最後に置く")
+        void nullStartTimeAlwaysLast() throws Exception {
+            create("2026-09-20", "『時刻あり』", "18:00:00");
+            create("2026-09-20", "『時刻未定』", null);
+
+            assertThat(namesOf("?sort=DATE_DESC"))
+                    .as("降順で先頭に来ると、同じ行が向きを変えるたびに端から端へ飛ぶ")
+                    .containsExactly("『時刻あり』", "『時刻未定』");
+            assertThat(namesOf("?sort=DATE_ASC"))
+                    .containsExactly("『時刻あり』", "『時刻未定』");
+        }
+    }
 
     @Nested
     @DisplayName("キーの分離（ADR-0010）")

@@ -37,12 +37,13 @@ public class AdminAppearanceController {
     @GetMapping
     public PageResponse<AdminAppearanceDto> list(
             @RequestParam(required = false) SourceType sourceType,
+            @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         int capped = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
-        return PageResponse.of(
-                service.findForReview(sourceType, PageRequest.of(Math.max(page, 0), capped)),
-                dto -> dto);
+        PageRequest request = PageRequest.of(
+                Math.max(page, 0), capped, AppearanceSort.from(sort).toSort());
+        return PageResponse.of(service.findForReview(sourceType, request), dto -> dto);
     }
 
     @GetMapping("/{id}")

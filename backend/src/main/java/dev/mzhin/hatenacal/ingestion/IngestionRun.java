@@ -45,6 +45,16 @@ public class IngestionRun {
     private int newAppearanceCount;
 
     /**
+     * この実行で未処理にした投稿の件数。
+     *
+     * <p><b>null は「0 件」ではなく「分からない」。</b> 列を足す前の実行記録が
+     * これに当たる（V4）。0 を入れると「未処理は無かった」と読めてしまうため、
+     * 埋めずに残して画面側で区別する。
+     */
+    @Column(name = "unparsed_count")
+    private Integer unparsedCount;
+
+    /**
      * ページ数の上限で打ち切ったか（docs/x-integration.md「ページング」 / ADR-0020）。
      *
      * <p>打ち切ると<b>未取得の古い側の投稿は二度と取得されない</b>。意図した仕様だが、
@@ -73,11 +83,12 @@ public class IngestionRun {
     }
 
     void succeed(OffsetDateTime now, int fetchedResourceCount, int newAppearanceCount,
-            boolean truncated) {
+            int unparsedCount, boolean truncated) {
         this.status = IngestionRunStatus.SUCCESS;
         this.finishedAt = now;
         this.fetchedResourceCount = fetchedResourceCount;
         this.newAppearanceCount = newAppearanceCount;
+        this.unparsedCount = unparsedCount;
         this.truncated = truncated;
     }
 
@@ -125,6 +136,11 @@ public class IngestionRun {
 
     public int getNewAppearanceCount() {
         return newAppearanceCount;
+    }
+
+    /** この実行で未処理にした件数。<b>null は「分からない」</b>（V4 より前の実行）。 */
+    public Integer getUnparsedCount() {
+        return unparsedCount;
     }
 
     public String getErrorSummary() {

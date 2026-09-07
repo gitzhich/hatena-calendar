@@ -28,7 +28,7 @@ class IngestionRunQueryTest {
         OffsetDateTime finished = OffsetDateTime.of(2026, 9, 3, 10, 0, 3, 0, JST);
 
         IngestionRunDto dto = new IngestionRunDto(
-                1L, started, finished, IngestionRunStatus.SUCCESS, 4, 1, false, null);
+                1L, started, finished, IngestionRunStatus.SUCCESS, 4, 1, 2, false, null);
 
         assertThat(dto.startedAt().getOffset()).isEqualTo(ZoneOffset.UTC);
         assertThat(dto.finishedAt().getOffset()).isEqualTo(ZoneOffset.UTC);
@@ -43,7 +43,7 @@ class IngestionRunQueryTest {
     void dtoKeepsNullFinishedAt() {
         IngestionRunDto dto = new IngestionRunDto(
                 1L, OffsetDateTime.now(ZoneOffset.UTC), null,
-                IngestionRunStatus.RUNNING, 0, 0, false, null);
+                IngestionRunStatus.RUNNING, 0, 0, null, false, null);
 
         assertThat(dto.finishedAt()).isNull();
     }
