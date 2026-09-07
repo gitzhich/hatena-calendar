@@ -27,6 +27,7 @@ export default async function NewAppearancePage({
           name="appearanceDate"
           type="date"
           required
+          max="9999-12-31"
           defaultValue={toIsoDate(todayInJst())}
         />
         <Field label="イベント名" name="eventName" required
