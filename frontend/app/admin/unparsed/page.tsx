@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listUnparsedPosts, requireAdmin } from "@/lib/admin-api";
 import { currentCsrf, excludePostAction } from "@/app/admin/actions";
 import { ActionForm } from "@/components/admin/FormFields";
+import { Pager } from "@/components/admin/Pager";
 import { formatJst } from "@/lib/last-updated";
 
 /**
@@ -74,6 +75,13 @@ export default async function UnparsedPage({
           ))}
         </ul>
       )}
+
+      <Pager
+        page={result.page}
+        size={result.size}
+        total={result.totalElements}
+        href={(p) => `/admin/unparsed?page=${p}`}
+      />
     </main>
   );
 }
