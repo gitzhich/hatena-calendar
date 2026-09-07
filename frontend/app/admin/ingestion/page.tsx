@@ -2,6 +2,7 @@ import { listIngestionRuns, requireAdmin, type IngestionRun } from "@/lib/admin-
 import { IngestionAlert } from "@/components/admin/IngestionAlert";
 import { Pager } from "@/components/admin/Pager";
 import { estimateUsd, MONTHLY_BUDGET_USD, overBudget } from "@/lib/ingestion-cost";
+import { unparsedCountLabel } from "@/lib/ingestion-run-display";
 import { formatJst } from "@/lib/last-updated";
 
 /**
@@ -136,7 +137,7 @@ function RunItem({ run }: { run: IngestionRun }) {
         </span>
       </div>
       <p className="mt-1 text-xs tabular-nums text-neutral-600 dark:text-neutral-400">
-        取得 {run.fetchedResourceCount} リソース・新規 {run.newAppearanceCount} 件
+        取得 {run.fetchedResourceCount} リソース・新規 {run.newAppearanceCount} 件・未処理 {unparsedCountLabel(run.unparsedCount)}
       </p>
       {run.truncated && (
         /*
