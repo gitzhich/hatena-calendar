@@ -18,6 +18,14 @@ const MAX_VISIBLE_CHIPS = 2;
 
 type Today = { year: number; month: number; day: number };
 
+/**
+ * 開いている日と、その開いた回数。
+ *
+ * 回数を持つのは、同じ日を選び直したときに state が同値にならないようにするため。
+ * `iso` だけだと閉じるアニメーション中の再選択が no-op になり、開き直せなくなる。
+ */
+type Sheet = { iso: string; seq: number };
+
 type ChipItem = {
   id: number;
   eventName: string;
@@ -55,10 +63,13 @@ export function DayGrid({
   next,
   children,
 }: DayGridProps) {
-  const [selectedIso, setSelectedIso] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<Sheet | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const closingRef = useRef(false);
   const closeCleanupRef = useRef<(() => void) | null>(null);
+  const openSeqRef = useRef(0);
+  /** ダイアログが実際に表示している seq。まだ開いていない選択と区別するために持つ。 */
+  const shownSeqRef = useRef(0);
+  const selectedIso = sheet?.iso ?? null;
   const titleId = useId();
   const pad = (n: number) => String(n).padStart(2, "0");
   const isCurrentMonth = today.year === year && today.month === month;
@@ -79,17 +90,16 @@ export function DayGrid({
 
   const openDay = (iso: string) => {
     cancelPendingClose();
-    closingRef.current = false;
-    setSelectedIso(iso);
+    openSeqRef.current += 1;
+    setSheet({ iso, seq: openSeqRef.current });
   };
 
   useEffect(() => {
     const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (selectedIso !== null && !closingRef.current) {
-      if (!dialog.open) dialog.showModal();
-    }
-  }, [selectedIso]);
+    if (!dialog || sheet === null) return;
+    if (!dialog.open) dialog.showModal();
+    shownSeqRef.current = sheet.seq;
+  }, [sheet]);
 
   useEffect(() => {
     return () => {
@@ -97,15 +107,28 @@ export function DayGrid({
     };
   }, []);
 
+  /**
+   * 閉じ終わったので選択を捨てる。**閉じ終わっていないなら何もしない。**
+   *
+   * この関数は close イベントから遅れて呼ばれるため、その間に別の日が
+   * 選ばれていることがある。次の 2 つはどちらも「捨ててはいけない」状態:
+   *
+   * - 既に開き直されている → `open` が立っている
+   * - 選ばれたがまだ開いていない → seq が表示中のものより新しい
+   */
   const finishClose = () => {
     cancelPendingClose();
-    setSelectedIso(null);
-    closingRef.current = false;
+    if (dialogRef.current?.open) return;
+    setSheet((current) =>
+      current === null || current.seq !== shownSeqRef.current ? current : null,
+    );
   };
 
   const handleClose = () => {
-    closingRef.current = true;
     const dialog = dialogRef.current;
+    // close は同期発火しない。別の日をタップして開き直したあとに遅れて届くことがあり、
+    // その close は既に終わったシートのもの。開いているなら無視する
+    if (dialog?.open) return;
     const reduced =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
