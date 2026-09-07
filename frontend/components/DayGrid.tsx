@@ -22,6 +22,28 @@ const DISMISS_DISTANCE_PX = 72;
 const DISMISS_VELOCITY = 0.5;
 /** この距離を超えたら「つまんだ」とみなし、離したときのクリックを捨てる（px）。 */
 const DRAG_SLOP_PX = 8;
+/** シートの上端より上（背景側）でも掴める幅（px）。縁ちょうどは指で狙いにくい。 */
+const GRAB_MARGIN_PX = 24;
+
+/**
+ * この pointerdown で掴んでよいか。
+ *
+ * 掴めるのは上部の帯と、**その少し上の背景**（`GRAB_MARGIN_PX`）。
+ * 背景側を含めるのは、シートの縁ちょうどを指で狙うのが難しいため。
+ * それ以外の背景はタップで閉じる場所なので、掴みにはしない。
+ */
+function isGrabPoint(
+  event: ReactPointerEvent<HTMLDialogElement>,
+  dialog: HTMLDialogElement,
+  strip: HTMLDivElement | null,
+): boolean {
+  const target = event.target as Node;
+  if (strip !== null && strip.contains(target)) return true;
+  // 背景（::backdrop）を押すと target はダイアログ自身になる
+  if (target !== dialog) return false;
+  const top = dialog.getBoundingClientRect().top;
+  return event.clientY >= top - GRAB_MARGIN_PX && event.clientY <= top;
+}
 
 /** 指の位置をシートのずらし量に直す。下向きだけ、シートの高さまで。 */
 function dragOffset(clientY: number, startY: number, height: number): number {
@@ -86,8 +108,10 @@ export function DayGrid({
     lastAt: number;
     velocity: number;
     height: number;
+    captured: boolean;
   } | null>(null);
   const draggedRef = useRef(false);
+  const stripRef = useRef<HTMLDivElement>(null);
   /** ダイアログが実際に表示している seq。まだ開いていない選択と区別するために持つ。 */
   const shownSeqRef = useRef(0);
   const selectedIso = sheet?.iso ?? null;
@@ -139,9 +163,10 @@ export function DayGrid({
     dialog.style.translate = px === null ? "" : `0 ${px}px`;
   };
 
-  const beginDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const beginDrag = (event: ReactPointerEvent<HTMLDialogElement>) => {
     const dialog = dialogRef.current;
     if (!dialog || event.button !== 0) return;
+    if (!isGrabPoint(event, dialog, stripRef.current)) return;
     dragRef.current = {
       pointerId: event.pointerId,
       startY: event.clientY,
@@ -149,14 +174,14 @@ export function DayGrid({
       lastAt: event.timeStamp,
       velocity: 0,
       height: dialog.getBoundingClientRect().height,
+      captured: false,
     };
     draggedRef.current = false;
-    event.currentTarget.setPointerCapture(event.pointerId);
     // 指で動かしている間はアニメーションを外す。付いたままだと遅れて追従する
     dialog.style.transition = "none";
   };
 
-  const moveDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const moveDrag = (event: ReactPointerEvent<HTMLDialogElement>) => {
     const drag = dragRef.current;
     if (!drag || event.pointerId !== drag.pointerId) return;
     const elapsed = event.timeStamp - drag.lastAt;
@@ -167,11 +192,20 @@ export function DayGrid({
     // 高さも超えない。超えたまま離すと、閉じる目標値（高さの 100%）まで
     // 一度上へ戻ってから消える
     const offset = dragOffset(event.clientY, drag.startY, drag.height);
-    if (offset > DRAG_SLOP_PX) draggedRef.current = true;
+    if (offset > DRAG_SLOP_PX) {
+      draggedRef.current = true;
+      if (!drag.captured) {
+        // 掴みが確定してから捕捉する。pointerdown で捕まえると、ただの
+        // タップでも click がダイアログ側に寄り、日付を押しただけで
+        // 背景を押した扱いになって閉じてしまう
+        event.currentTarget.setPointerCapture(event.pointerId);
+        drag.captured = true;
+      }
+    }
     offsetSheet(offset);
   };
 
-  const endDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const endDrag = (event: ReactPointerEvent<HTMLDialogElement>) => {
     const drag = dragRef.current;
     const dialog = dialogRef.current;
     if (!drag || !dialog || event.pointerId !== drag.pointerId) return;
@@ -186,7 +220,7 @@ export function DayGrid({
     offsetSheet(null);
   };
 
-  const cancelDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const cancelDrag = (event: ReactPointerEvent<HTMLDialogElement>) => {
     const drag = dragRef.current;
     const dialog = dialogRef.current;
     if (!drag || !dialog || event.pointerId !== drag.pointerId) return;
@@ -296,13 +330,31 @@ export function DayGrid({
         })}
       </div>
 
+      {/*
+        closedby="any" は付けない。付けるとブラウザが pointerup で閉じ、
+        タッチでは合成 click がそのあとに配られるため、**閉じたシートの下にある
+        日セルに当たって別の日が開いてしまう**（背景を押したのに開き直る）。
+        背景を押したときに閉じるのは下の onClick が担う。Esc と戻るジェスチャは
+        closedby の既定（closerequest 相当）で効くので、これで失うものは無い。
+      */}
       <dialog
         ref={dialogRef}
         className="day-sheet"
         aria-labelledby={titleId}
-        closedby="any"
         onClose={handleClose}
+        onPointerDown={beginDrag}
+        onPointerMove={moveDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={cancelDrag}
+        onClickCapture={(event) => {
+          // つまんで戻しただけのときに「閉じる」を押したことにしない
+          if (!draggedRef.current) return;
+          draggedRef.current = false;
+          event.stopPropagation();
+          event.preventDefault();
+        }}
         onClick={(event) => {
+          // 背景を押すと target はダイアログ自身。中身のクリックは通す
           if (event.target === event.currentTarget) {
             event.currentTarget.close();
           }
@@ -311,20 +363,7 @@ export function DayGrid({
         <div className="px-4 pt-3 pb-6">
           {/* つまんで下へスワイプすると閉じる。touch-none が無いと
               ブラウザがスクロールや引っ張って更新に持っていく */}
-          <div
-            className="-mx-4 px-4 touch-none cursor-grab"
-            onPointerDown={beginDrag}
-            onPointerMove={moveDrag}
-            onPointerUp={endDrag}
-            onPointerCancel={cancelDrag}
-            onClickCapture={(event) => {
-              // つまんで戻しただけのときに「閉じる」を押したことにしない
-              if (!draggedRef.current) return;
-              draggedRef.current = false;
-              event.stopPropagation();
-              event.preventDefault();
-            }}
-          >
+          <div ref={stripRef} className="-mx-4 px-4 touch-none cursor-grab">
             <div className="mx-auto mb-3 h-1 w-10 rounded-chip bg-line" aria-hidden="true" />
             <div className="flex items-start justify-between gap-3 mb-4">
               <h3 id={titleId} className="text-base font-bold tabular-nums pt-1">
