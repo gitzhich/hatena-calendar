@@ -1,6 +1,6 @@
 # 手順書 — Cursor CLI を Claude Code から動かす
 
-実装を Cursor に投げ、レビューを Claude Code が行う（`CLAUDE.md`「エージェントの役割分担」）。
+実装を Cursor に投げ、レビューを Claude Code が行う（[CLAUDE.md](../CLAUDE.md)「エージェントの役割分担」）。
 その Cursor を**エディタではなく CLI から**動かすための手順。
 
 設計ではなく手順書。**なぜその権限にしたか**は本書「権限の設計」にある。
@@ -69,12 +69,12 @@ agent -p --trust --output-format text "…指示…"
 
 ### いま入れているもの
 
-`backend/` を書けなくしてあるのは、`AGENTS.md`「実装せずに報告すること」を
+`backend/` を書けなくしてあるのは、[AGENTS.md](../AGENTS.md) が挙げる「実装せずに報告すること」を
 機械的に強制するため。`frontend/` の中でも CSP・認証・年月範囲に関わる
-ファイルは拒否側に置いている（`frontend/AGENTS.md`「触らないもの」と対応）。
+ファイルは拒否側に置いている（[frontend/AGENTS.md](../frontend/AGENTS.md) が挙げる「触らないもの」と対応）。
 
 `fly` / `gh pr merge` / `gh release` の拒否は、
-`AGENTS.md`「絶対にしないこと」のうち機械化できるものを移したもの。
+[AGENTS.md](../AGENTS.md) が挙げる「絶対にしないこと」のうち機械化できるものを移したもの。
 
 ## 4. これは砂場ではない
 
