@@ -68,12 +68,17 @@ public class AppearanceService {
     // 管理操作（FR-21 〜 FR-24）
     // ------------------------------------------------------------------
 
-    /** 点検一覧（FR-24）。sourceType 未指定なら全件。 */
+    /**
+     * 点検一覧（FR-24）。sourceType 未指定なら全件。
+     *
+     * <p>並び順は {@code pageable} に載って来る。既定と選べる値は
+     * {@link AppearanceSort}。
+     */
     @Transactional(readOnly = true)
     public Page<AdminAppearanceDto> findForReview(SourceType sourceType, Pageable pageable) {
         Page<Appearance> page = sourceType == null
-                ? repository.findAllByOrderByCreatedAtDesc(pageable)
-                : repository.findBySourceTypeOrderByCreatedAtDesc(sourceType, pageable);
+                ? repository.findAll(pageable)
+                : repository.findBySourceType(sourceType, pageable);
         return page.map(AdminAppearanceDto::from);
     }
 

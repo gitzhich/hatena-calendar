@@ -23,6 +23,7 @@ public record IngestionRunDto(
         IngestionRunStatus status,
         int fetchedResourceCount,
         int newAppearanceCount,
+        Integer unparsedCount,
         boolean truncated,
         String errorSummary) {
 
@@ -43,6 +44,7 @@ public record IngestionRunDto(
                 run.getStatus(),
                 run.getFetchedResourceCount(),
                 run.getNewAppearanceCount(),
+                run.getUnparsedCount(),
                 run.isTruncated(),
                 run.getErrorSummary());
     }

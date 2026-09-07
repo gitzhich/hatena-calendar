@@ -380,6 +380,20 @@ class IngestionServiceIT {
     }
 
     @Test
+    @DisplayName("未処理にした件数を実行記録に残す（FR-42 / docs/api.md「取り込み履歴」）")
+    void recordsUnparsedCount() {
+        client.responses.add(page(null,
+                post(2310, "／\n  本日のお写真📸\n＼\n\nありがとうございました", at(2026, 9, 1)),
+                post(2311, "明日もよろしくお願いします", at(2026, 9, 1))));
+
+        service.run();
+
+        assertThat(column("SELECT unparsed_count FROM ingestion_run"))
+                .as("片づけるべき件数が実行ごとに分からないと、どの取り込みで溜まったか追えない")
+                .isEqualTo(2);
+    }
+
+    @Test
     @DisplayName("1 枠でも検証に落ちたら投稿ごと未処理にする（docs/x-integration.md「1 投稿から複数の出演情報」）")
     void postWithAnyInvalidSlotIsUnparsed() {
         /*

@@ -250,10 +250,30 @@ FR-24 の点検一覧。公開 API と違い、内部項目も返す。
 | パラメータ | 必須 | 説明 |
 | --- | --- | --- |
 | `sourceType` | — | `AUTO` / `MANUAL`。省略時は全件 |
+| `sort` | — | 並び順。既定 `DATE_DESC` |
 | `page` | — | 0 始まり。既定 `0` |
 | `size` | — | 既定 `20`、最大 `100` |
 
-**`page` / `size` は範囲外を丸める。`400` にしない。**
+**並び順**
+
+| `sort` | 順序 |
+| --- | --- |
+| `DATE_DESC`（既定） | 開催日 → 出演開始時刻の**降順** |
+| `DATE_ASC` | 開催日 → 出演開始時刻の**昇順** |
+| `CREATED_DESC` | 登録日時の降順 |
+| `CREATED_ASC` | 登録日時の昇順 |
+
+**どの順序も最後に `id` で決着させる。** 同じ値の行が並ぶと順序が決まらず、
+ページの境界で取りこぼしと重複が出る。
+
+**出演開始時刻が未設定の行は、昇順でも降順でも最後に置く**（`NULLS LAST`）。
+向きによって未設定の位置が入れ替わると、同じ「時刻未定」の行が
+並べ替えのたびに端から端へ飛ぶ。
+
+**`sort` は知らない値を既定に倒す。`400` にしない。**
+並び順は表示の都合でしかなく、古いリンクを開いただけで画面が止まるほうが困る。
+
+**`page` / `size` も範囲外を丸める。`400` にしない。**
 
 | 入力 | 結果 |
 | --- | --- |
@@ -451,6 +471,7 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
       "status": "SUCCESS",
       "fetchedResourceCount": 4,
       "newAppearanceCount": 1,
+      "unparsedCount": 2,
       "truncated": false,
       "errorSummary": null
     }
@@ -470,6 +491,7 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
 | `items` | 実行記録を**開始日時の降順**で返す。日時は UTC |
 | `finishedAt` | 実行中（`status` が `RUNNING`）なら `null` |
 | `status` | `RUNNING` / `SUCCESS` / `FAILED` / `CANCELLED`。`CANCELLED` は**管理者が原因を確認し、打ち切りカウントから外した失敗**（[runbook-x-api-setup.md](runbook-x-api-setup.md)「打ち切りから戻す」）。連続失敗の判定はここで切れる |
+| `unparsedCount` | この実行で未処理にした投稿の件数（FR-25）。**`null` は「0 件」ではなく「分からない」**——列を足す前の実行記録と、失敗した実行がこれに当たる |
 | `truncated` | ページ上限で打ち切ったか。`true` なら**古い投稿を取りこぼしている**（[x-integration.md](x-integration.md)「ページング」 / [ADR-0020](adr/0020-drop-posts-beyond-page-limit.md)）。`status` は `SUCCESS` のまま |
 | `errorSummary` | 失敗理由の要約。**スタックトレースとトークンを含まない**（NFR-03） |
 | `currentCycleResourceCount` | 現在の請求サイクルの `fetchedResourceCount` 合計。`× $0.005` が概算コスト（NFR-04） |

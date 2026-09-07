@@ -451,6 +451,7 @@ CREATE TABLE ingestion_run (
                                                          'FAILED', 'CANCELLED')),
     fetched_resource_count INTEGER     NOT NULL DEFAULT 0 CHECK (fetched_resource_count >= 0),
     new_appearance_count   INTEGER     NOT NULL DEFAULT 0 CHECK (new_appearance_count >= 0),
+    unparsed_count         INTEGER     CHECK (unparsed_count IS NULL OR unparsed_count >= 0),
     truncated              BOOLEAN     NOT NULL DEFAULT false,
     error_summary          TEXT        CHECK (error_summary IS NULL OR length(error_summary) <= 500)
 );
@@ -459,6 +460,7 @@ CREATE TABLE ingestion_run (
 | 列 | 説明 |
 | --- | --- |
 | `fetched_resource_count` | **レスポンスで返ってきたリソース数**。X API の課金単位そのもの。これを期間で合計すれば消費額を算出できる |
+| `unparsed_count` | その実行で未処理にした投稿の件数。**NOT NULL DEFAULT 0 にしない**——列を足す前の実行記録は実際の件数が分からず、`0` を入れると「未処理は無かった」と読めてしまう。`NULL` は「分からない」の意で、画面はこれを区別して出す |
 | `truncated` | ページ数の上限で打ち切ったか（[x-integration.md](x-integration.md)「ページング」 / [ADR-0020](adr/0020-drop-posts-beyond-page-limit.md)）。**取りこぼしが確定した実行**を後から特定できるようにする |
 | `status` | `RUNNING` / `SUCCESS` / `FAILED` と、**`CANCELLED`**（管理者が原因を確認し、打ち切りカウントから外した失敗。[runbook-x-api-setup.md](runbook-x-api-setup.md)「打ち切りから戻す」）。アプリは `CANCELLED` へ遷移させない |
 | `error_summary` | 失敗理由の要約。**スタックトレースやトークンを入れない**（NFR-03, NFR-09） |

@@ -120,7 +120,8 @@ public class IngestionService {
             Long runId = run.getId();
             tx.executeWithoutResult(s -> runs.findById(runId).ifPresent(r ->
                     r.succeed(OffsetDateTime.now(clock),
-                            counters.resources, counters.created, counters.truncated)));
+                            counters.resources, counters.created, counters.unparsed,
+                            counters.truncated)));
             log.info("取り込み完了: 取得 {} 件 / 新規 {} 件 / 未処理 {} 件{}",
                     counters.resources, counters.created, counters.unparsed,
                     counters.truncated ? " / 取りこぼしあり" : "");
