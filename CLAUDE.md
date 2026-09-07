@@ -79,7 +79,7 @@ Web の API 契約をそのままモバイルから叩けるようにしてお�
 | `docs/x-integration.md` | X API 連携の設計（取得・課金・パース） |
 | `docs/security.md` | 脅威モデルと対策 |
 | `docs/coding-guidelines.md` | 実装時に守るコーディング規約。**実装を始める前に読む** |
-| `docs/runbook-*.md` | 作業手順書（設計ではなく手順）。`runbook-deploy.md` / `runbook-x-api-setup.md` / `runbook-local-db.md` |
+| `docs/runbook-*.md` | 作業手順書（設計ではなく手順）。`runbook-deploy.md` / `runbook-x-api-setup.md` / `runbook-local-db.md` / `runbook-cursor-cli.md` |
 | `docs/adr/` | 意思決定記録。一覧と運用ルールは `docs/adr/README.md` |
 
 ドキュメントと実装が食い違ったら、**ドキュメントを正として実装を直す**か、
@@ -310,9 +310,15 @@ echo "${#X_BEARER_TOKEN}"                 # 値を観測する: 禁止
 | ファイル | 読む主体 |
 | --- | --- |
 | `CLAUDE.md`（本ファイル） | Claude Code |
-| `AGENTS.md` | Cursor。**Cursor は `CLAUDE.md` を読まない**（[公式ドキュメント](https://cursor.com/docs/rules)が挙げるのは `.cursor/rules` と `AGENTS.md`）ため、正本への導線をそこに置いている |
+| `AGENTS.md` | Cursor。正本への導線を置いている |
 | `frontend/AGENTS.md` | 両方。`frontend/CLAUDE.md` が `@AGENTS.md` で取り込む |
-| `.cursorignore` | Cursor。`.env` と `docs/x-post-sample/` を隠す（[ADR-0015](docs/adr/0015-private-repository.md) と整合させる） |
+| `.cursorignore` | Cursor。索引化と `@` 参照から外す。**アクセスの禁止ではない** |
+| `.cursor/cli.json` | Cursor CLI。実効性のある禁止はこちら（`docs/runbook-cursor-cli.md`） |
+
+**Cursor CLI は `CLAUDE.md` も読む。** エディタ版のルール文書が挙げるのは
+`.cursor/rules` と `AGENTS.md` だけだが、CLI に「読み込んだルールを列挙して」と
+聞くと `CLAUDE.md` と `AGENTS.md` を挙げる（2026-09-07 実測）。
+**本ファイルを Cursor が読まない前提で書かないこと。**
 
 **規約の正本は本ファイルと `docs/`。** `AGENTS.md` に書き写さない。
 写すと必ず食い違い、どちらが正しいか分からなくなる。

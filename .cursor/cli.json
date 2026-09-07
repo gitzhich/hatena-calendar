@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(**/*)",
+      "Write(**/frontend/**)",
+      "Shell(git)",
+      "Shell(gh)",
+      "Shell(npm)",
+      "Shell(npx)",
+      "Shell(node)"
+    ],
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/application-local.yml)",
+      "Read(**/application-local.yaml)",
+      "Read(**/application-secret*.yml)",
+      "Read(**/application-secret*.yaml)",
+      "Read(**/x-post-sample/**)",
+
+      "Write(**/.githooks/**)",
+      "Write(**/.cursor/**)",
+      "Write(**/frontend/lib/security-headers.ts)",
+      "Write(**/frontend/lib/session.ts)",
+      "Write(**/frontend/lib/calendar-range.ts)",
+      "Write(**/frontend/proxy.ts)",
+      "Write(**/frontend/next.config.ts)",
+
+      "Shell(fly)",
+      "Shell(flyctl)",
+      "Shell(rm)",
+      "Shell(gh:pr merge*)",
+      "Shell(gh:release*)"
+    ]
+  }
+}
