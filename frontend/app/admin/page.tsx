@@ -1,5 +1,10 @@
 import Link from "next/link";
 import { listAppearances, listIngestionRuns, requireAdmin } from "@/lib/admin-api";
+import {
+  APPEARANCE_SORT_OPTIONS,
+  adminAppearancesHref,
+  parseAppearanceSort,
+} from "@/lib/admin-appearance-query";
 import { IngestionAlert } from "@/components/admin/IngestionAlert";
 import { Pager } from "@/components/admin/Pager";
 
@@ -12,16 +17,17 @@ import { Pager } from "@/components/admin/Pager";
 export default async function AdminHome({
   searchParams,
 }: {
-  searchParams: Promise<{ sourceType?: string; page?: string }>;
+  searchParams: Promise<{ sourceType?: string; page?: string; sort?: string }>;
 }) {
   await requireAdmin();
   const params = await searchParams;
   const sourceType = params.sourceType === "AUTO" || params.sourceType === "MANUAL"
     ? params.sourceType
     : undefined;
+  const sort = parseAppearanceSort(params.sort);
   const page = Number(params.page ?? "0") || 0;
   const [result, ingestion] = await Promise.all([
-    listAppearances(sourceType, page),
+    listAppearances(sourceType, page, sort),
     // 警告に必要なのは判定だけ。履歴そのものは専用ページで見るので 1 件で足りる
     listIngestionRuns(0, 1),
   ]);
@@ -40,20 +46,34 @@ export default async function AdminHome({
         登録された時点で公開されています。誤りがあればその場で修正してください。
       </p>
 
-      <nav className="mb-4 flex gap-3 text-sm">
+      <nav className="mb-2 flex flex-wrap gap-3 text-sm">
         {[
           { label: "すべて", value: undefined },
-          { label: "自動登録", value: "AUTO" },
-          { label: "手動登録", value: "MANUAL" },
+          { label: "自動登録", value: "AUTO" as const },
+          { label: "手動登録", value: "MANUAL" as const },
         ].map((f) => (
           <Link
             key={f.label}
-            href={f.value ? `/admin?sourceType=${f.value}` : "/admin"}
+            href={adminAppearancesHref({ sourceType: f.value, sort })}
             className={`min-h-11 inline-flex items-center underline ${
               sourceType === f.value ? "font-bold" : ""
             }`}
           >
             {f.label}
+          </Link>
+        ))}
+      </nav>
+
+      <nav aria-label="並び順" className="mb-4 flex flex-wrap gap-3 text-sm">
+        {APPEARANCE_SORT_OPTIONS.map((option) => (
+          <Link
+            key={option.value}
+            href={adminAppearancesHref({ sourceType, sort: option.value })}
+            className={`min-h-11 inline-flex items-center underline ${
+              sort === option.value ? "font-bold" : ""
+            }`}
+          >
+            {option.label}
           </Link>
         ))}
       </nav>
@@ -107,7 +127,7 @@ export default async function AdminHome({
         page={result.page}
         size={result.size}
         total={result.totalElements}
-        href={(p) => (sourceType ? `/admin?sourceType=${sourceType}&page=${p}` : `/admin?page=${p}`)}
+        href={(p) => adminAppearancesHref({ sourceType, sort, page: p })}
       />
     </main>
   );

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE, openSession, type Session } from "@/lib/session";
 import { backendBaseUrl } from "./backend-url";
+import { DEFAULT_APPEARANCE_SORT, type AppearanceSort } from "./admin-appearance-query";
 
 /**
  * 管理 API のクライアント。
@@ -86,6 +87,12 @@ export type IngestionRun = {
   fetchedResourceCount: number;
   newAppearanceCount: number;
   /**
+   * この実行で未処理にした投稿の件数（FR-25）。
+   * `null` は「0 件」ではなく「分からない」——列を足す前の実行記録と、失敗した実行。
+   * フィールド自体が無い応答（本番未デプロイ）も同じ扱いにする。
+   */
+  unparsedCount: number | null;
+  /**
    * ページ上限で打ち切ったか。`true` なら**古い投稿を取りこぼしている**
    * （docs/x-integration.md「ページング」 / ADR-0020）。`status` は `SUCCESS` のまま。
    */
@@ -115,9 +122,11 @@ export type IngestionRunList = Paged<IngestionRun> & {
 export async function listAppearances(
   sourceType?: string,
   page = 0,
+  sort?: AppearanceSort,
 ): Promise<Paged<AdminAppearance>> {
   const query = new URLSearchParams({ page: String(page), size: "20" });
   if (sourceType) query.set("sourceType", sourceType);
+  if (sort && sort !== DEFAULT_APPEARANCE_SORT) query.set("sort", sort);
   const res = await adminFetch(`/api/admin/appearances?${query}`);
   if (!res.ok) throw new Error(`一覧の取得に失敗しました (${res.status})`);
   return res.json();
