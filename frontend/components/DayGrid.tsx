@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import {
   WEEKDAYS,
   chipLabel,
@@ -15,6 +15,18 @@ import {
 import { chipClass } from "@/lib/chip-color";
 
 const MAX_VISIBLE_CHIPS = 2;
+
+/** つまんで下げて閉じる距離のしきい値（px）。これ未満なら元に戻す。 */
+const DISMISS_DISTANCE_PX = 72;
+/** 速く弾いたときは距離が足りなくても閉じる（px/ms）。 */
+const DISMISS_VELOCITY = 0.5;
+/** この距離を超えたら「つまんだ」とみなし、離したときのクリックを捨てる（px）。 */
+const DRAG_SLOP_PX = 8;
+
+/** 指の位置をシートのずらし量に直す。下向きだけ、シートの高さまで。 */
+function dragOffset(clientY: number, startY: number, height: number): number {
+  return Math.min(Math.max(0, clientY - startY), height);
+}
 
 type Today = { year: number; month: number; day: number };
 
@@ -67,6 +79,15 @@ export function DayGrid({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeCleanupRef = useRef<(() => void) | null>(null);
   const openSeqRef = useRef(0);
+  const dragRef = useRef<{
+    pointerId: number;
+    startY: number;
+    lastY: number;
+    lastAt: number;
+    velocity: number;
+    height: number;
+  } | null>(null);
+  const draggedRef = useRef(false);
   /** ダイアログが実際に表示している seq。まだ開いていない選択と区別するために持つ。 */
   const shownSeqRef = useRef(0);
   const selectedIso = sheet?.iso ?? null;
@@ -106,6 +127,73 @@ export function DayGrid({
       closeCleanupRef.current?.();
     };
   }, []);
+
+  /**
+   * シートの位置をずらす。`null` でインラインの指定を外し、CSS に戻す。
+   *
+   * state ではなく DOM を直接動かす。1 フレームごとに再描画すると指に追従しない。
+   */
+  const offsetSheet = (px: number | null) => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    dialog.style.translate = px === null ? "" : `0 ${px}px`;
+  };
+
+  const beginDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const dialog = dialogRef.current;
+    if (!dialog || event.button !== 0) return;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      lastY: event.clientY,
+      lastAt: event.timeStamp,
+      velocity: 0,
+      height: dialog.getBoundingClientRect().height,
+    };
+    draggedRef.current = false;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    // 指で動かしている間はアニメーションを外す。付いたままだと遅れて追従する
+    dialog.style.transition = "none";
+  };
+
+  const moveDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const elapsed = event.timeStamp - drag.lastAt;
+    if (elapsed > 0) drag.velocity = (event.clientY - drag.lastY) / elapsed;
+    drag.lastY = event.clientY;
+    drag.lastAt = event.timeStamp;
+    // 上へは動かさない（持ち上げると背景との隙間が見える）。
+    // 高さも超えない。超えたまま離すと、閉じる目標値（高さの 100%）まで
+    // 一度上へ戻ってから消える
+    const offset = dragOffset(event.clientY, drag.startY, drag.height);
+    if (offset > DRAG_SLOP_PX) draggedRef.current = true;
+    offsetSheet(offset);
+  };
+
+  const endDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    const dialog = dialogRef.current;
+    if (!drag || !dialog || event.pointerId !== drag.pointerId) return;
+    dragRef.current = null;
+    const offset = dragOffset(event.clientY, drag.startY, drag.height);
+    dialog.style.transition = "";
+    if (offset >= DISMISS_DISTANCE_PX || drag.velocity >= DISMISS_VELOCITY) {
+      // 先に閉じる。閉じた状態の目標値（translate 0 100%）が決まってから
+      // インラインの指定を外すので、指を離した位置から続けて動く
+      dialog.close();
+    }
+    offsetSheet(null);
+  };
+
+  const cancelDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    const dialog = dialogRef.current;
+    if (!drag || !dialog || event.pointerId !== drag.pointerId) return;
+    dragRef.current = null;
+    dialog.style.transition = "";
+    offsetSheet(null);
+  };
 
   /**
    * 閉じ終わったので選択を捨てる。**閉じ終わっていないなら何もしない。**
@@ -221,22 +309,39 @@ export function DayGrid({
         }}
       >
         <div className="px-4 pt-3 pb-6">
-          <div className="mx-auto mb-3 h-1 w-10 rounded-chip bg-line" />
-          <div className="flex items-start justify-between gap-3 mb-4">
-            <h3 id={titleId} className="text-base font-bold tabular-nums pt-1">
-              {selectedIso === null ? (
-                ""
-              ) : (
-                <time dateTime={selectedIso}>{formatIsoDateWithWeekday(selectedIso)}</time>
-              )}
-            </h3>
-            <button
-              type="button"
-              className="min-w-11 min-h-11 rounded-card text-sm font-normal text-muted hover:bg-canvas"
-              onClick={() => dialogRef.current?.close()}
-            >
-              閉じる
-            </button>
+          {/* つまんで下へスワイプすると閉じる。touch-none が無いと
+              ブラウザがスクロールや引っ張って更新に持っていく */}
+          <div
+            className="-mx-4 px-4 touch-none cursor-grab"
+            onPointerDown={beginDrag}
+            onPointerMove={moveDrag}
+            onPointerUp={endDrag}
+            onPointerCancel={cancelDrag}
+            onClickCapture={(event) => {
+              // つまんで戻しただけのときに「閉じる」を押したことにしない
+              if (!draggedRef.current) return;
+              draggedRef.current = false;
+              event.stopPropagation();
+              event.preventDefault();
+            }}
+          >
+            <div className="mx-auto mb-3 h-1 w-10 rounded-chip bg-line" aria-hidden="true" />
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <h3 id={titleId} className="text-base font-bold tabular-nums pt-1">
+                {selectedIso === null ? (
+                  ""
+                ) : (
+                  <time dateTime={selectedIso}>{formatIsoDateWithWeekday(selectedIso)}</time>
+                )}
+              </h3>
+              <button
+                type="button"
+                className="min-w-11 min-h-11 rounded-card text-sm font-normal text-muted cursor-pointer hover:bg-canvas"
+                onClick={() => dialogRef.current?.close()}
+              >
+                閉じる
+              </button>
+            </div>
           </div>
           {selectedIso !== null && emptyCopy !== null && (
             <p className="text-sm text-muted py-4">{emptyCopy}</p>
