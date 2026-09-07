@@ -140,6 +140,9 @@ body:has(.public-theme) {
 
 .public-theme dialog.day-sheet::backdrop {
   background: rgb(60 56 53 / 0.4);
+  /* シートの上端の少し上も掴めるようにしている（DayGrid の GRAB_MARGIN_PX）。
+     ここが auto だと、その掴みがページのスクロールや引っ張って更新に取られる */
+  touch-action: none;
   opacity: 0;
   transition:
     opacity 200ms ease-out,
