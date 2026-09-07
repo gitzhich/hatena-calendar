@@ -38,6 +38,7 @@ export default async function EditAppearancePage({
           （docs/api.md「編集」）。送ると「変えられる」と読める
         */}
         <Field label="開催日" name="appearanceDate" type="date" required
+               max="9999-12-31"
                defaultValue={appearance.appearanceDate} />
         <Field label="イベント名" name="eventName" required
                defaultValue={appearance.eventName} />

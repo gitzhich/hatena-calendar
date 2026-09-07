@@ -53,6 +53,8 @@ export function Field({
   defaultValue,
   required = false,
   placeholder,
+  min,
+  max,
 }: {
   label: string;
   name: string;
@@ -60,6 +62,8 @@ export function Field({
   defaultValue?: string | null;
   required?: boolean;
   placeholder?: string;
+  min?: string;
+  max?: string;
 }) {
   return (
     <label className="block">
@@ -73,6 +77,8 @@ export function Field({
         defaultValue={defaultValue ?? ""}
         required={required}
         placeholder={placeholder}
+        min={min}
+        max={max}
         // フロント側の検証は UX のためのもの。正はサーバ側（NFR-03）
         className="mt-1 w-full min-h-11 rounded border border-neutral-400 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-2"
       />
