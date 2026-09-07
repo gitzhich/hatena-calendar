@@ -23,14 +23,24 @@ agent status                                        # Logged in as ... を確認
 
 ## 2. 呼び出し方
 
+**調査だけさせるとき**（読み取り専用。作業ツリーに触らない）:
+
 ```bash
-agent -p --trust --output-format text "…指示…"
+agent -p --trust --mode ask --model cursor-grok-4.6-high --output-format text "…質問…"
+```
+
+**実装させるとき**（本書「実装させるときは worktree に入れる」）:
+
+```bash
+agent -p --trust -w <名前> --model cursor-grok-4.6-high --output-format text "…指示…"
 ```
 
 | フラグ | 意味 |
 | --- | --- |
 | `-p` / `--print` | 非対話。これが無いと TUI が開く |
 | `--trust` | ワークスペースを信頼する。無いと毎回止まる |
+| `--model` | 本書「モデル」。**省くと `auto` になる** |
+| `-w <名前>` / `--worktree` | 隔離した worktree に入る。**実装では必ず付ける** |
 | `--output-format` | `text` / `json` / `stream-json` |
 | `--mode ask` / `--plan` | 読み取り専用。調査だけさせるとき |
 | `--force` / `--yolo` | **付けない**（後述） |
@@ -86,21 +96,64 @@ agent -p --trust --output-format text "…指示…"
 ツールは `.cursorignore` の対象コードへのアクセスを遮断できない」「完全な保護は
 保証されない」と明記している。索引化を減らすものであって、禁止ではない。
 
-もっと強く隔離するなら次がある。**まだ使っていない。**
+だからシークレットについては、権限に頼らず**そもそも置かない**——次章。
 
-- `agent -w`（`--worktree`）で隔離した git worktree に入る。
-  追跡されていないファイルは複製されないので、`.env` がそもそも存在しなくなる
-- `.cursor/sandbox.json` でネットワークを既定拒否にする
+`.cursor/sandbox.json` でネットワークを既定拒否にする手もある。**まだ使っていない。**
 
-## 5. 課金
+## 5. 実装させるときは worktree に入れる
+
+`-w <名前>` を付けると `~/.cursor/worktrees/hatena-calendar/<名前>` に
+隔離した worktree を作り、そこで作業する。**実装では必ず付ける。**
+
+**追跡されていないファイルは複製されない。** シークレットの実体が
+worktree に存在しないので、拒否をシェルで迂回されても読めるものが無い。
+権限は「読ませない」だが、こちらは「置かない」で、質が違う。
+
+`.cursor/worktrees.json` が `.cursor/setup-worktree-unix.sh` を呼び、
+`frontend/node_modules` を本体から借りる（ロックが一致するときだけ。
+違えば `npm ci` で入れ直す）。**`.env` は複製しない。**
+公式の例に `cp $ROOT_WORKTREE_PATH/.env .env` があるが、これは目的を潰す。
+
+```bash
+agent -p --trust -w day-nav --model cursor-grok-4.6-high --output-format text "…"
+git worktree list                       # どこに何があるか
+```
+
+**追跡されているものは worktree にも入る。** `docs/x-post-sample/` は
+追跡下にあるので複製される。あれを守っているのは `.cursor/cli.json` の
+拒否だけで、前章の限界がそのまま当てはまる。
+
+作業が終わったら worktree とブランチを片付ける。**本体のブランチに
+取り込んでからにすること。**
+
+## 6. モデル
+
+**`--model` を省くと `auto`。** 明示する。
+
+```bash
+agent models                    # このアカウントで使えるものを一覧する
+```
+
+実装は **`cursor-grok-4.6-high`**（一覧では `Cursor Grok 4.6`）を既定にする。
+軽い調査なら `cursor-grok-4.6-medium`、難しい変更なら `cursor-grok-4.6-xhigh`。
+`-fast` の付いたものは同じモデルの高速版。
+
+レビューは Claude Code が別プロセスで行うため、ここで Claude 系を選ばない。
+**実装とレビューを別の目で行うのが役割分担の目的**で、同じモデルにすると
+それが崩れる（[CLAUDE.md](../CLAUDE.md)「エージェントの役割分担」）。
+
+## 7. 課金
 
 **CLI の利用は Cursor のプランの枠を食う**（エディタと同じ財布）。
-CLI には Auto モードが無く、**全リクエストが従量枠を消費する**。
 X API の課金とは別枠だが、実装をまるごと投げると効く。
+
+`agent models` の既定は `auto` で、CLI にも Auto はある。
+**ただし `--model` で明示すると当然その分が乗る。**
+枠の消費のされ方までは確かめていない。
 
 ## 未決定事項
 
-- **worktree（`agent -w`）に切り替えるか。** `.env` を物理的に届かなくできる。
-  バックエンドを動かす作業には向かないが、`frontend/` の作業なら支障がないはず
 - **`~/.cursor/cli-config.json`（全体設定）を置くか。** モデルの既定値と
-  コミット・PR への署名の扱いがここにある
+  コミット・PR への署名の扱いがここにある。いまは呼び出しごとに `--model` を
+  渡している（設定はリポジトリに入らないため、手順書が正本になる）
+- **`.cursor/sandbox.json` を入れるか。** ネットワークを既定拒否にできる
