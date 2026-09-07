@@ -1,32 +1,36 @@
 {
   "permissions": {
-    "allow": [],
+    "allow": [
+      "Read(**/*)",
+      "Write(**/frontend/**)",
+      "Shell(git)",
+      "Shell(gh)",
+      "Shell(npm)",
+      "Shell(npx)",
+      "Shell(node)"
+    ],
     "deny": [
-      "Read(.env)",
-      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
       "Read(**/application-local.yml)",
       "Read(**/application-local.yaml)",
       "Read(**/application-secret*.yml)",
       "Read(**/application-secret*.yaml)",
-      "Read(docs/x-post-sample/**)",
-      "Read(backend/src/test/resources/x-post-sample/**)",
+      "Read(**/x-post-sample/**)",
 
-      "Write(.env)",
-      "Write(.env.*)",
-      "Write(.githooks/**)",
-      "Write(docs/adr/**)",
-      "Write(frontend/lib/security-headers.ts)",
-      "Write(frontend/lib/session.ts)",
-      "Write(frontend/lib/calendar-range.ts)",
-      "Write(frontend/proxy.ts)",
-      "Write(frontend/next.config.ts)",
+      "Write(**/.githooks/**)",
+      "Write(**/.cursor/**)",
+      "Write(**/frontend/lib/security-headers.ts)",
+      "Write(**/frontend/lib/session.ts)",
+      "Write(**/frontend/lib/calendar-range.ts)",
+      "Write(**/frontend/proxy.ts)",
+      "Write(**/frontend/next.config.ts)",
 
       "Shell(fly)",
       "Shell(flyctl)",
-      "Shell(scripts/deploy-backend.sh)",
+      "Shell(rm)",
       "Shell(gh:pr merge*)",
-      "Shell(gh:release*)",
-      "Shell(rm)"
+      "Shell(gh:release*)"
     ]
   }
 }
