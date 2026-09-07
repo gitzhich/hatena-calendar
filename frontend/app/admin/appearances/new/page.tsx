@@ -1,6 +1,8 @@
 import { requireAdmin } from "@/lib/admin-api";
 import { createAppearanceAction, currentCsrf } from "@/app/admin/actions";
 import { ActionForm, Field } from "@/components/admin/FormFields";
+import { todayInJst } from "@/lib/calendar-range";
+import { toIsoDate } from "@/lib/iso-date";
 
 /** 手動登録（FR-21）。 */
 export default async function NewAppearancePage({
@@ -20,7 +22,13 @@ export default async function NewAppearancePage({
         {params.ingestedPostId && (
           <input type="hidden" name="ingestedPostId" value={params.ingestedPostId} />
         )}
-        <Field label="開催日" name="appearanceDate" type="date" required />
+        <Field
+          label="開催日"
+          name="appearanceDate"
+          type="date"
+          required
+          defaultValue={toIsoDate(todayInJst())}
+        />
         <Field label="イベント名" name="eventName" required
                placeholder="『ORANGE CHEER』" />
         <Field label="会場" name="venueName" placeholder="愛知・大須RADHALL" />
