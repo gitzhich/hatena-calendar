@@ -149,6 +149,8 @@ GET /api/public/appearances?from=2026-09-01&to=2026-09-30
       "appearanceDate": "2026-09-16",
       "eventName": "lonlium pre.『LONELY KIDS』",
       "venueName": "愛知・大須RADHALL",
+      "venueRegion": "CHUBU",
+      "venuePlaceId": "ChIJxxxxxxxxxxxxxxxxxxxxxxx",
       "performanceStartTime": "19:50:00",
       "performanceEndTime": "20:15:00",
       "merchStartTime": "21:25:00",
@@ -161,6 +163,8 @@ GET /api/public/appearances?from=2026-09-01&to=2026-09-30
       "appearanceDate": "2026-09-15",
       "eventName": "#ﾆｷﾌﾟﾚ『カンシャサイ。-秋-』",
       "venueName": "東京・渋谷音楽堂/Shibuya Milkyway/...",
+      "venueRegion": "KANTO",
+      "venuePlaceId": null,
       "performanceStartTime": null,
       "performanceEndTime": null,
       "merchStartTime": null,
@@ -181,6 +185,17 @@ GET /api/public/appearances?from=2026-09-01&to=2026-09-30
 - **同じ日に同じ `eventName` が複数並ぶことがある。** 1 つのイベントの中で
   複数回出演する告知があるため（[x-integration.md](x-integration.md)「1 投稿から複数の出演情報」）。
   会場と時刻で区別できる
+- **`venueRegion`** は会場の地域（FR-10）。`HOKKAIDO` / `TOHOKU` / `KANTO` / `CHUBU` /
+  `KINKI` / `CHUGOKU` / `SHIKOKU` / `KYUSHU` / `OVERSEAS` / `UNKNOWN` のいずれか。
+  **会場が空欄なら `UNKNOWN`。** 判定の規則は
+  [data-model.md](data-model.md)「venue — 会場」
+- **`venuePlaceId`** は Google の場所 ID（FR-09）。**`null` は「まだ同定できていない」。**
+  クライアントは `null` のとき、名前で検索する地図リンクに落とす
+  （[ADR-0022](adr/0022-venue-place-id-and-region.md)）
+- **地図の URL は返さない。** URL の書式は表示側の都合であり、
+  変わったときにバックエンドのデプロイを要求したくない。
+  返すのは識別子までで、組み立てはクライアントが行う
+- **色は返さない。** どの地域を何色にするかは見た目の決定で、API の関心事ではない
 - 該当がない場合は `appearances` が空配列。`404` にしない
 
 ### 4.2 データの状態
@@ -297,6 +312,9 @@ FR-24 の点検一覧。公開 API と違い、内部項目も返す。
       "eventName": "lonlium pre.『LONELY KIDS』",
       "eventKey": "lonliumprelonelykids",
       "venueName": "愛知・大須RADHALL",
+      "venueId": 3,
+      "venueRegion": "CHUBU",
+      "venuePlaceId": "ChIJxxxxxxxxxxxxxxxxxxxxxxx",
       "performanceStartTime": "19:50:00",
       "performanceEndTime": "20:15:00",
       "merchStartTime": "21:25:00",
@@ -522,6 +540,71 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
 原因が残ったまま同じ範囲を取り直して課金が積み上がる。
 戻すのは DB を直接触る操作で、手順は
 [runbook-x-api-setup.md](runbook-x-api-setup.md)「打ち切りから戻す」にある。
+
+---
+
+### 5.8 会場の一覧と編集
+
+```
+GET  /api/admin/venues?page=0&size=20&unresolved=true
+PUT  /api/admin/venues/{id}
+POST /api/admin/venues/{id}/resolve-place-id
+```
+
+会場ごとに 1 行を持ち、地域と `place_id` を管理する
+（[ADR-0022](adr/0022-venue-place-id-and-region.md) / [data-model.md](data-model.md)「venue — 会場」）。
+
+| パラメータ | 必須 | 説明 |
+| --- | --- | --- |
+| `unresolved` | — | `true` なら **`place_id` が未解決の会場だけ**返す。片づける対象を絞るため |
+| `page` / `size` | — | 点検一覧と同じ丸め規則（本書「出演情報の一覧と個別取得（点検用）」） |
+
+**レスポンス**
+
+```json
+{
+  "items": [
+    {
+      "id": 3,
+      "venueKey": "愛知大須radhall",
+      "displayName": "愛知・大須RADHALL",
+      "region": "CHUBU",
+      "placeId": "ChIJxxxxxxxxxxxxxxxxxxxxxxx",
+      "placeIdCheckedAt": "2026-09-08T02:00:00Z",
+      "manuallyEdited": false,
+      "appearanceCount": 12
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 15
+}
+```
+
+- **`appearanceCount`** は**この会場を指す出演情報の件数**。直す価値の大きさが分かる。
+  1 行直せば全件に効く
+- `venueKey` は返すが**編集できない**。表記から機械的に決まる値であり、
+  変えると別の会場に化ける
+
+**編集（`PUT`）**
+
+`displayName` / `region` / `placeId` を更新できる。
+
+- **更新すると `manuallyEdited` が `true` になる。** 以後、自動判定と自動解決は
+  **この行を上書きしない**。人が確認した値のほうが強い
+- `placeId` に `null` を送ると解決前に戻す（誤って解決した場合の取り消し）
+
+**解決（`POST .../resolve-place-id`）**
+
+Places API の Text Search (IDs Only) を 1 件だけ呼び、`place_id` を保存する。
+
+- **成否によらず `placeIdCheckedAt` を更新する。** 記録しないと、
+  見つからない会場を叩き続けることになる
+- 見つからなければ `placeId` は `null` のまま。**推測で近い施設を入れない**
+- `manuallyEdited` が `true` の会場に対しては**何もせず `409`**。
+  人が入れた値を機械が消さない
+- **取り込みジョブからは呼ばない**（ADR-0022）。X API の取り込みが
+  Google 側の障害で失敗するのを避ける
 
 ---
 

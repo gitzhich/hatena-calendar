@@ -58,6 +58,7 @@ flowchart TB
 | バックエンド | Spring Boot / Java | Fly.io（常時起動） | $2〜5 |
 | DB | PostgreSQL | Neon（Free） | $0 |
 | 外部 API | X API v2 | — | 約 $1.5 |
+| 外部 API | Google Places API（Text Search IDs Only） | — | **$0**（下記） |
 
 **合計 月 $4〜7 の見込み。**
 
@@ -82,6 +83,20 @@ flowchart TB
 キャッシュだけでは足りない。試算は本書「運用コストの試算」。
 
 ---
+
+### 2.3 Places API に費用がかからない理由
+
+会場に Google の `place_id` を紐づけて地図リンクを作る
+（FR-09 / [ADR-0022](adr/0022-venue-place-id-and-region.md)）。
+
+- 使うのは **Text Search (IDs Only)**。Google が「Place ID を得るための
+  **ゼロコストな方法**」と明記している SKU で、月次の無料枠すら消費しない
+- **呼び出しは会場ごとに 1 回だけ。** 閲覧のたびでも取り込みのたびでもない。
+  `place_id` はキャッシュ制限の**例外**として無期限に保存できる
+- 実サンプルに現れる会場は 15 種類。生涯でも 100 種類に届かない見込み
+
+**名前・住所・評価・写真は取得しない。** これらは有料 SKU であると同時に、
+保存が禁じられている。取るのは識別子だけ（[security.md](security.md) T-08）。
 
 ## 3. 通信経路と認証
 
@@ -435,6 +450,7 @@ Route Handler ではなく Server Action にした理由は本書「データ取
 | `ADMIN_PASSWORD_HASH` | 管理者パスワードの BCrypt ハッシュ | なし |
 | `INTERNAL_API_KEY` | 公開 API 用の共有シークレット | なし |
 | `INTERNAL_ADMIN_API_KEY` | 管理 API・内部 API 用の共有シークレット | なし |
+| `GOOGLE_MAPS_API_KEY` | Places API の認証。**Places API のみに制限して発行する**（[security.md](security.md) T-08） | なし |
 
 **既定値のある 2 つは `.env.example` に載せない。** ローカルでは設定不要で、
 空の値を置くと既定値を潰す。本番では `DATABASE_URL` を Fly.io Secrets に入れる。

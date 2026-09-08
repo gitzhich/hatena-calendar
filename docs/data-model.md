@@ -27,6 +27,7 @@
 erDiagram
     source_account ||--o{ ingested_post : "取り込み元"
     ingested_post  ||--o{ appearance     : "抽出結果"
+    venue          ||--o{ appearance     : "会場"
 
     source_account {
         bigserial   id PK
@@ -51,7 +52,8 @@ erDiagram
         date        appearance_date "JST の暦日"
         text        event_name "表示用。原文のまま"
         text        event_key "照合用。正規化後。画面には出さない"
-        text        venue_name "都道府県・ステージ名を含む"
+        text        venue_name "告知の原文。都道府県・ステージ名を含む"
+        bigint      venue_id FK "正規化した会場。空欄の告知は NULL"
         time        performance_start_time "XINXIN の出演開始（任意）"
         time        performance_end_time "XINXIN の出演終了（任意）"
         time        merch_start_time "XINXIN の物販開始（任意）"
@@ -60,6 +62,18 @@ erDiagram
         text        source_url "出典 X 投稿 URL"
         text        source_type "AUTO / MANUAL"
         bigint      ingested_post_id FK "手動登録なら NULL"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    venue {
+        bigserial   id PK
+        text        venue_key UK "照合用。正規化後"
+        text        display_name "代表表記"
+        text        region "8 地方 / OVERSEAS / UNKNOWN"
+        text        place_id "Google の場所 ID。未解決は NULL"
+        timestamptz place_id_checked_at "最後に解決を試みた日時"
+        boolean     manually_edited "管理者が直したか"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -167,6 +181,7 @@ CREATE TABLE appearance (
     event_name             TEXT        NOT NULL CHECK (length(event_name) BETWEEN 1 AND 200),
     event_key              TEXT        NOT NULL CHECK (length(event_key) BETWEEN 1 AND 200),
     venue_name             TEXT        CHECK (venue_name IS NULL OR length(venue_name) <= 300),
+    venue_id               BIGINT      REFERENCES venue (id),
     performance_start_time TIME,
     performance_end_time   TIME,
     merch_start_time       TIME,
@@ -203,7 +218,8 @@ CREATE TABLE appearance (
 | `appearance_date` | **JST の暦日**。カレンダーの配置に使う（本書「タイムゾーンの扱い」） |
 | `event_name` | **表示用のイベント名。告知の原文をそのまま保持する** |
 | `event_key` | **照合用の正規化済みイベント名。** 画面には出さない。生成規則と一意性は本書「同一イベントの一意性と event_key」 |
-| `venue_name` | 会場名。**都道府県とステージ名を含めた形**で保持する（下記） |
+| `venue_name` | 会場名。**都道府県とステージ名を含めた形**で、**告知の原文のまま**保持する（下記） |
+| `venue_id` | 正規化した会場（本書「venue — 会場」）。地図リンクと地域はここから引く。**会場が空欄の告知は `NULL`** |
 | `performance_start_time` | **XINXIN の出演開始時刻**（JST）。告知の 🎤 行から抽出する |
 | `performance_end_time` | XINXIN の出演終了時刻（JST） |
 | `merch_start_time` | **XINXIN の物販開始時刻**（JST）。告知の 📸 行から抽出する（下記） |
@@ -480,6 +496,98 @@ FR-08 の「最後に取り込みが成功した日時」は
 
 ---
 
+### 4.5 venue — 会場
+
+**表記ゆれをまとめ、会場に地域と地図の識別子を持たせる**（[ADR-0022](adr/0022-venue-place-id-and-region.md)）。
+
+```sql
+CREATE TABLE venue (
+    id                  BIGSERIAL   PRIMARY KEY,
+    venue_key           TEXT        NOT NULL UNIQUE
+                                    CHECK (length(venue_key) BETWEEN 1 AND 300),
+    display_name        TEXT        NOT NULL CHECK (length(display_name) BETWEEN 1 AND 300),
+    region              TEXT        NOT NULL
+                                    CHECK (region IN ('HOKKAIDO', 'TOHOKU', 'KANTO', 'CHUBU',
+                                                      'KINKI', 'CHUGOKU', 'SHIKOKU', 'KYUSHU',
+                                                      'OVERSEAS', 'UNKNOWN')),
+    place_id            TEXT        CHECK (place_id IS NULL OR length(place_id) <= 300),
+    place_id_checked_at TIMESTAMPTZ,
+    manually_edited     BOOLEAN     NOT NULL DEFAULT false,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+| 列 | 説明 |
+| --- | --- |
+| `venue_key` | 照合用の正規化済み会場名。**画面には出さない。** 生成規則は下記 |
+| `display_name` | 代表表記。**初めて見た告知の原文**を入れ、管理者が直せる |
+| `region` | 8 地方 + `OVERSEAS`（海外）+ `UNKNOWN`（判定できない）。色分けの根拠（FR-10） |
+| `place_id` | Google の場所 ID。**未解決は `NULL`**。解決できるまで地図リンクは名前検索に落ちる |
+| `place_id_checked_at` | 最後に解決を試みた日時。**成否によらず記録する。** 無い列だと失敗のたびに叩き直す |
+| `manually_edited` | 管理者が `region` か `place_id` を直したか。**`true` の行を自動判定で上書きしない** |
+
+#### venue_key の生成規則
+
+`event_key`（本書「正規化ルール」）と**同じ流儀にする**。
+規則が 2 つあると片方だけ直す事故が起きる。
+
+```
+愛知・大須RADHALL      → 愛知大須radhall
+愛知・大須RAD HALL     → 愛知大須radhall     ← 同じ会場に寄る
+東京・渋谷DESEO        → 東京渋谷deseo
+```
+
+**`・` と空白を落とし、英字を小文字に揃える。** 実データに
+`大須RADHALL` と `大須RAD HALL` の両方が現れるため、空白の除去は必須。
+
+**括弧の中と `/` 以降は落とさない。** `千葉・草ぶえの丘(千葉 佐倉) / Orange Shelter` は
+ステージ名まで含めて 1 つの会場を指しており、落とすと別の告知と誤って同一視されうる。
+
+#### region の判定
+
+`venue_name` の `・` より前を地名として読み、地方へ写す。
+
+```
+愛知 → 中部（CHUBU）        都道府県の表から直接
+金沢 → 石川 → 中部          主要都市の別名表を経由
+韓国 → OVERSEAS             都道府県でも国内の市でもない
+（・が無い / venue_name が NULL）→ UNKNOWN
+```
+
+**`・` の前が都道府県である保証は無い。** 実データに `金沢・REDSUN`（市名）と
+`韓国・SETi LIVE HALL`（国名）がある。表に無いものを**推測で近い地方へ寄せない**——
+誤った色は誤った情報である。`UNKNOWN` のまま出し、管理者が直す。
+
+#### place_id の扱い
+
+**Google のポリシーが `place_id` だけをキャッシュ制限の例外としている。**
+名前・住所・評価・写真は保存しない（[security.md](security.md) T-08）。
+つまりこの列に入るのは**識別子だけ**で、施設の属性は 1 つも持たない。
+
+解決は**取り込みジョブから切り離す**（ADR-0022）。取り込みが作るのは
+`venue` の行までで、`place_id` は `NULL` のまま。
+
+#### 会場の行がいつ作られるか
+
+自動取り込みと手動登録の両方で、**`venue_name` が空でなければ**
+`venue_key` で引き当て、無ければ作る。
+
+**会場が空欄の告知（[ADR-0021](adr/0021-register-appearances-without-timetable.md)）は
+`venue_id` が `NULL`。** 後続のタイムテーブル解禁で会場が埋まったとき、
+空欄補完（本書「追加告知による空欄補完」）が `venue_name` を入れると同時に
+`venue_id` も付ける。
+
+#### 既存データの移行
+
+マイグレーションで `venue_name` の相異なる値から `venue` を作り、
+`appearance.venue_id` を埋める。`region` はその場で判定し、
+`place_id` は全行 `NULL` から始める。
+
+**移行で `venue_name` を書き換えない。** 原文は出典に紐づく事実である。
+
+---
+
 ## 5. インデックス
 
 ```sql
@@ -734,6 +842,8 @@ backend/src/main/resources/db/migration/
 | 追加告知の補完 | `appearance_unique_event` + 本書「追加告知による空欄補完」 |
 | FR-24 自動登録の点検 | `appearance.source_type` + `idx_appearance_source_type_created` |
 | FR-25 未処理投稿 | `ingested_post.status = 'UNPARSED'` |
+| FR-09 会場の地図リンク | `venue.place_id`（`NULL` は未同定。名前検索に落とす） |
+| FR-10 地域による区別 | `venue.region` + `appearance.venue_id` |
 | FR-40 差分取得 | `source_account.last_fetched_tweet_id` |
 | FR-42 コスト記録 | `ingestion_run.fetched_resource_count` |
 | NFR-05 タイムゾーン | 本書「タイムゾーンの扱い」 |
