@@ -556,7 +556,7 @@ POST /api/admin/venues/{id}/resolve-place-id
 
 | パラメータ | 必須 | 説明 |
 | --- | --- | --- |
-| `unresolved` | — | `true` なら **`place_id` が未解決の会場だけ**返す。片づける対象を絞るため |
+| `unresolved` | — | `true` なら **`place_id` が未解決の会場だけ**返す。初期投入の進み具合と、解決できない会場の確認に使う |
 | `page` / `size` | — | 点検一覧と同じ丸め規則（本書「出演情報の一覧と個別取得（点検用）」） |
 
 **レスポンス**
@@ -595,6 +595,10 @@ POST /api/admin/venues/{id}/resolve-place-id
 - `placeId` に `null` を送ると解決前に戻す（誤って解決した場合の取り消し）
 
 **解決（`POST .../resolve-place-id`）**
+
+**定常運用でこれを叩く必要は無い。** 解決は 1 日 1 回の定期実行が自動で進める
+（[ADR-0022](adr/0022-venue-place-id-and-region.md)）。この操作は
+**再試行の間隔（7 日）を待たずに今すぐ試したいとき**のためにある。
 
 Places API の Text Search (IDs Only) を 1 件だけ呼び、`place_id` を保存する。
 
