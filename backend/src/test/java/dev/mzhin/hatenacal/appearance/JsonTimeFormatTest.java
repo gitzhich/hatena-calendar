@@ -20,6 +20,7 @@ class JsonTimeFormatTest {
     void serializesLocalTimeWithoutShift() {
         PublicAppearanceDto dto = new PublicAppearanceDto(1L,
                 LocalDate.of(2026, 9, 4), "テスト", "会場",
+                dev.mzhin.hatenacal.venue.Region.CHUBU, null,
                 LocalTime.of(21, 5), LocalTime.of(21, 30),
                 null, null, null, "https://x.com/a/status/1");
         String json = mapper.writeValueAsString(dto);

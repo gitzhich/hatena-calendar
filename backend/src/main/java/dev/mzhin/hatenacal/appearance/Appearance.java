@@ -71,6 +71,19 @@ public class Appearance {
     @Column(name = "ingested_post_id")
     private Long ingestedPostId;
 
+    /**
+     * 正規化した会場（docs/data-model.md「venue — 会場」/ ADR-0022）。
+     *
+     * <p><b>venue_name と必ず一致させる。</b> 片方だけ変わると、
+     * 表示している会場と地図・色が食い違う。同期は AppearanceService が行う。
+     *
+     * <p>関連ではなく ID で持つ。このリポジトリは他の外部キーも
+     * ({@code ingested_post_id} など) 素の列で扱っており、遅延読み込みの
+     * 事故を持ち込まない。
+     */
+    @Column(name = "venue_id")
+    private Long venueId;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -81,6 +94,11 @@ public class Appearance {
 
     protected Appearance() {
         // JPA 用
+    }
+
+    /** 会場の紐づけ。venue_name の変化に合わせて AppearanceService が呼ぶ。 */
+    void linkVenue(Long venueId) {
+        this.venueId = venueId;
     }
 
     /**
@@ -238,6 +256,10 @@ public class Appearance {
 
     public Long getIngestedPostId() {
         return ingestedPostId;
+    }
+
+    public Long getVenueId() {
+        return venueId;
     }
 
     public OffsetDateTime getCreatedAt() {

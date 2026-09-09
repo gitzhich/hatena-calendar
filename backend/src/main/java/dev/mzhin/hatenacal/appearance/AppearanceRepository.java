@@ -32,6 +32,42 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
     List<Appearance> findForCalendar(@Param("from") LocalDate from, @Param("to") LocalDate to);
 
     /**
+     * 会場の紐づけが済んでいない行（ADR-0022「既存データの初期投入」）。
+     *
+     * <p>初期投入と、登録時の紐づけに漏れがあったときの掃除に使う。
+     * <b>件数の上限は呼び出し側が {@link Pageable} で渡す。</b>
+     * 数百件を 1 トランザクションで抱えない。
+     *
+     * <p><b>空白だけの会場名を拾わない。</b> 紐づけ側は空白を「会場なし」として
+     * {@code venue_id} を {@code null} のままにするため、ここで拾うと
+     * <b>永久に同じ行を返し続ける</b>（呼び出し側は残りが無くなるまで繰り返す）。
+     * 選ぶ条件と紐づける条件を一致させる。
+     */
+    @Query("""
+            SELECT a FROM Appearance a
+             WHERE a.venueId IS NULL
+               AND a.venueName IS NOT NULL
+               AND TRIM(a.venueName) <> ''
+             ORDER BY a.id ASC
+            """)
+    List<Appearance> findNeedingVenueLink(Pageable pageable);
+
+    /**
+     * 紐づけの残り件数。進み具合をログに出すために使う。
+     *
+     * <p><b>条件を {@link #findNeedingVenueLink} と揃える。</b> ずれると
+     * 「残り 3 件」と出続けて 0 件しか拾えない、という噛み合わない状態になる。
+     * 一致は {@code VenueLinkIT} が表明している。
+     */
+    @Query("""
+            SELECT count(a) FROM Appearance a
+             WHERE a.venueId IS NULL
+               AND a.venueName IS NOT NULL
+               AND TRIM(a.venueName) <> ''
+            """)
+    long countNeedingVenueLink();
+
+    /**
      * 点検一覧（FR-24）の絞り込み。
      *
      * <p><b>並び順はメソッド名で固定しない。</b> 呼び出し側が {@link Pageable} に載せる
