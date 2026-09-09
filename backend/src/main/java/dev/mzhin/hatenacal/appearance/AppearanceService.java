@@ -77,6 +77,11 @@ public class AppearanceService {
      * @param limit 1 回で処理する上限
      * @return 埋めた件数
      */
+    @Transactional(readOnly = true)
+    public long countMissingVenues() {
+        return repository.countNeedingVenueLink();
+    }
+
     @Transactional
     public int linkMissingVenues(int limit) {
         List<Appearance> targets = repository.findNeedingVenueLink(PageRequest.of(0, limit));

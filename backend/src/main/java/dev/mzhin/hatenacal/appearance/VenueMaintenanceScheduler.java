@@ -28,12 +28,20 @@ public class VenueMaintenanceScheduler {
     private static final Logger log = LoggerFactory.getLogger(VenueMaintenanceScheduler.class);
 
     /**
-     * 1 回の実行で紐づける上限。
+     * 1 トランザクションで紐づける件数。
      *
-     * <p>数百件を 1 トランザクションで抱えない。本番の規模（出演情報は数百件）なら
-     * 初回の 1〜2 回で終わる。
+     * <p><b>1 日あたりの上限ではない。</b> 残りが無くなるまで繰り返すので、
+     * 初期投入は最初の実行で片付く。数百件を 1 トランザクションで抱えないための区切り。
      */
     private static final int LINK_BATCH = 200;
+
+    /**
+     * 繰り返しの上限。
+     *
+     * <p>紐づけが進まない行が万一残っても、無限に回さないための歯止め。
+     * {@code LINK_BATCH} と掛けて 20,000 件で、当面の規模を大きく上回る。
+     */
+    private static final int MAX_ROUNDS = 100;
 
     private final AppearanceService appearances;
 
@@ -51,10 +59,19 @@ public class VenueMaintenanceScheduler {
             initialDelayString = "${venue.maintenance.initial-delay:PT5M}")
     public void run() {
         try {
-            int linked = appearances.linkMissingVenues(LINK_BATCH);
-            if (linked > 0) {
-                log.info("会場を紐づけた: {} 件", linked);
+            log.info("会場の紐づけを開始: 残り {} 件", appearances.countMissingVenues());
+            int total = 0;
+            for (int round = 0; round < MAX_ROUNDS; round++) {
+                int linked = appearances.linkMissingVenues(LINK_BATCH);
+                total += linked;
+                // 上限に届かなかったなら、拾うものが尽きている
+                if (linked < LINK_BATCH) {
+                    log.info("会場の紐づけが完了: {} 件", total);
+                    return;
+                }
             }
+            log.warn("会場の紐づけが上限 {} 回で打ち切られた: {} 件処理。残り {} 件",
+                    MAX_ROUNDS, total, appearances.countMissingVenues());
         } catch (RuntimeException e) {
             // ここで握るのは、次の段（place_id の解決）を止めないため。
             // 失敗しても次回が同じ行を拾い直す

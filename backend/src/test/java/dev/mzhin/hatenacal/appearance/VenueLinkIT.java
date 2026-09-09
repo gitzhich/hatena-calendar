@@ -131,6 +131,57 @@ class VenueLinkIT {
     }
 
     @Test
+    @DisplayName("空白だけの会場名を拾わない。拾うと永久に同じ行を返し続ける")
+    void backfillSkipsWhitespaceVenue() {
+        em.createNativeQuery("""
+                INSERT INTO appearance (appearance_date, event_name, event_key, venue_name,
+                    source_url, source_type)
+                VALUES (DATE '2026-09-22', '『BLANK』', 'blank', '   ',
+                    'https://x.com/a/status/3', 'MANUAL')
+                """).executeUpdate();
+        flush();
+
+        assertThat(service.countMissingVenues())
+                .as("残件数と拾う条件がずれると、0 件しか拾えないのに残り 1 件と出続ける")
+                .isZero();
+        assertThat(service.linkMissingVenues(200)).isZero();
+        assertThat(venueCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("上限を超える件数でも、繰り返せば残りが無くなる")
+    void backfillDrainsBeyondOneBatch() {
+        for (int i = 0; i < 5; i++) {
+            em.createNativeQuery("""
+                    INSERT INTO appearance (appearance_date, event_name, event_key, venue_name,
+                        source_url, source_type)
+                    VALUES (DATE '2026-09-20', ?, ?, '愛知・大須RADHALL',
+                        'https://x.com/a/status/1', 'MANUAL')
+                    """)
+                    .setParameter(1, "『OLD" + i + "』")
+                    .setParameter(2, "old" + i)
+                    .executeUpdate();
+        }
+        flush();
+
+        assertThat(service.countMissingVenues()).isEqualTo(5);
+        // スケジューラと同じく、上限に届かなくなるまで繰り返す
+        int total = 0;
+        int linked;
+        do {
+            linked = service.linkMissingVenues(2);
+            total += linked;
+            flush();
+        } while (linked == 2);
+
+        assertThat(total).isEqualTo(5);
+        assertThat(service.countMissingVenues()).isZero();
+        assertThat(venueCount())
+                .as("同じ会場なので 1 行に寄る")
+                .isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("会場が空欄の既存行は初期投入の対象にしない")
     void backfillSkipsBlankVenue() {
         em.createNativeQuery("""
