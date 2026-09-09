@@ -1,6 +1,8 @@
 package dev.mzhin.hatenacal.appearance;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import dev.mzhin.hatenacal.venue.Region;
+import dev.mzhin.hatenacal.venue.Venue;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
@@ -19,6 +21,8 @@ public record PublicAppearanceDto(
         @JsonFormat(pattern = "yyyy-MM-dd") LocalDate appearanceDate,
         String eventName,
         String venueName,
+        Region venueRegion,
+        String venuePlaceId,
         @JsonFormat(pattern = "HH:mm:ss") LocalTime performanceStartTime,
         @JsonFormat(pattern = "HH:mm:ss") LocalTime performanceEndTime,
         @JsonFormat(pattern = "HH:mm:ss") LocalTime merchStartTime,
@@ -26,12 +30,18 @@ public record PublicAppearanceDto(
         String ticketUrl,
         String sourceUrl) {
 
-    public static PublicAppearanceDto from(Appearance a) {
+    /**
+     * @param venue 紐づく会場。<b>{@code null} なら地域は UNKNOWN</b>
+     *     （会場が空欄の告知と、まだ紐づけが済んでいない行。docs/api.md）
+     */
+    public static PublicAppearanceDto from(Appearance a, Venue venue) {
         return new PublicAppearanceDto(
                 a.getId(),
                 a.getAppearanceDate(),
                 a.getEventName(),
                 a.getVenueName(),
+                venue == null ? Region.UNKNOWN : venue.getRegion(),
+                venue == null ? null : venue.getPlaceId(),
                 a.getPerformanceStartTime(),
                 a.getPerformanceEndTime(),
                 a.getMerchStartTime(),

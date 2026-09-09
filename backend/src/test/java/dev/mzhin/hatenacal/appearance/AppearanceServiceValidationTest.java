@@ -31,7 +31,8 @@ class AppearanceServiceValidationTest {
 
     private final AppearanceRepository repository = mock(AppearanceRepository.class);
     private final AppearanceService service = new AppearanceService(repository,
-            mock(IngestedPostRepository.class), NOW);
+            mock(IngestedPostRepository.class),
+            mock(dev.mzhin.hatenacal.venue.VenueService.class), NOW);
 
     @Test
     @DisplayName("from が to より後なら 400")

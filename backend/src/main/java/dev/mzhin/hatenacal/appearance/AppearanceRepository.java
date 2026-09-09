@@ -32,6 +32,20 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
     List<Appearance> findForCalendar(@Param("from") LocalDate from, @Param("to") LocalDate to);
 
     /**
+     * 会場の紐づけが済んでいない行（ADR-0022「既存データの初期投入」）。
+     *
+     * <p>初期投入と、登録時の紐づけに漏れがあったときの掃除に使う。
+     * <b>件数の上限は呼び出し側が {@link Pageable} で渡す。</b>
+     * 数百件を 1 トランザクションで抱えない。
+     */
+    @Query("""
+            SELECT a FROM Appearance a
+             WHERE a.venueId IS NULL AND a.venueName IS NOT NULL
+             ORDER BY a.id ASC
+            """)
+    List<Appearance> findNeedingVenueLink(Pageable pageable);
+
+    /**
      * 点検一覧（FR-24）の絞り込み。
      *
      * <p><b>並び順はメソッド名で固定しない。</b> 呼び出し側が {@link Pageable} に載せる

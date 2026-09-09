@@ -6,12 +6,16 @@ import dev.mzhin.hatenacal.common.NotFoundException;
 import dev.mzhin.hatenacal.ingestion.IngestedPost;
 import dev.mzhin.hatenacal.ingestion.IngestedPostRepository;
 import dev.mzhin.hatenacal.ingestion.IngestedPostStatus;
+import dev.mzhin.hatenacal.venue.Venue;
+import dev.mzhin.hatenacal.venue.VenueService;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,13 +31,57 @@ public class AppearanceService {
 
     private final AppearanceRepository repository;
     private final IngestedPostRepository ingestedPostRepository;
+    private final VenueService venues;
     private final Clock clock;
 
     public AppearanceService(AppearanceRepository repository,
-            IngestedPostRepository ingestedPostRepository, Clock clock) {
+            IngestedPostRepository ingestedPostRepository, VenueService venues, Clock clock) {
         this.repository = repository;
         this.ingestedPostRepository = ingestedPostRepository;
+        this.venues = venues;
         this.clock = clock;
+    }
+
+    /**
+     * 会場の紐づけを venue_name に合わせ直す（ADR-0022）。
+     *
+     * <p><b>書き込みのたびに呼ぶ。</b> 会場名が変わったのに venue_id が古いままだと、
+     * 表示している会場と地図・色が食い違う。毎回引き直すので自己修復もする。
+     */
+    private void syncVenue(Appearance target) {
+        Venue venue = venues.findOrCreate(target.getVenueName());
+        target.linkVenue(venue == null ? null : venue.getId());
+    }
+
+    /** DTO 化のために会場をまとめて引く。会場ごとに引くと N+1 になる。 */
+    private Map<Long, Venue> venuesOf(List<Appearance> rows) {
+        return venues.byIds(rows.stream().map(Appearance::getVenueId).toList());
+    }
+
+    /**
+     * {@code venues} から会場を取り出す。
+     *
+     * <p><b>venue_id が null のときはマップを引かない。</b>
+     * {@code Map.of()} は null キーの {@code get} で例外を投げる。
+     */
+    private static Venue venueOf(Map<Long, Venue> venues, Appearance a) {
+        return a.getVenueId() == null ? null : venues.get(a.getVenueId());
+    }
+
+    /**
+     * 会場の紐づけが済んでいない行を埋める（ADR-0022「既存データの初期投入」）。
+     *
+     * <p><b>初期投入と通常運用が同じ経路になる。</b> 専用の移行コードを持たない。
+     * 冪等で、途中で落ちても次回が続きから拾う。
+     *
+     * @param limit 1 回で処理する上限
+     * @return 埋めた件数
+     */
+    @Transactional
+    public int linkMissingVenues(int limit) {
+        List<Appearance> targets = repository.findNeedingVenueLink(PageRequest.of(0, limit));
+        targets.forEach(this::syncVenue);
+        return targets.size();
     }
 
     /**
@@ -45,7 +93,9 @@ public class AppearanceService {
     @Transactional(readOnly = true)
     public List<PublicAppearanceDto> findForCalendar(LocalDate from, LocalDate to) {
         validate(from, to);
-        return repository.findForCalendar(from, to).stream().map(PublicAppearanceDto::from).toList();
+        List<Appearance> rows = repository.findForCalendar(from, to);
+        Map<Long, Venue> loaded = venuesOf(rows);
+        return rows.stream().map(a -> PublicAppearanceDto.from(a, venueOf(loaded, a))).toList();
     }
 
     private void validate(LocalDate from, LocalDate to) {
@@ -79,12 +129,14 @@ public class AppearanceService {
         Page<Appearance> page = sourceType == null
                 ? repository.findAll(pageable)
                 : repository.findBySourceType(sourceType, pageable);
-        return page.map(AdminAppearanceDto::from);
+        Map<Long, Venue> loaded = venuesOf(page.getContent());
+        return page.map(a -> AdminAppearanceDto.from(a, venueOf(loaded, a)));
     }
 
     @Transactional(readOnly = true)
     public AdminAppearanceDto findById(Long id) {
-        return AdminAppearanceDto.from(load(id));
+        Appearance target = load(id);
+        return AdminAppearanceDto.from(target, venueOf(venuesOf(List.of(target)), target));
     }
 
     /**
@@ -116,7 +168,8 @@ public class AppearanceService {
         if (post != null) {
             post.markRegistered();
         }
-        return AdminAppearanceDto.from(saved);
+        syncVenue(saved);
+        return AdminAppearanceDto.from(saved, venueOf(venuesOf(List.of(saved)), saved));
     }
 
     /**
@@ -153,9 +206,13 @@ public class AppearanceService {
                 : repository.findByAppearanceDateAndEventKeyAndPerformanceStartTime(
                         cmd.appearanceDate(), key, cmd.performanceStartTime());
         if (exact.isPresent()) {
-            return fillBlanks(exact.get(), cmd)
-                    ? IngestionOutcome.COMPLETED
-                    : IngestionOutcome.UNCHANGED;
+            if (!fillBlanks(exact.get(), cmd)) {
+                return IngestionOutcome.UNCHANGED;
+            }
+            // 会場が空欄だった行に会場が入ることがある（ADR-0021 の告知に
+            // タイムテーブルが続く流れ）。紐づけをその場で合わせる
+            syncVenue(exact.get());
+            return IngestionOutcome.COMPLETED;
         }
 
         if (cmd.performanceStartTime() != null) {
@@ -164,6 +221,7 @@ public class AppearanceService {
                             cmd.appearanceDate(), key);
             if (timeless.isPresent()) {
                 fillBlanks(timeless.get(), cmd);
+                syncVenue(timeless.get());
                 return IngestionOutcome.COMPLETED;
             }
         } else if (repository.existsByAppearanceDateAndEventKey(cmd.appearanceDate(), key)) {
@@ -173,11 +231,11 @@ public class AppearanceService {
             return IngestionOutcome.UNCHANGED;
         }
 
-        repository.save(Appearance.create(key, SourceType.AUTO,
+        syncVenue(repository.save(Appearance.create(key, SourceType.AUTO,
                 cmd.appearanceDate(), cmd.eventName(), cmd.venueName(),
                 cmd.performanceStartTime(), cmd.performanceEndTime(),
                 cmd.merchStartTime(), cmd.merchEndTime(),
-                cmd.ticketUrl(), cmd.sourceUrl(), cmd.ingestedPostId()));
+                cmd.ticketUrl(), cmd.sourceUrl(), cmd.ingestedPostId())));
         return IngestionOutcome.CREATED;
     }
 
@@ -200,7 +258,8 @@ public class AppearanceService {
                 cmd.performanceStartTime(), cmd.performanceEndTime(),
                 cmd.merchStartTime(), cmd.merchEndTime(),
                 cmd.ticketUrl(), cmd.sourceUrl());
-        return AdminAppearanceDto.from(target);
+        syncVenue(target);
+        return AdminAppearanceDto.from(target, venueOf(venuesOf(List.of(target)), target));
     }
 
     /**
