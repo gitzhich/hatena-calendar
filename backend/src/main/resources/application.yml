@@ -67,6 +67,31 @@ x:
   # 1 にすると暦月と一致する
   billing-cycle-start-day: 2
 
+# Google Places API（ADR-0022 / docs/security.md T-08）
+places:
+  # **Places API のみに制限して発行する。** 使う SKU（Text Search の IDs Only）は
+  # 無料だが、キーは SKU を選ばない。漏れたキーで有料の SKU を叩かれれば課金される。
+  # 未設定でもアプリは起動し、place_id の解決だけがスキップされる
+  api-key: ${GOOGLE_MAPS_API_KEY:}
+  base-url: https://places.googleapis.com
+  # 会場名は日本語。受け取るのは place_id だけだが、照合には効く
+  language-code: ja
+  connect-timeout: 5s
+  # 再試行しないので長めに待たない。失敗しても翌日また走る
+  read-timeout: 10s
+
+# 会場の定期メンテナンス（ADR-0022「既存データの初期投入」）
+venue:
+  maintenance:
+    # false でスケジューラ自体を作らない。取り込みとは別系統で止められる。
+    # 本番では環境変数 VENUE_MAINTENANCE_ENABLED で上書きできる
+    enabled: true
+    # 間隔は Places API のコストではなく Neon の CU-hours で決まっている
+    # （毎時にすると月 15 CU-hours。docs/architecture.md「運用コストの試算」）
+    interval: P1D
+    # デプロイ直後に初期投入が動くよう、起動の少しあとに 1 回走らせる
+    initial-delay: PT5M
+
 # 取り込みジョブ（docs/x-integration.md「運用と監視」）
 ingestion:
   # false でスケジューラ自体を作らない。トークンを消す以外の止め方

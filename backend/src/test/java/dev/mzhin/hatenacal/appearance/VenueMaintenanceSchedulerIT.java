@@ -1,12 +1,20 @@
 package dev.mzhin.hatenacal.appearance;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import dev.mzhin.hatenacal.venue.PlaceIdResolutionService;
 import java.lang.reflect.Method;
 import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
@@ -15,7 +23,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.test.context.TestPropertySource;
 
 /**
- * 会場の定期メンテナンスの起動設定（ADR-0022）。
+ * 会場の定期メンテナンスの起動設定と、2 つの段の独立性（ADR-0022）。
  *
  * <p><b>間隔を値として検査する。</b> 振る舞いで確かめようとすると
  * 「1 日待って 1 回動く」を見ることになり、テストにならない。
@@ -72,6 +80,57 @@ class VenueMaintenanceSchedulerIT {
             assertThat(initialDelay)
                     .as("起動と同時に走らせない。テストの文脈で発火させないため")
                     .isPositive();
+        }
+    }
+
+    /**
+     * 段 1（DB のみ）と段 2（Places API）の関係。
+     *
+     * <p><b>Spring を起動しない。</b> ここで確かめたいのは配線ではなく
+     * 「片方が落ちたときに他方がどうなるか」で、DB も外部 API も要らない。
+     */
+    @Nested
+    @DisplayName("2 つの段")
+    class Stages {
+
+        private final AppearanceService appearances = mock(AppearanceService.class);
+        private final PlaceIdResolutionService placeIds = mock(PlaceIdResolutionService.class);
+        private final VenueMaintenanceScheduler scheduler =
+                new VenueMaintenanceScheduler(appearances, placeIds);
+
+        @Test
+        @DisplayName("段 1 が落ちても段 2 は走る")
+        void linkFailureDoesNotStopResolution() {
+            when(appearances.countMissingVenues()).thenThrow(new IllegalStateException("DB 障害"));
+
+            scheduler.run();
+
+            verify(placeIds)
+                    .resolveMissing(anyInt());
+        }
+
+        @Test
+        @DisplayName("段 2 が落ちても run() は例外を投げない")
+        void resolutionFailureIsContained() {
+            when(placeIds.resolveMissing(anyInt()))
+                    .thenThrow(new IllegalStateException("Google 障害"));
+
+            assertThatCode(scheduler::run)
+                    .as("投げると fixedDelay の次回も走るが、ログが例外で埋まる")
+                    .doesNotThrowAnyException();
+
+            verify(appearances).linkMissingVenues(anyInt());
+        }
+
+        @Test
+        @DisplayName("紐づけを済ませてから place_id を解決する")
+        void linksBeforeResolving() {
+            scheduler.run();
+
+            InOrder order = inOrder(appearances, placeIds);
+            // 先に紐づけないと、その日に作られた会場が翌日まで解決されない
+            order.verify(appearances).linkMissingVenues(anyInt());
+            order.verify(placeIds).resolveMissing(anyInt());
         }
     }
 

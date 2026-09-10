@@ -96,6 +96,43 @@ public class Venue {
         return v;
     }
 
+    /**
+     * 管理者による訂正（docs/api.md「会場の一覧と編集」）。
+     *
+     * <p><b>manuallyEdited を立てる。</b> 以後、自動判定も自動解決もこの行を上書きしない。
+     * 人が確認した値のほうが強い（ADR-0022）。
+     *
+     * <p><b>venueKey は変えない。</b> 表記から機械的に決まる値であり、
+     * 変えると出演情報が別の会場に化ける（docs/api.md「会場の一覧と編集」）。
+     *
+     * @param placeId {@code null} で解決前に戻す。誤って解決した場合の取り消し
+     */
+    void editByAdmin(String displayName, Region region, String placeId) {
+        this.displayName = displayName;
+        this.region = region;
+        this.placeId = placeId;
+        this.manuallyEdited = true;
+    }
+
+    /**
+     * place_id の解決を試みた結果を記録する。
+     *
+     * <p><b>見つからなくても checkedAt を進める。</b> 記録しないと、Google に存在しない
+     * 会場を毎日叩き続けることになる（docs/data-model.md「venue — 会場」）。
+     *
+     * <p><b>Google に到達できなかったときは呼ばない。</b> 試せていないのに記録すると、
+     * 障害が明けても再試行が 7 日先へ飛ぶ（{@link PlacesException}）。
+     *
+     * @param placeId 見つかった place_id。見つからなければ {@code null}。
+     *                <b>null で既存の値を消さない</b>
+     */
+    void recordPlaceIdAttempt(String placeId, OffsetDateTime checkedAt) {
+        if (placeId != null) {
+            this.placeId = placeId;
+        }
+        this.placeIdCheckedAt = checkedAt;
+    }
+
     public Long getId() {
         return id;
     }

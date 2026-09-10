@@ -524,7 +524,7 @@ CREATE TABLE venue (
 | `display_name` | 代表表記。**初めて見た告知の原文**を入れ、管理者が直せる |
 | `region` | 8 地方 + `OVERSEAS`（海外）+ `UNKNOWN`（判定できない）。色分けの根拠（FR-10） |
 | `place_id` | Google の場所 ID。**未解決は `NULL`**。解決できるまで地図リンクは名前検索に落ちる |
-| `place_id_checked_at` | 最後に解決を試みた日時。**成否によらず記録する。** 定期実行はここから一定期間（7 日）空いた行だけを再試行する。記録しないと、Google に存在しない会場を毎日叩き続ける |
+| `place_id_checked_at` | 最後に解決を**試せた**日時。定期実行はここから一定期間（7 日）空いた行だけを再試行する。**見つからなくても記録する**（記録しないと、Google に存在しない会場を毎日叩き続ける）。**Google に到達できなかったときは記録しない**——試せていないのに記録すると、障害が明けても再試行が 7 日先へ飛ぶ |
 | `manually_edited` | 管理者が `region` か `place_id` を直したか。**`true` の行を自動判定で上書きしない** |
 
 #### venue_key の生成規則
@@ -560,6 +560,10 @@ CREATE TABLE venue (
 誤った色は誤った情報である。`UNKNOWN` のまま出し、管理者が直す。
 
 #### place_id の扱い
+
+**保存してよいことと、古びないことは別。** Google は 12 か月を超えた `place_id` の
+リフレッシュを推奨している（[adr/0022-venue-place-id-and-region.md](adr/0022-venue-place-id-and-region.md)「未決定: 12 か月を超えた place_id をどう扱うか」）。
+本アプリはまだ実装していない。
 
 **Google のポリシーが `place_id` だけをキャッシュ制限の例外としている。**
 名前・住所・評価・写真は保存しない（[security.md](security.md) T-08）。
