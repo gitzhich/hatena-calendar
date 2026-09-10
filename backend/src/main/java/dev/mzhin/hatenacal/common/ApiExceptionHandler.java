@@ -36,6 +36,21 @@ public class ApiExceptionHandler {
         return detail;
     }
 
+    /**
+     * 外部サービスの障害（docs/api.md「エラー」）。
+     *
+     * <p><b>500 に混ぜない。</b> こちらの不具合ではないので「想定外の例外」として
+     * スタックトレースを積まず、warn で 1 行だけ残す。
+     */
+    @ExceptionHandler(UpstreamException.class)
+    public ProblemDetail handleUpstream(UpstreamException e) {
+        log.warn("外部サービスの呼び出しに失敗した: {}", e.getMessage());
+        ProblemDetail detail = ProblemDetail.forStatus(HttpStatus.BAD_GATEWAY);
+        detail.setTitle("Bad Gateway");
+        detail.setDetail(e.getMessage());
+        return detail;
+    }
+
     @ExceptionHandler(NotFoundException.class)
     public ProblemDetail handleNotFound(NotFoundException e) {
         ProblemDetail detail = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);

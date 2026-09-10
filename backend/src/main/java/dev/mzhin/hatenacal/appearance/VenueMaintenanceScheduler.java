@@ -1,5 +1,6 @@
 package dev.mzhin.hatenacal.appearance;
 
+import dev.mzhin.hatenacal.venue.PlaceIdResolutionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -10,7 +11,14 @@ import org.springframework.stereotype.Component;
  * 会場の定期メンテナンス（ADR-0022「既存データの初期投入」）。
  *
  * <p><b>手作業を運用の前提にしない。</b> 既存データの初期投入も、登録時の
- * 紐づけに漏れがあったときの掃除も、これが自動で進める。
+ * 紐づけに漏れがあったときの掃除も、place_id の解決も、これが自動で進める。
+ *
+ * <p>2 段で構成する。
+ *
+ * <pre>
+ * 段 1  venue_id が未設定の出演情報に venue を引き当てる      ← DB のみ
+ * 段 2  place_id が未解決の会場を上限 N 件だけ解決する         ← Places API
+ * </pre>
  *
  * <p><b>1 日 1 回で足りる。</b> Neon は最終クエリから 5 分でサスペンドするため、
  * ジョブが DB に触るたびに最低 5 分は起動したままになる
@@ -43,10 +51,24 @@ public class VenueMaintenanceScheduler {
      */
     private static final int MAX_ROUNDS = 100;
 
-    private final AppearanceService appearances;
+    /**
+     * 1 回の実行で place_id を試す上限（ADR-0022「暴走と無駄叩きを防ぐ」）。
+     *
+     * <p><b>段 1 と違い、残りが尽きるまで繰り返さない。</b> 外部 API を叩くので、
+     * 異常時に延々と叩かないための歯止めが要る。
+     *
+     * <p>本番の会場は 56 行なので初回でほぼ片付き、以後に増えるのは月に数件。
+     * 上限に当たるのは初期投入と障害のときだけで、どちらも翌日に続きから進む。
+     */
+    private static final int RESOLVE_BATCH = 60;
 
-    public VenueMaintenanceScheduler(AppearanceService appearances) {
+    private final AppearanceService appearances;
+    private final PlaceIdResolutionService placeIds;
+
+    public VenueMaintenanceScheduler(AppearanceService appearances,
+            PlaceIdResolutionService placeIds) {
         this.appearances = appearances;
+        this.placeIds = placeIds;
     }
 
     /**
@@ -54,10 +76,20 @@ public class VenueMaintenanceScheduler {
      *
      * <p><b>起動の少しあとに 1 回走らせる。</b> デプロイ直後に初期投入が動き、
      * 翌日まで待たされない。
+     *
+     * <p><b>段 1 の失敗が段 2 を止めない。逆も同じ</b>（ADR-0022「満たすべき性質」）。
+     * DB の中だけで完結する処理と、外部 API の可用性に左右される処理を、
+     * 片方の事情でもう片方が動かなくなる形に結び付けない。
      */
     @Scheduled(fixedDelayString = "${venue.maintenance.interval:P1D}",
             initialDelayString = "${venue.maintenance.initial-delay:PT5M}")
     public void run() {
+        linkVenues();
+        resolvePlaceIds();
+    }
+
+    /** 段 1。出演情報に会場を引き当てる。 */
+    private void linkVenues() {
         try {
             log.info("会場の紐づけを開始: 残り {} 件", appearances.countMissingVenues());
             int total = 0;
@@ -73,9 +105,18 @@ public class VenueMaintenanceScheduler {
             log.warn("会場の紐づけが上限 {} 回で打ち切られた: {} 件処理。残り {} 件",
                     MAX_ROUNDS, total, appearances.countMissingVenues());
         } catch (RuntimeException e) {
-            // ここで握るのは、次の段（place_id の解決）を止めないため。
-            // 失敗しても次回が同じ行を拾い直す
+            // 次回が同じ行を拾い直す。ここで握るのは段 2 を止めないため
             log.warn("会場の紐づけに失敗した", e);
+        }
+    }
+
+    /** 段 2。会場の place_id を解決する。 */
+    private void resolvePlaceIds() {
+        try {
+            placeIds.resolveMissing(RESOLVE_BATCH);
+        } catch (RuntimeException e) {
+            // 未解決のままでも地図リンクは名前検索で機能する（ADR-0022）
+            log.warn("place_id の解決に失敗した", e);
         }
     }
 }

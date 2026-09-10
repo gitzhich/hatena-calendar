@@ -1,6 +1,7 @@
 package dev.mzhin.hatenacal.appearance;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.time.LocalTime;
 import java.util.Optional;
@@ -66,6 +67,22 @@ public interface AppearanceRepository extends JpaRepository<Appearance, Long> {
                AND TRIM(a.venueName) <> ''
             """)
     long countNeedingVenueLink();
+
+    /**
+     * 会場ごとの出演情報の件数（docs/api.md「会場の一覧と編集」の appearanceCount）。
+     *
+     * <p>返るのは {@code [venueId, 件数]} の配列。<b>0 件の会場は行として現れない</b>ので、
+     * 呼び出し側が既定 0 を補う（{@link AppearanceVenueUsageCounter}）。
+     *
+     * <p><b>会場ごとに数えない。</b> 一覧の 1 ページ分を 1 クエリで集計する。
+     * 行ごとに引くと N+1 になる。
+     */
+    @Query("""
+            SELECT a.venueId, count(a) FROM Appearance a
+             WHERE a.venueId IN :ids
+             GROUP BY a.venueId
+            """)
+    List<Object[]> countByVenueIds(@Param("ids") Collection<Long> ids);
 
     /**
      * 点検一覧（FR-24）の絞り込み。
