@@ -178,9 +178,16 @@ Neon と同居させて、バックエンド↔DB の往復を消す（[ADR-0018
 `DATABASE_URL` に含める（[architecture.md](architecture.md)「接続情報は `DATABASE_URL` 1 本で渡す」）。
 
 ```bash
-fly secrets import      # KEY=VALUE を 1 行ずつ貼り、Ctrl-D
-fly secrets list        # 名前とダイジェストだけが出る。値は表示されない
+cd backend               # fly.toml はここにある
+fly secrets import       # KEY=VALUE を 1 行ずつ貼り、Ctrl-D
+fly secrets list         # 名前とダイジェストだけが出る。値は表示されない
 ```
+
+**新しいコードを入れるデプロイが控えているなら `--stage` を付ける。**
+`fly secrets import` は既定でマシンを再起動する。まだそのシークレットを使う
+コードが入っていない段階で再起動しても何も起きず、次のデプロイでもう一度
+再起動することになる。`--stage` にしておけば**そのデプロイで一緒に適用され、
+再起動が 1 回で済む**。
 
 **ローカルの `.env` をそのまま流し込まない。** ローカル用の値が混ざる。
 
@@ -189,22 +196,91 @@ fly secrets list        # 名前とダイジェストだけが出る。値は表
 会場に Google の `place_id` を紐づけるために使う
 （[ADR-0022](adr/0022-venue-place-id-and-region.md) / [security.md](security.md) T-08）。
 
+**`Places API` と `Places API (New)` はコンソール上で別のサービス。** 使うのは
+後者（`places.googleapis.com`）で、**有効化も API 制限も割り当ても New 側に対して行う**。
+レガシー側（`places-backend.googleapis.com`）を選んでも通らない。
+
 1. **課金アカウントを紐づけた Google Cloud プロジェクトを用意する。**
-   使う SKU 自体は無料だが、**Maps Platform は課金アカウントが無いと呼べない**
-2. そのプロジェクトで **Places API を有効にする**
-3. API キーを作り、**API 制限を Places API だけに絞る**
+   使う SKU 自体は無料だが、**Maps Platform は課金アカウントが無いと呼べない**。
+   **国と通貨はあとから変更できない**
+2. そのプロジェクトで **Places API (New) を有効にする**
+3. API キーを作り、**API 制限を Places API (New) だけに絞る**
+4. **割り当てで使わないメソッドを 0 にする**（本書「割り当てで上限を縛る」）
+5. **予算アラートを作る**（本書「予算アラート」）
 
-**「制限なし」で発行しない。** 使う Text Search (IDs Only) は無料だが、
-**キーは SKU を選ばない**。漏れたキーで Place Details や Geocoding を叩かれれば
-課金される（[security.md](security.md) T-08）。制限をかけていれば、
-漏れても無料の呼び出ししかできない。
-
-**請求アラートを設定する。** 想定外の SKU が動いたら気づけるようにしておく。
-正常なら請求は $0 のままである
-（[architecture.md](architecture.md)「Places API に費用がかからない理由」）。
+**「制限なし」で発行しない。** 制限をかけていなければ、漏れたキーで Geocoding や
+Directions など**別の API を叩かれて課金される**。
 
 **ブラウザに出さない。** Next.js 側には置かない。呼ぶのは Spring Boot だけで、
-`NEXT_PUBLIC_` を付ける場面は無い。
+`NEXT_PUBLIC_` を付ける場面は無い。キーは**リクエストヘッダで送る**
+（[security.md](security.md) T-08）。
+
+##### API 制限だけでは課金を止められない
+
+**API 制限はサービス単位であって SKU 単位ではない。**
+Places API (New) の中にも有料 SKU がある。
+
+| 同じ Places API (New) の中 | 価格 |
+| --- | --- |
+| Text Search Essentials (IDs Only) ← 本アプリが使う | 無料・**無料枠は無制限** |
+| Text Search Pro | $32.00 / 1,000 |
+| Text Search Enterprise | $35.00 / 1,000 |
+
+**フィールドマスクを変えるだけで有料 SKU に移る。** つまり Places API (New) に
+絞ってもなお、漏れたキーでの課金は起こりうる。**実際に上限を止められるのは
+割り当てだけ**で、予算アラートは止めない。
+
+##### 割り当てで上限を縛る
+
+**Google Maps Platform > 割り当て**で `Places API (New)` を選び、`per day` の行を編集する。
+
+| 名前（per day） | 既定 | 設定値 | 理由 |
+| --- | --- | --- | --- |
+| `SearchTextRequest` | 75,000 | **100** → 初期投入後は **10** | **唯一使う**（`places:searchText`） |
+| `SearchMediaRequest` | 無制限 | **0** | 未使用。**無制限が一番危ない** |
+| `SearchReviewPostsRequest` | 無制限 | **0** | 同上 |
+| `AutocompletePlacesRequest` | 175,000 | **0** | 未使用 |
+| `GetPhotoMediaRequest` | 175,000 | **0** | 未使用 |
+| `GetPlaceRequest` | 125,000 | **0** | 未使用（[ADR-0022](adr/0022-venue-place-id-and-region.md)「未決定: 12 か月を超えた place_id をどう扱うか」） |
+| `SearchNearbyRequest` | 75,000 | **0** | 未使用 |
+
+**`per minute` は触らない。** 初期投入は 60 件を数十秒で流すため、絞ると自分の首を絞める。
+総額を縛るのは日次の上限である。
+
+**初期投入が済んだら `SearchTextRequest` を 10 まで下げる。** 新しい会場が現れるのは
+数週間に 1 度で、定常運用ではほとんど呼ばない。
+
+**上限に当たっても壊れない。** Google が 429 を返し、バックエンドは
+`place_id_checked_at` を更新せずにその回を打ち切り、翌日また同じ会場から再開する
+（[ADR-0022](adr/0022-venue-place-id-and-region.md)「暴走と無駄叩きを防ぐ」）。
+低くしすぎても、戻せばそのまま続く。
+
+**無料トライアル中は割り当てを増やせない。** 下げる方向は通る。
+
+##### アプリケーションの制限をかけない理由
+
+コンソールの選択肢のうち、ウェブサイト（リファラ）と Android / iOS は
+**サーバ間通信では成立しない**。残るのは IP アドレスだが、
+**Fly.io の送信元 IP は既定で固定されない**——NAT され、マシンが移ると予告なく変わる。
+固定するには static egress IP が要り、**$3.60/月**かかる。
+
+月額の見込みが $4〜7（[architecture.md](architecture.md)「運用コストの試算」）の
+プロジェクトで**運用費が 5〜9 割増える**。割り当てのほうが安く、確実に効く。
+
+##### 予算アラート
+
+**請求先アカウント > 予算とアラート**。範囲は全プロジェクト・全サービス、
+金額は少額（¥1,000 程度）、しきい値は既定の 50 / 90 / 100%。
+
+**「プロモーション クレジット」のチェックを外す。** 予算が追跡するのは
+**総額から、選んだクレジットを差し引いた額**である。含めたままだと
+$300 の無料トライアルクレジットが実際の課金を覆い隠し、
+**クレジットが尽きるまでアラートが鳴らない**。
+「無料枠のクレジット」は含めたままでよい——正常な使い方で鳴らせないため
+（警告を増やすと、本当に見るべき警告が埋もれる。NFR-09）。
+
+**予算アラートは支出を止めない。** 支出を実際に止める spend cap は
+Gemini API / Agent Platform / Cloud Run にしか使えず、**Maps Platform は対象外**。
 
 デプロイ後、`GET /api/admin/venues?unresolved=true` で `placeId` が埋まっていくことを
 確認する（[api.md](api.md)「会場の一覧と編集」）。解決は**起動の 5 分後に始まり、

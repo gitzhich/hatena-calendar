@@ -561,6 +561,10 @@ CREATE TABLE venue (
 
 #### place_id の扱い
 
+**保存してよいことと、古びないことは別。** Google は 12 か月を超えた `place_id` の
+リフレッシュを推奨している（[adr/0022-venue-place-id-and-region.md](adr/0022-venue-place-id-and-region.md)「未決定: 12 か月を超えた place_id をどう扱うか」）。
+本アプリはまだ実装していない。
+
 **Google のポリシーが `place_id` だけをキャッシュ制限の例外としている。**
 名前・住所・評価・写真は保存しない（[security.md](security.md) T-08）。
 つまりこの列に入るのは**識別子だけ**で、施設の属性は 1 つも持たない。

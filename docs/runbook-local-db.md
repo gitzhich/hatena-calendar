@@ -167,3 +167,13 @@ SELECT sum(fetched_resource_count) AS resources,
 取り込みが 30 分ごとに動き続け、新規投稿があればそのぶん課金される。
 取り込みを動かす意図がない確認では
 `./gradlew bootRun --args='--ingestion.enabled=false'` で起動する。
+
+**定期実行は 2 つある。** 取り込みを止めても、会場のメンテナンス
+（[ADR-0022](adr/0022-venue-place-id-and-region.md)）は動く。起動の 5 分後に
+`venue_id` の紐づけと `place_id` の解決を始めるので、`.env` に
+`GOOGLE_MAPS_API_KEY` を置いているならローカルから実際に Places API を叩く。
+無料の SKU だが、意図しないなら両方止める。
+
+```bash
+./gradlew bootRun --args='--ingestion.enabled=false --venue.maintenance.enabled=false'
+```
