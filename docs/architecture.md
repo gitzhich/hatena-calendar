@@ -91,6 +91,9 @@ flowchart TB
 
 - 使うのは **Text Search (IDs Only)**。Google が「Place ID を得るための
   **ゼロコストな方法**」と明記している SKU で、月次の無料枠すら消費しない
+- **無料かどうかは、要求するフィールドで決まる。** Text Search は
+  リクエストの `X-Goog-FieldMask` で SKU が切り替わり、`places.id` だけを求めると
+  ID Only になる。**`places.displayName` を 1 つ足した瞬間に課金対象の SKU へ移る**
 - **呼び出しは会場ごとに 1 回だけ。** 閲覧のたびでも取り込みのたびでもない。
   `place_id` はキャッシュ制限の**例外**として無期限に保存できる
 - 実サンプルに現れる会場は 15 種類。生涯でも 100 種類に届かない見込み

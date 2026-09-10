@@ -168,6 +168,11 @@ Neon と同居させて、バックエンド↔DB の往復を消す（[ADR-0018
 | `ADMIN_PASSWORD_HASH` | [architecture.md](architecture.md)「値の作り方」の手順で作る |
 | `INTERNAL_API_KEY` | `openssl rand -base64 32` |
 | `INTERNAL_ADMIN_API_KEY` | 同上。**上と別の値**（[ADR-0010](adr/0010-split-api-keys.md)） |
+| `GOOGLE_MAPS_API_KEY` | 本書「Places API のキーを発行する」 |
+
+**`GOOGLE_MAPS_API_KEY` は無くてもデプロイできる。** 未設定なら会場の `place_id`
+解決だけがスキップされ、地図リンクは名前検索に落ちる
+（[ADR-0022](adr/0022-venue-place-id-and-region.md)）。
 
 **`DATABASE_USER` / `DATABASE_PASSWORD` は入れない。** 認証情報は
 `DATABASE_URL` に含める（[architecture.md](architecture.md)「接続情報は `DATABASE_URL` 1 本で渡す」）。
@@ -178,6 +183,33 @@ fly secrets list        # 名前とダイジェストだけが出る。値は表
 ```
 
 **ローカルの `.env` をそのまま流し込まない。** ローカル用の値が混ざる。
+
+#### Places API のキーを発行する
+
+会場に Google の `place_id` を紐づけるために使う
+（[ADR-0022](adr/0022-venue-place-id-and-region.md) / [security.md](security.md) T-08）。
+
+1. **課金アカウントを紐づけた Google Cloud プロジェクトを用意する。**
+   使う SKU 自体は無料だが、**Maps Platform は課金アカウントが無いと呼べない**
+2. そのプロジェクトで **Places API を有効にする**
+3. API キーを作り、**API 制限を Places API だけに絞る**
+
+**「制限なし」で発行しない。** 使う Text Search (IDs Only) は無料だが、
+**キーは SKU を選ばない**。漏れたキーで Place Details や Geocoding を叩かれれば
+課金される（[security.md](security.md) T-08）。制限をかけていれば、
+漏れても無料の呼び出ししかできない。
+
+**請求アラートを設定する。** 想定外の SKU が動いたら気づけるようにしておく。
+正常なら請求は $0 のままである
+（[architecture.md](architecture.md)「Places API に費用がかからない理由」）。
+
+**ブラウザに出さない。** Next.js 側には置かない。呼ぶのは Spring Boot だけで、
+`NEXT_PUBLIC_` を付ける場面は無い。
+
+デプロイ後、`GET /api/admin/venues?unresolved=true` で `placeId` が埋まっていくことを
+確認する（[api.md](api.md)「会場の一覧と編集」）。解決は**起動の 5 分後に始まり、
+以後 1 日 1 回**走る。**管理画面の会場一覧はまだ無い**ので、当面はログ
+（`place_id の解決が完了: N 件試行、M 件解決`）と API で見る。
 
 ### 3.3 デプロイ
 
