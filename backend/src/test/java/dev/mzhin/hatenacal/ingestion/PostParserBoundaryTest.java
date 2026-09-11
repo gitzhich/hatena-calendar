@@ -783,4 +783,99 @@ class PostParserBoundaryTest {
         }
     }
 
+    /**
+     * 会場の羅列（docs/x-integration.md「会場」）。
+     *
+     * <p><b>区切りは 3 種類。</b> 実データに半角 {@code /}（1.txt / 6.txt）、
+     * {@code &}（22.txt / 25.txt）、全角 {@code ／}（24.txt）が現れる。
+     * 判定を経路ごとに分けて持つと片方だけ直す事故が起きるため、同じ集合を使う。
+     */
+    @Nested
+    @DisplayName("会場の羅列（docs/x-integration.md「会場」）")
+    class VenueList {
+
+        /** 枠の 📍 があるタイムテーブル付きの告知（経路 A）。 */
+        private String withSlot(String headerVenue) {
+            return """
+                    🔸XINXIN公演情報解禁🔸
+
+                    9/5(土)📍%s
+                    『テストイベント』
+
+                    ⏰OPEN 17:00 / START 17:30
+                    🔗https://example.com/ticket
+
+                    ▪️タイムテーブル
+                    📍第2ステージ
+                    🎤19:00-19:30 XINXIN出演
+                    """.formatted(headerVenue);
+        }
+
+        /** 枠の 📍 が無いタイムテーブル付きの告知。 */
+        private String withoutSlot(String headerVenue) {
+            return """
+                    🔸XINXIN公演情報解禁🔸
+
+                    9/5(土)📍%s
+                    『テストイベント』
+
+                    ⏰OPEN 17:00 / START 17:30
+                    🔗https://example.com/ticket
+
+                    ▪️タイムテーブル
+                    🎤19:00-19:30 XINXIN出演
+                    """.formatted(headerVenue);
+        }
+
+        private String venueOf(String body) {
+            return only(body, posted(2026, 8, 20)).venueName();
+        }
+
+        @Test
+        @DisplayName("半角 / の羅列は、羅列を捨てて枠の会場を採る")
+        void slashList() {
+            assertThat(venueOf(withSlot("愛知・A HALL / B HALL")))
+                    .isEqualTo("愛知・第2ステージ");
+        }
+
+        @Test
+        @DisplayName("& の羅列も同じ扱い（実サンプル 25.txt）")
+        void ampersandList() {
+            assertThat(venueOf(withSlot("愛知・A HALL & B HALL")))
+                    .as("& を見落とすと、羅列と枠の会場を連結した値ができる")
+                    .isEqualTo("愛知・第2ステージ");
+        }
+
+        @Test
+        @DisplayName("全角 ／ の羅列も同じ扱い（実サンプル 24.txt）")
+        void fullWidthSlashList() {
+            assertThat(venueOf(withSlot("愛知・A HALL／B HALL")))
+                    .as("半角 / だけを見ていると全角を取り落とす")
+                    .isEqualTo("愛知・第2ステージ");
+        }
+
+        @Test
+        @DisplayName("羅列でなければ枠の 📍 はステージ名として連結する")
+        void singleVenueConcatenatesSlot() {
+            assertThat(venueOf(withSlot("愛知・テスト会場")))
+                    .isEqualTo("愛知・テスト会場 / 第2ステージ");
+        }
+
+        @Test
+        @DisplayName("羅列で枠の 📍 が無ければ空欄。羅列を入れると後から直らない")
+        void listWithoutSlotIsBlank() {
+            assertThat(venueOf(withoutSlot("愛知・A HALL & B HALL")))
+                    .as("値を入れると空欄補完が上書きせず、タイムテーブル解禁が来ても"
+                            + "実際の会場に直らない（ADR-0004）")
+                    .isNull();
+        }
+
+        @Test
+        @DisplayName("羅列でなく枠の 📍 も無ければヘッダ会場をそのまま使う（実サンプル 2.txt）")
+        void singleVenueWithoutSlot() {
+            assertThat(venueOf(withoutSlot("愛知・テスト会場")))
+                    .isEqualTo("愛知・テスト会場");
+        }
+    }
+
 }

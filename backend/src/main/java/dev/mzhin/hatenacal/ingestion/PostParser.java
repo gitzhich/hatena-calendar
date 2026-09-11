@@ -262,13 +262,10 @@ public class PostParser {
      * 入れてしまうと、値のある列は空欄補完で上書きされないため
      * （ADR-0004）、タイムテーブルが出た後も羅列が残り続ける。
      *
-     * <p>区切りは {@code /} と {@code &} の 2 種類。実データはどちらも使う
-     * （1.txt が {@code /}、22.txt が {@code &}）。docs/x-integration.md「会場」のサーキット判定が
-     * {@code /} だけなのは、そちらを変える失敗ケースが実サンプルに無いため。
+     * <p>区切りの判定は経路 A と共通（{@link #listsMultipleVenues}）。
      */
     private static String confirmedVenue(String headerVenue) {
-        return headerVenue.indexOf('/') >= 0 || headerVenue.indexOf('&') >= 0
-                ? null : headerVenue;
+        return listsMultipleVenues(headerVenue) ? null : headerVenue;
     }
 
     /**
@@ -421,18 +418,39 @@ public class PostParser {
                 break;
             }
         }
-        if (slotVenue == null) {
+        if (!listsMultipleVenues(headerVenue)) {
+            // 単一会場。枠の 📍 はステージ名にすぎない。
             // 枠の 📍 がない告知（実サンプル 2.txt）はヘッダ会場をそのまま使う
-            return headerVenue;
+            return slotVenue == null ? headerVenue : headerVenue + " / " + slotVenue;
         }
-        if (!headerVenue.contains("/")) {
-            // 単一会場。枠の 📍 はステージ名にすぎない
-            return headerVenue + " / " + slotVenue;
+        if (slotVenue == null) {
+            // 会場が並んでいるのに枠の 📍 が無い。どこに出るか決まらないので空欄にする。
+            // 羅列を入れると空欄補完が上書きしないため、タイムテーブル解禁が来ても
+            // 後から直らない（ADR-0004 / docs/x-integration.md「会場」）
+            return null;
         }
         // サーキット・フェス。会場の羅列は捨て、都道府県を枠の会場に前置する
         int sep = headerVenue.indexOf('・');
         String prefecture = sep > 0 ? headerVenue.substring(0, sep) : null;
         return prefecture == null ? slotVenue : prefecture + "・" + slotVenue;
+    }
+
+    /**
+     * 会場が並んでいるか（docs/x-integration.md「会場」）。
+     *
+     * <p>実データの区切りは 3 種類。半角 {@code /}（実サンプル 1.txt / 6.txt）、
+     * {@code &}（22.txt / 25.txt）、全角 {@code ／}（24.txt）。
+     *
+     * <p><b>経路 A と経路 B で同じ集合を使う。</b> 以前は経路 A が {@code /} だけを
+     * 見ていたため、{@code &} と全角 {@code ／} で並ぶ告知をサーキットと判定できず、
+     * <b>羅列と枠の会場を連結した値を本番に作った</b>
+     * （{@code 愛知・NAGOYA CLUB QUATTRO & RAD HALL / NAGOYA CLUB QUATTRO}）。
+     * 判定を 2 か所に分けて持つと、片方だけ直す事故が起きる。
+     */
+    private static boolean listsMultipleVenues(String headerVenue) {
+        return headerVenue.indexOf('/') >= 0
+                || headerVenue.indexOf('／') >= 0
+                || headerVenue.indexOf('&') >= 0;
     }
 
     // ------------------------------------------------------------------
