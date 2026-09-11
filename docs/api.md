@@ -316,6 +316,7 @@ FR-24 の点検一覧。公開 API と違い、内部項目も返す。
       "eventName": "lonlium pre.『LONELY KIDS』",
       "eventKey": "lonliumprelonelykids",
       "venueName": "愛知・大須RADHALL",
+      "areaName": null,
       "venueId": 3,
       "venueRegion": "CHUBU",
       "venuePlaceId": "ChIJxxxxxxxxxxxxxxxxxxxxxxx",
@@ -367,6 +368,7 @@ POST /api/admin/appearances
   "appearanceDate": "2026-09-20",
   "eventName": "『SAMPLE FES』",
   "venueName": "東京・SAMPLE HALL",
+  "areaName": null,
   "performanceStartTime": "18:00:00",
   "performanceEndTime": "18:30:00",
   "merchStartTime": "19:00:00",
@@ -423,6 +425,10 @@ PUT /api/admin/appearances/{id}
 
 - `eventName` を変更した場合、`eventKey` はサーバ側で再計算する
 - 変更後の `appearanceDate` / `eventKey` / `performanceStartTime` が他の行と衝突する場合は `409`
+- **`areaName` は会場が未定のときの地名**（`東京`）。`venueName` が入っていれば
+  そちらから地域を引くので、**両方を入れる必要は無い**
+  （[ADR-0022](adr/0022-venue-place-id-and-region.md)「会場が未定でも地域は持つ」）。
+  取り込みが会場を空欄にした行へ、管理者が後から地名だけ入れる用途を想定している
 - 成功時は `200` と更新後のリソースを返す
 
 ### 5.4 削除
@@ -576,6 +582,7 @@ POST /api/admin/venues/{id}/resolve-place-id
       "placeId": "ChIJxxxxxxxxxxxxxxxxxxxxxxx",
       "placeIdCheckedAt": "2026-09-08T02:00:00Z",
       "manuallyEdited": false,
+      "areaOnly": false,
       "appearanceCount": 12
     }
   ],
@@ -589,6 +596,10 @@ POST /api/admin/venues/{id}/resolve-place-id
   1 行直せば全件に効く
 - `venueKey` は返すが**編集できない**。表記から機械的に決まる値であり、
   変えると別の会場に化ける
+- **`areaOnly` が `true` の行は会場ではなく地域**（`東京`）。会場が未定の出演情報が
+  指している（[ADR-0022](adr/0022-venue-place-id-and-region.md)「会場が未定でも地域は持つ」）。
+  `place_id` を解決せず、**`resolve-place-id` は `409`** を返す。
+  `appearanceCount` は「会場が未定のままの公演が何件あるか」として読める
 - 並び順は `displayName` の昇順で、**最後に `id` で決着させる**。
   一意に決めておかないとページの境界で取りこぼしと重複が出る
   （本書「出演情報の一覧と個別取得（点検用）」と同じ理由）
