@@ -17,7 +17,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * 実サンプル 23 件に対する抽出テスト。期待値は
+ * 実サンプル 28 件に対する抽出テスト。期待値は
  * docs/x-integration.md「実サンプルでの検証結果」。
  *
  * <p>サンプルは docs/x-post-sample/ の写しを test/resources に置いている。
@@ -63,7 +63,7 @@ class PostParserSampleTest {
     }
 
     @Nested
-    @DisplayName("抽出する 16 件")
+    @DisplayName("抽出する 20 件")
     class Extracted {
 
         @Test
@@ -351,15 +351,88 @@ class PostParserSampleTest {
             assertThat(a.performanceStartTime()).isNull();
             assertThat(a.ticketUrl()).isEqualTo("https://t-dv.com/tebasession_19");
         }
+
+        @Test
+        @DisplayName("24.txt 会場が全角 ／ で並ぶサーキット。羅列を捨てて枠の会場を採る")
+        void sample24() throws IOException {
+            String body = sample("24.txt");
+            assertThat(body)
+                    .as("区切りが全角。半角 / だけを見ていた頃はサーキットと判定できず、"
+                            + "羅列と枠の会場を連結した値を本番に作った")
+                    .contains("東京・Veats Shibuya／SHIBUYA CLUB QUATTRO／SHIBUYA WWW X");
+
+            ParsedAppearance a = only("24.txt");
+            assertThat(a.appearanceDate()).isEqualTo(LocalDate.of(2026, 7, 7));
+            assertThat(a.venueName())
+                    .as("枠の 📍 は 渋谷WWW X。ヘッダから都道府県だけを前置する")
+                    .isEqualTo("東京・渋谷WWW X");
+            assertThat(a.eventName()).isEqualTo("『YORU-FES ~夜を駆けるサーキットSP~』");
+            assertThat(a.performanceStartTime()).isEqualTo(LocalTime.of(14, 35));
+            assertThat(a.merchStartTime()).isEqualTo(LocalTime.of(15, 15));
+            assertThat(a.ticketUrl()).isEqualTo("http://t-dv.com/yorufes_260707");
+        }
+
+        @Test
+        @DisplayName("25.txt 会場が & で並ぶ。タイムテーブルがあれば枠の会場を採る")
+        void sample25() throws IOException {
+            ParsedAppearance a = only("25.txt");
+            assertThat(a.appearanceDate()).isEqualTo(LocalDate.of(2026, 8, 5));
+            assertThat(a.venueName())
+                    .as("22.txt と同じ & 区切りだが、こちらはタイムテーブルがあるので確定できる")
+                    .isEqualTo("愛知・NAGOYA CLUB QUATTRO");
+            assertThat(a.eventName()).isEqualTo("『RAD iD LIVE-NO残業DAY SUMMER SP-』");
+            assertThat(a.performanceStartTime()).isEqualTo(LocalTime.of(19, 55));
+            assertThat(a.merchStartTime()).isEqualTo(LocalTime.of(20, 50));
+        }
+
+        @Test
+        @DisplayName("26.txt 同じ日・同じ会場で 2 公演。ブロックごとに独立して解析する")
+        void sample26() throws IOException {
+            // 6 月公演。基準の POSTED から 30 日以上前になるため投稿日を指定する
+            List<ParsedAppearance> list = extract("26.txt",
+                    OffsetDateTime.of(2026, 5, 1, 12, 0, 0, 0, ZoneOffset.ofHours(9)));
+            assertThat(list).hasSize(2);
+
+            assertThat(list).allSatisfy(a -> {
+                assertThat(a.appearanceDate()).isEqualTo(LocalDate.of(2026, 6, 7));
+                assertThat(a.venueName())
+                        .as("枠の 📍 が無い。ヘッダ会場をそのまま使い、連結しない")
+                        .isEqualTo("韓国・SETi LIVE HALL");
+            });
+
+            assertThat(list.get(0).eventName()).isEqualTo("「SETi FES vol.34」");
+            assertThat(list.get(0).performanceStartTime()).isEqualTo(LocalTime.of(13, 45));
+            assertThat(list.get(0).merchStartTime()).isEqualTo(LocalTime.of(15, 0));
+            assertThat(list.get(0).ticketUrl()).isEqualTo("http://tiget.net/events/490635");
+
+            assertThat(list.get(1).eventName())
+                    .isEqualTo("「ジエメイ ONEMAN LIVE in KOREA」");
+            assertThat(list.get(1).performanceStartTime()).isEqualTo(LocalTime.of(19, 20));
+            assertThat(list.get(1).merchStartTime()).isEqualTo(LocalTime.of(21, 0));
+            assertThat(list.get(1).ticketUrl())
+                    .as("ブロックごとに別のチケット URL を採る")
+                    .isEqualTo("http://tiget.net/events/492193");
+        }
+
+        @Test
+        @DisplayName("28.txt タイムテーブル未確定で & の羅列。会場を確定しない")
+        void sample28() throws IOException {
+            ParsedAppearance a = only("28.txt");
+            assertThat(a.appearanceDate()).isEqualTo(LocalDate.of(2026, 10, 18));
+            assertThat(a.eventName()).isEqualTo("『 IDO-LIVE!! Circuit 』");
+            assertThat(a.venueName()).isNull();
+            assertThat(a.performanceStartTime()).isNull();
+            assertThat(a.ticketUrl()).isEqualTo("http://eplus.jp/IDOLIVE");
+        }
     }
 
     @Nested
-    @DisplayName("抽出しない 7 件")
+    @DisplayName("抽出しない 8 件")
     class NotExtracted {
 
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"7.txt", "8.txt", "9.txt", "10.txt", "11.txt",
-                "13.txt", "23.txt"})
+                "13.txt", "23.txt", "27.txt"})
         @DisplayName("対象外の投稿型は Unparsed になる")
         void unparsed(String name) throws IOException {
             assertThat(parser.parse(sample(name), POSTED))
@@ -397,6 +470,22 @@ class PostParserSampleTest {
         void sample11() throws IOException {
             ParseResult r = parser.parse(sample("11.txt"), POSTED);
             assertThat(((ParseResult.Unparsed) r).reason()).contains("公演日");
+        }
+
+        @Test
+        @DisplayName("27.txt 2 公演の告知。日付行と 📍 行が別なのでブロックに分けられない")
+        void sample27() throws IOException {
+            String body = sample("27.txt");
+            assertThat(body)
+                    .as("境界は「日付と 📍 を同じ行に持つ行」。この告知は行が分かれている")
+                    .contains("☀️6/14(日)\n📍東京・神田SQUARE HALL");
+            assertThat(body)
+                    .as("販売期間にも公演日と同じ 6/14(日) が現れ、枠を対応付けられない")
+                    .contains("6/14(日)8:59まで販売");
+
+            ParseResult r = parser.parse(body,
+                    OffsetDateTime.of(2026, 5, 1, 12, 0, 0, 0, ZoneOffset.ofHours(9)));
+            assertThat(((ParseResult.Unparsed) r).reason()).contains("出演枠を日付に対応付け");
         }
     }
 }
