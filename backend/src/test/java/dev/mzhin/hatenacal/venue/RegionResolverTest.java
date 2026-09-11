@@ -109,4 +109,54 @@ class RegionResolverTest {
             assertThat(RegionResolver.of("・先頭が区切り")).isEqualTo(Region.UNKNOWN);
         }
     }
+
+    /**
+     * 地名そのものからの判定（ADR-0022「会場が未定でも地域は持つ」）。
+     *
+     * <p>会場が未定のときに使う入口。<b>会場名からの判定と同じ表を通る</b>ことを固定する。
+     */
+    @Nested
+    @DisplayName("地名そのものから判定する")
+    class FromPlaceName {
+
+        @Test
+        @DisplayName("会場名からの判定と同じ結果になる")
+        void matchesVenueNameResolution() {
+            assertThat(RegionResolver.ofPlace("東京")).isEqualTo(RegionResolver.of("東京・会場"));
+            assertThat(RegionResolver.ofPlace("金沢")).isEqualTo(RegionResolver.of("金沢・会場"));
+            assertThat(RegionResolver.ofPlace("韓国")).isEqualTo(RegionResolver.of("韓国・会場"));
+        }
+
+        @Test
+        @DisplayName("都道府県・主要都市・海外のどれも引ける")
+        void coversAllTables() {
+            assertThat(RegionResolver.ofPlace("東京")).isEqualTo(Region.KANTO);
+            assertThat(RegionResolver.ofPlace("金沢")).isEqualTo(Region.CHUBU);
+            assertThat(RegionResolver.ofPlace("韓国")).isEqualTo(Region.OVERSEAS);
+            assertThat(RegionResolver.ofPlace("東京都")).isEqualTo(Region.KANTO);
+        }
+
+        @Test
+        @DisplayName("地名かどうかを判定できる")
+        void detectsPlaceName() {
+            assertThat(RegionResolver.isPlaceName("東京")).isTrue();
+            assertThat(RegionResolver.isPlaceName("恵比寿LIQUIDROOM"))
+                    .as("会場名を地域の行にすると、地図リンクを出せる会場を出せなくする")
+                    .isFalse();
+            assertThat(RegionResolver.isPlaceName("中国"))
+                    .as("中国地方と国名の区別が付かないので地名として扱わない")
+                    .isFalse();
+            assertThat(RegionResolver.isPlaceName(null)).isFalse();
+            assertThat(RegionResolver.isPlaceName("")).isFalse();
+        }
+
+        @Test
+        @DisplayName("会場名の先頭から地名を切り出せる")
+        void extractsPlace() {
+            assertThat(RegionResolver.placeOf("東京・渋谷音楽堂/Shibuya Milkyway")).isEqualTo("東京");
+            assertThat(RegionResolver.placeOf("ドラゴンステージ"))
+                    .as("・ が無ければ地名は書かれていない")
+                    .isNull();
+        }
+    }
 }

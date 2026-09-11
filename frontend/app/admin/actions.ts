@@ -111,6 +111,7 @@ function toPayload(formData: FormData) {
     appearanceDate: orNull(formData.get("appearanceDate")),
     eventName: orNull(formData.get("eventName")),
     venueName: orNull(formData.get("venueName")),
+    areaName: orNull(formData.get("areaName")),
     performanceStartTime: withSeconds(orNull(formData.get("performanceStartTime"))),
     performanceEndTime: withSeconds(orNull(formData.get("performanceEndTime"))),
     merchStartTime: withSeconds(orNull(formData.get("merchStartTime"))),

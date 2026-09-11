@@ -559,6 +559,23 @@ X 由来のテキストは信頼しない入力であり（[CLAUDE.md](../CLAUDE
                                 東京・Spotify O-WEST & duo MUSIC EXCHANGE（28.txt）
 ```
 
+#### 会場を空欄にしたときは地名だけ残す
+
+**空欄にすると地域まで失われ、カレンダーの色が付かなくなる。** 会場を確定できなかった
+告知では、ヘッダ会場の `・` より前を `area_name` に入れる
+（[data-model.md](data-model.md)「appearance — 出演情報」）。
+
+```
+📍東京・Spotify O-WEST & duo MUSIC EXCHANGE
+    → venue_name = 空欄   area_name = 東京
+```
+
+**会場を確定できた告知には入れない。** 地域は `venue` から引けるため不要で、
+2 つ持てば食い違う余地を作るだけである
+（[ADR-0022](adr/0022-venue-place-id-and-region.md)「会場が未定でも地域は持つ」）。
+
+`・` が無ければ地名も取れないので `area_name` も空欄になる。
+
 #### 羅列の区切り
 
 **3 種類ある。経路 A と経路 B で同じ集合を使う。**

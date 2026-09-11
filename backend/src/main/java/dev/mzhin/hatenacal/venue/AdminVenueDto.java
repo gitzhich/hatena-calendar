@@ -16,11 +16,13 @@ public record AdminVenueDto(
         String placeId,
         OffsetDateTime placeIdCheckedAt,
         boolean manuallyEdited,
+        boolean areaOnly,
         long appearanceCount) {
 
     /** @param appearanceCount この会場を指す出演情報の件数。<b>直す価値の大きさが分かる</b> */
     public static AdminVenueDto from(Venue v, long appearanceCount) {
         return new AdminVenueDto(v.getId(), v.getVenueKey(), v.getDisplayName(), v.getRegion(),
-                v.getPlaceId(), v.getPlaceIdCheckedAt(), v.isManuallyEdited(), appearanceCount);
+                v.getPlaceId(), v.getPlaceIdCheckedAt(), v.isManuallyEdited(), v.isAreaOnly(),
+                appearanceCount);
     }
 }

@@ -43,6 +43,13 @@ export default async function EditAppearancePage({
         <Field label="イベント名" name="eventName" required
                defaultValue={appearance.eventName} />
         <Field label="会場" name="venueName" defaultValue={appearance.venueName} />
+        {/*
+          会場が未定のときだけ入れる。会場が入っていればそちらから地域を引く
+          （docs/api.md「編集」/ ADR-0022「会場が未定でも地域は持つ」）
+        */}
+        <Field label="地名（会場未定のとき）" name="areaName"
+               placeholder="東京"
+               defaultValue={appearance.areaName} />
         <Field label="出演 開始" name="performanceStartTime" type="time"
                defaultValue={hhmm(appearance.performanceStartTime)} />
         <Field label="出演 終了" name="performanceEndTime" type="time"

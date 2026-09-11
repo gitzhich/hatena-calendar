@@ -183,6 +183,18 @@ class PlaceIdResolutionIT {
     }
 
     @Test
+    @DisplayName("地域だけの行は拾わない。会場ではないので同定できない")
+    void skipsAreaOnlyVenues() {
+        tx.executeWithoutResult(s -> venues.findOrCreateArea("東京"));
+
+        service.resolveMissing(10);
+
+        assertThat(places.queries())
+                .as("「東京」で検索させると東京駅のような無関係な場所に当たる（T-08）")
+                .isEmpty();
+    }
+
+    @Test
     @DisplayName("解決済みの会場は拾わない")
     void skipsResolvedVenues() {
         venue("愛知・大須RADHALL");

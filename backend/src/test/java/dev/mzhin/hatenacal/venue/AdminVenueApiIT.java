@@ -287,6 +287,40 @@ class AdminVenueApiIT {
     }
 
     @Test
+    @DisplayName("地域だけの行への解決は 409")
+    void refusesResolveOnAreaOnly() throws Exception {
+        Long id = tx.execute(s -> venues.findOrCreateArea("東京").getId());
+
+        HttpResponse<String> res = send("POST", PATH + "/" + id + "/resolve-place-id",
+                ADMIN_KEY, null);
+
+        assertThat(res.statusCode()).isEqualTo(409);
+        assertThat(places.queries())
+                .as("会場ではないので同定できない。叩く前に止める")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("一覧は地域だけの行を areaOnly で区別できる")
+    void listMarksAreaOnly() throws Exception {
+        tx.executeWithoutResult(s -> venues.findOrCreateArea("東京"));
+        venue("愛知・大須RADHALL");
+
+        JsonNode body = get(PATH);
+
+        assertThat(body.path("items")).hasSize(2);
+        assertThat(body.path("items")).anySatisfy(item -> {
+            assertThat(item.path("displayName").asString()).isEqualTo("東京");
+            assertThat(item.path("areaOnly").asBoolean()).isTrue();
+            assertThat(item.path("region").asString()).isEqualTo("KANTO");
+        });
+        assertThat(body.path("items")).anySatisfy(item -> {
+            assertThat(item.path("displayName").asString()).isEqualTo("愛知・大須RADHALL");
+            assertThat(item.path("areaOnly").asBoolean()).isFalse();
+        });
+    }
+
+    @Test
     @DisplayName("Google に到達できないときは 502。500 に混ぜない")
     void returnsBadGatewayWhenPlacesFails() throws Exception {
         Long id = venue("愛知・大須RADHALL");

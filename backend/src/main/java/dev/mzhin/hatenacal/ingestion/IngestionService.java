@@ -269,7 +269,8 @@ public class IngestionService {
     private AppearanceCommand command(ParsedAppearance slot, String sourceUrl,
             Long ingestedPostId) {
         return new AppearanceCommand(slot.appearanceDate(), slot.eventName(),
-                slot.venueName(), slot.performanceStartTime(), slot.performanceEndTime(),
+                slot.venueName(), slot.areaName(),
+                slot.performanceStartTime(), slot.performanceEndTime(),
                 slot.merchStartTime(), slot.merchEndTime(), slot.ticketUrl(),
                 sourceUrl, ingestedPostId);
     }

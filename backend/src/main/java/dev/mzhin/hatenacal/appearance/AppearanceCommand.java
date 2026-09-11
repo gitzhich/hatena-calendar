@@ -26,6 +26,12 @@ public record AppearanceCommand(
 
         @Size(max = 300, message = "venueName は 300 文字以内です") String venueName,
 
+        /*
+         * 会場が未定のときの地名（docs/api.md「編集」/ ADR-0022「会場が未定でも地域は持つ」）。
+         * venueName が入っていればそちらから地域を引くので、両方を入れる必要は無い。
+         */
+        @Size(max = 100, message = "areaName は 100 文字以内です") String areaName,
+
         @JsonFormat(pattern = "HH:mm:ss") LocalTime performanceStartTime,
         @JsonFormat(pattern = "HH:mm:ss") LocalTime performanceEndTime,
         @JsonFormat(pattern = "HH:mm:ss") LocalTime merchStartTime,

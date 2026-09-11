@@ -181,6 +181,7 @@ CREATE TABLE appearance (
     event_name             TEXT        NOT NULL CHECK (length(event_name) BETWEEN 1 AND 200),
     event_key              TEXT        NOT NULL CHECK (length(event_key) BETWEEN 1 AND 200),
     venue_name             TEXT        CHECK (venue_name IS NULL OR length(venue_name) <= 300),
+    area_name              TEXT        CHECK (area_name IS NULL OR length(area_name) <= 100),
     venue_id               BIGINT      REFERENCES venue (id),
     performance_start_time TIME,
     performance_end_time   TIME,
@@ -219,7 +220,8 @@ CREATE TABLE appearance (
 | `event_name` | **表示用のイベント名。告知の原文をそのまま保持する** |
 | `event_key` | **照合用の正規化済みイベント名。** 画面には出さない。生成規則と一意性は本書「同一イベントの一意性と event_key」 |
 | `venue_name` | 会場名。**都道府県とステージ名を含めた形**で、**告知の原文のまま**保持する（下記） |
-| `venue_id` | 正規化した会場（本書「venue — 会場」）。地図リンクと地域はここから引く。**会場が空欄の告知は `NULL`** |
+| `area_name` | **会場が未定のときの地名**（`東京`）。告知の原文から `・` より前を取る。**地域そのものではなく、`venue` を引き当てる入力**（[ADR-0022](adr/0022-venue-place-id-and-region.md)「会場が未定でも地域は持つ」）。会場が確定している告知では `NULL` |
+| `venue_id` | 正規化した会場（本書「venue — 会場」）。地図リンクと地域はここから引く。**`venue_name` が空欄でも `area_name` があれば地域だけの行を指す** |
 | `performance_start_time` | **XINXIN の出演開始時刻**（JST）。告知の 🎤 行から抽出する |
 | `performance_end_time` | XINXIN の出演終了時刻（JST） |
 | `merch_start_time` | **XINXIN の物販開始時刻**（JST）。告知の 📸 行から抽出する（下記） |
@@ -512,6 +514,7 @@ CREATE TABLE venue (
                                                       'OVERSEAS', 'UNKNOWN')),
     place_id            TEXT        CHECK (place_id IS NULL OR length(place_id) <= 300),
     place_id_checked_at TIMESTAMPTZ,
+    area_only           BOOLEAN     NOT NULL DEFAULT false,
     manually_edited     BOOLEAN     NOT NULL DEFAULT false,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -525,6 +528,7 @@ CREATE TABLE venue (
 | `region` | 8 地方 + `OVERSEAS`（海外）+ `UNKNOWN`（判定できない）。色分けの根拠（FR-10） |
 | `place_id` | Google の場所 ID。**未解決は `NULL`**。解決できるまで地図リンクは名前検索に落ちる |
 | `place_id_checked_at` | 最後に解決を**試せた**日時。定期実行はここから一定期間（7 日）空いた行だけを再試行する。**見つからなくても記録する**（記録しないと、Google に存在しない会場を毎日叩き続ける）。**Google に到達できなかったときは記録しない**——試せていないのに記録すると、障害が明けても再試行が 7 日先へ飛ぶ |
+| `area_only` | **会場ではなく地域だけを表す行**（`東京`）。`place_id` を解決せず、地図リンクも出さない（[ADR-0022](adr/0022-venue-place-id-and-region.md)「会場が未定でも地域は持つ」） |
 | `manually_edited` | 管理者が `region` か `place_id` を直したか。**`true` の行を自動判定で上書きしない** |
 
 #### venue_key の生成規則
@@ -577,6 +581,11 @@ CREATE TABLE venue (
 
 **出演情報の登録時**に、自動取り込みと手動登録の両方で、
 **`venue_name` が空でなければ** `venue_key` で引き当て、無ければ作る。
+
+**`venue_name` が空で `area_name` があれば、地域だけの行**（`area_only = true`）を
+引き当てる。会場が未定の告知でもカレンダーの色が付くようにするため
+（[ADR-0022](adr/0022-venue-place-id-and-region.md)「会場が未定でも地域は持つ」）。
+**`venue_name` があるときはそちらが勝つ。**
 
 引き当ては DB の中だけで完結し外部 API を呼ばないため、取り込みの
 トランザクションに入れて安全である。**承認フローが無く登録が即公開される**以上、
@@ -701,6 +710,9 @@ CREATE INDEX idx_ingestion_run_status_finished
    どの枠の空欄を埋めるべきかも決まらないため、補完もしない
 4. どれにも当てはまらなければ新規登録（`INSERT`）
 5. 補完する場合は、**値が `NULL` の列だけ**を埋める（`UPDATE`）
+
+`venue_name` が埋まると `venue_id` は実会場へ張り替わる。**地域だけの行は
+そのとき参照されなくなる**（`area_name` は原文に基づく事実として残る）。
 
 手順 3 が要るのは、告知が届く順が保証されないため。通常は「公演情報解禁 →
 タイムテーブル解禁」の順に届き、時刻なしの行が先にできて手順 2 で埋まる。

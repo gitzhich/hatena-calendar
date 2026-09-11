@@ -60,6 +60,17 @@ public class Venue {
     private OffsetDateTime placeIdCheckedAt;
 
     /**
+     * 会場ではなく地域だけを表す行か（ADR-0022「会場が未定でも地域は持つ」）。
+     *
+     * <p>会場が未定の告知が指す {@code 東京} のような行。<b>place_id を解決せず、
+     * 地図リンクも出さない。</b>「東京」で地図を検索させると東京駅のような
+     * 無関係な場所を指し、誤った地図リンクはリンクが無いより悪い
+     * （docs/security.md T-08）。
+     */
+    @Column(name = "area_only", nullable = false)
+    private boolean areaOnly;
+
+    /**
      * 管理者が直したか。
      *
      * <p><b>true の行を自動処理が上書きしない。</b> 人が確認した値のほうが強い
@@ -93,6 +104,18 @@ public class Venue {
         v.displayName = displayName;
         v.region = region;
         v.manuallyEdited = false;
+        v.areaOnly = false;
+        return v;
+    }
+
+    /**
+     * 地域だけの行を作る（ADR-0022「会場が未定でも地域は持つ」）。
+     *
+     * <p>会場が未定の告知から作られる。<b>place_id は永久に解決しない。</b>
+     */
+    static Venue createArea(String venueKey, String displayName, Region region) {
+        Venue v = create(venueKey, displayName, region);
+        v.areaOnly = true;
         return v;
     }
 
@@ -155,6 +178,10 @@ public class Venue {
 
     public OffsetDateTime getPlaceIdCheckedAt() {
         return placeIdCheckedAt;
+    }
+
+    public boolean isAreaOnly() {
+        return areaOnly;
     }
 
     public boolean isManuallyEdited() {

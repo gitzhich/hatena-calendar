@@ -871,6 +871,24 @@ class PostParserBoundaryTest {
         }
 
         @Test
+        @DisplayName("空欄にしても地名は残す。会場未定でも地域は分かる（ADR-0022）")
+        void blankVenueKeepsAreaName() {
+            ParsedAppearance a = only(withoutSlot("愛知・A HALL & B HALL"), posted(2026, 8, 20));
+            assertThat(a.venueName()).isNull();
+            assertThat(a.areaName())
+                    .as("空欄にすると地域まで失われ、カレンダーの色が付かなくなる")
+                    .isEqualTo("愛知");
+        }
+
+        @Test
+        @DisplayName("・ が無ければ地名も取れない")
+        void noSeparatorMeansNoArea() {
+            ParsedAppearance a = only(withoutSlot("A HALL & B HALL"), posted(2026, 8, 20));
+            assertThat(a.venueName()).isNull();
+            assertThat(a.areaName()).isNull();
+        }
+
+        @Test
         @DisplayName("羅列でなく枠の 📍 も無ければヘッダ会場をそのまま使う（実サンプル 2.txt）")
         void singleVenueWithoutSlot() {
             assertThat(venueOf(withoutSlot("愛知・テスト会場")))

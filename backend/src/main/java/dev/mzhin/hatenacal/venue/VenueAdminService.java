@@ -76,6 +76,10 @@ public class VenueAdminService {
      */
     public AdminVenueDto resolvePlaceId(Long id) {
         Venue target = load(id);
+        if (target.isAreaOnly()) {
+            // 会場ではないので同定できない。「東京」で検索させると無関係な場所に当たる
+            throw new ConflictException("地域だけの行は会場ではないため解決できません");
+        }
         if (target.isManuallyEdited()) {
             throw new ConflictException("管理者が編集した会場は自動解決の対象外です");
         }

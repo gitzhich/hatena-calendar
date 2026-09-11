@@ -70,7 +70,7 @@ public class PlaceIdResolutionService {
         List<Venue> targets = repository.findNeedingPlaceId(retryBefore(),
                 PageRequest.of(0, limit));
         log.info("place_id の解決を開始: 今回 {} 件 / 未解決は全体で {} 件",
-                targets.size(), repository.countByPlaceIdIsNullAndManuallyEditedFalse());
+                targets.size(), repository.countByPlaceIdIsNullAndManuallyEditedFalseAndAreaOnlyFalse());
 
         int resolved = 0;
         int attempted = 0;

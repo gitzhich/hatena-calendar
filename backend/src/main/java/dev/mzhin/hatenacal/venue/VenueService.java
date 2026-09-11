@@ -51,6 +51,30 @@ public class VenueService {
     }
 
     /**
+     * 地名から「地域だけの行」を引き当て、無ければ作る
+     * （ADR-0022「会場が未定でも地域は持つ」）。
+     *
+     * <p>会場が未定の告知でもカレンダーの色が付くようにするためのもの。
+     * <b>会場名では呼ばない。</b> 呼び分けるのは {@code AppearanceService} 側で、
+     * {@code venue_name} があるときはそちらが勝つ。
+     *
+     * <p><b>地名と判定できないものは作らない。</b> {@code 恵比寿LIQUIDROOM} のような
+     * 会場名を地域の行にしてしまうと、地図リンクを出せる会場を永久に出せなくする。
+     *
+     * @param areaName 告知から取った地名（{@code 東京}）。{@code null} または空なら {@code null}
+     */
+    @Transactional
+    public Venue findOrCreateArea(String areaName) {
+        if (areaName == null || areaName.isBlank() || !RegionResolver.isPlaceName(areaName)) {
+            return null;
+        }
+        String key = VenueKey.of(areaName);
+        return repository.findByVenueKey(key)
+                .orElseGet(() -> repository.save(
+                        Venue.createArea(key, areaName, RegionResolver.ofPlace(areaName))));
+    }
+
+    /**
      * ID から会場をまとめて引く。
      *
      * <p>一覧の DTO 化で会場ごとに引くと N+1 になる。**呼び出し側が 1 回で集める**。
