@@ -170,10 +170,17 @@ class VenueLinkIT {
         flush();
 
         assertThat(service.countMissingVenues()).isEqualTo(5);
-        // スケジューラと同じく、上限に届かなくなるまで繰り返す
+        // スケジューラと同じく、上限に届かなくなるまで繰り返す。
+        // **回数に歯止めを置く。** 拾う条件と紐づける条件がずれると同じ行が
+        // 永久に返るため、歯止めが無いとテストが落ちずに固まる（実際に踏んだ）。
+        // 5 件を 2 件ずつなら 3 回で尽きる
+        int rounds = 0;
         int total = 0;
         int linked;
         do {
+            assertThat(++rounds)
+                    .as("紐づけが進んでいない。拾う条件と紐づける条件がずれている")
+                    .isLessThanOrEqualTo(5);
             linked = service.linkMissingVenues(2);
             total += linked;
             flush();
