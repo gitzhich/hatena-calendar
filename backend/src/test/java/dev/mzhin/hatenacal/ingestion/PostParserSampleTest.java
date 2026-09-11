@@ -72,6 +72,9 @@ class PostParserSampleTest {
             ParsedAppearance a = only("2.txt");
             assertThat(a.appearanceDate()).isEqualTo(LocalDate.of(2026, 10, 12));
             assertThat(a.venueName()).isEqualTo("東京・渋谷CLUB QUATTRO");
+            assertThat(a.areaName())
+                    .as("会場が確定しているので地名は持たない。地域は venue から引ける")
+                    .isNull();
             assertThat(a.eventName()).isEqualTo("『ORANGE CHEER』");
             assertThat(a.performanceStartTime()).isEqualTo(LocalTime.of(16, 45));
             assertThat(a.performanceEndTime()).isEqualTo(LocalTime.of(17, 5));
@@ -320,6 +323,9 @@ class PostParserSampleTest {
             assertThat(a.venueName())
                     .as("7 会場が / で並ぶ。どこに出るかはタイムテーブルまで決まらない")
                     .isNull();
+            assertThat(a.areaName())
+                    .as("会場は未定でも東京であることは分かる（ADR-0022）")
+                    .isEqualTo("東京");
             assertThat(a.performanceStartTime()).isNull();
             assertThat(a.performanceEndTime()).isNull();
             assertThat(a.merchStartTime()).isNull();
@@ -348,6 +354,7 @@ class PostParserSampleTest {
             assertThat(a.appearanceDate()).isEqualTo(LocalDate.of(2026, 9, 19));
             assertThat(a.eventName()).isEqualTo("『手羽先セッション vol.19』");
             assertThat(a.venueName()).isNull();
+            assertThat(a.areaName()).isEqualTo("愛知");
             assertThat(a.performanceStartTime()).isNull();
             assertThat(a.ticketUrl()).isEqualTo("https://t-dv.com/tebasession_19");
         }
@@ -366,6 +373,9 @@ class PostParserSampleTest {
             assertThat(a.venueName())
                     .as("枠の 📍 は 渋谷WWW X。ヘッダから都道府県だけを前置する")
                     .isEqualTo("東京・渋谷WWW X");
+            assertThat(a.areaName())
+                    .as("羅列でも枠の 📍 から会場を確定できたので地名は要らない")
+                    .isNull();
             assertThat(a.eventName()).isEqualTo("『YORU-FES ~夜を駆けるサーキットSP~』");
             assertThat(a.performanceStartTime()).isEqualTo(LocalTime.of(14, 35));
             assertThat(a.merchStartTime()).isEqualTo(LocalTime.of(15, 15));
@@ -421,6 +431,9 @@ class PostParserSampleTest {
             assertThat(a.appearanceDate()).isEqualTo(LocalDate.of(2026, 10, 18));
             assertThat(a.eventName()).isEqualTo("『 IDO-LIVE!! Circuit 』");
             assertThat(a.venueName()).isNull();
+            assertThat(a.areaName())
+                    .as("本番でこの型が UNKNOWN 色になっていた")
+                    .isEqualTo("東京");
             assertThat(a.performanceStartTime()).isNull();
             assertThat(a.ticketUrl()).isEqualTo("http://eplus.jp/IDOLIVE");
         }

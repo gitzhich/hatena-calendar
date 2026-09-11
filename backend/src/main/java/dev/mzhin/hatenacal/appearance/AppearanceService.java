@@ -50,6 +50,11 @@ public class AppearanceService {
      */
     private void syncVenue(Appearance target) {
         Venue venue = venues.findOrCreate(target.getVenueName());
+        if (venue == null) {
+            // 会場が未定でも地域だけは分かることがある（ADR-0022「会場が未定でも地域は持つ」）。
+            // venue_name があるときはそちらが勝つ
+            venue = venues.findOrCreateArea(target.getAreaName());
+        }
         target.linkVenue(venue == null ? null : venue.getId());
     }
 
@@ -162,7 +167,7 @@ public class AppearanceService {
                 // 抽出元を指定していても、作ったのは管理者なので MANUAL。
                 // AUTO は取り込みジョブだけが付ける
                 SourceType.MANUAL,
-                cmd.appearanceDate(), cmd.eventName(), cmd.venueName(),
+                cmd.appearanceDate(), cmd.eventName(), cmd.venueName(), cmd.areaName(),
                 cmd.performanceStartTime(), cmd.performanceEndTime(),
                 cmd.merchStartTime(), cmd.merchEndTime(),
                 cmd.ticketUrl(), cmd.sourceUrl(),
@@ -237,7 +242,7 @@ public class AppearanceService {
         }
 
         syncVenue(repository.save(Appearance.create(key, SourceType.AUTO,
-                cmd.appearanceDate(), cmd.eventName(), cmd.venueName(),
+                cmd.appearanceDate(), cmd.eventName(), cmd.venueName(), cmd.areaName(),
                 cmd.performanceStartTime(), cmd.performanceEndTime(),
                 cmd.merchStartTime(), cmd.merchEndTime(),
                 cmd.ticketUrl(), cmd.sourceUrl(), cmd.ingestedPostId())));
@@ -245,7 +250,7 @@ public class AppearanceService {
     }
 
     private static boolean fillBlanks(Appearance target, AppearanceCommand cmd) {
-        return target.fillBlanks(cmd.venueName(),
+        return target.fillBlanks(cmd.venueName(), cmd.areaName(),
                 cmd.performanceStartTime(), cmd.performanceEndTime(),
                 cmd.merchStartTime(), cmd.merchEndTime(),
                 cmd.ticketUrl(), cmd.sourceUrl(), cmd.ingestedPostId());
@@ -260,7 +265,7 @@ public class AppearanceService {
         requireNoConflict(cmd.appearanceDate(), key, cmd.performanceStartTime(), id);
 
         target.replace(key, cmd.appearanceDate(), cmd.eventName(), cmd.venueName(),
-                cmd.performanceStartTime(), cmd.performanceEndTime(),
+                cmd.areaName(), cmd.performanceStartTime(), cmd.performanceEndTime(),
                 cmd.merchStartTime(), cmd.merchEndTime(),
                 cmd.ticketUrl(), cmd.sourceUrl());
         syncVenue(target);

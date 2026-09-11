@@ -47,6 +47,8 @@ export type AdminAppearance = {
   eventName: string;
   eventKey: string;
   venueName: string | null;
+  /** 会場が未定のときの地名。地域はここから引かれる（ADR-0022） */
+  areaName: string | null;
   performanceStartTime: string | null;
   performanceEndTime: string | null;
   merchStartTime: string | null;

@@ -17,6 +17,9 @@ public interface VenueRepository extends JpaRepository<Venue, Long> {
     /**
      * place_id が未解決で、再試行の間隔が空いた会場（ADR-0022「暴走と無駄叩きを防ぐ」）。
      *
+     * <p><b>地域だけの行（area_only）を除く。</b> 会場ではないので同定できない。
+     * 「東京」で検索させると無関係な場所に当たる（docs/security.md T-08）。
+     *
      * <p><b>manually_edited の行を除く。</b> 人が確認した値を機械が触らない。
      * 管理者が誤った place_id を消した行を、翌日また同じ値で埋め直さないためでもある
      * （docs/api.md「会場の一覧と編集」）。
@@ -31,6 +34,7 @@ public interface VenueRepository extends JpaRepository<Venue, Long> {
             SELECT v FROM Venue v
              WHERE v.placeId IS NULL
                AND v.manuallyEdited = false
+               AND v.areaOnly = false
                AND (v.placeIdCheckedAt IS NULL OR v.placeIdCheckedAt < :retryBefore)
              ORDER BY CASE WHEN v.placeIdCheckedAt IS NULL THEN 0 ELSE 1 END ASC,
                       v.placeIdCheckedAt ASC,
@@ -46,7 +50,7 @@ public interface VenueRepository extends JpaRepository<Venue, Long> {
      * 今日叩ける件数ではない。1 日で減らなくても、7 日ごとに再試行が続いている
      * （ADR-0022「暴走と無駄叩きを防ぐ」）。
      */
-    long countByPlaceIdIsNullAndManuallyEditedFalse();
+    long countByPlaceIdIsNullAndManuallyEditedFalseAndAreaOnlyFalse();
 
     /**
      * 未解決の会場だけの一覧（docs/api.md「会場の一覧と編集」の {@code unresolved=true}）。

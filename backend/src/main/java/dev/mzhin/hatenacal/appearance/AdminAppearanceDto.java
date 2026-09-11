@@ -19,6 +19,8 @@ public record AdminAppearanceDto(
         String eventName,
         String eventKey,
         String venueName,
+        /** 会場が未定のときの地名（ADR-0022「会場が未定でも地域は持つ」）。 */
+        String areaName,
         Long venueId,
         Region venueRegion,
         String venuePlaceId,
@@ -36,7 +38,7 @@ public record AdminAppearanceDto(
     /** @param venue 紐づく会場。{@code null} なら地域は UNKNOWN */
     public static AdminAppearanceDto from(Appearance a, Venue venue) {
         return new AdminAppearanceDto(a.getId(), a.getAppearanceDate(), a.getEventName(),
-                a.getEventKey(), a.getVenueName(),
+                a.getEventKey(), a.getVenueName(), a.getAreaName(),
                 a.getVenueId(),
                 venue == null ? Region.UNKNOWN : venue.getRegion(),
                 venue == null ? null : venue.getPlaceId(),

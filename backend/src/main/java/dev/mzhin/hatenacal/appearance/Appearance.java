@@ -46,6 +46,15 @@ public class Appearance {
     @Column(name = "venue_name")
     private String venueName;
 
+    /**
+     * 会場が未定のときの地名（ADR-0022「会場が未定でも地域は持つ」）。
+     *
+     * <p><b>地域そのものではない。</b> {@code venue_name} と同じ「引き当ての入力」で、
+     * 地域は引き当てた {@code venue} が持つ。会場が確定している告知では null。
+     */
+    @Column(name = "area_name")
+    private String areaName;
+
     @Column(name = "performance_start_time")
     private LocalTime performanceStartTime;
 
@@ -108,7 +117,7 @@ public class Appearance {
      * 単一メソッドに閉じ込めるため（ADR-0006）。パッケージ内からしか呼べない。
      */
     static Appearance create(String eventKey, SourceType sourceType,
-            LocalDate appearanceDate, String eventName, String venueName,
+            LocalDate appearanceDate, String eventName, String venueName, String areaName,
             LocalTime performanceStartTime, LocalTime performanceEndTime,
             LocalTime merchStartTime, LocalTime merchEndTime,
             String ticketUrl, String sourceUrl, Long ingestedPostId) {
@@ -118,6 +127,7 @@ public class Appearance {
         a.appearanceDate = appearanceDate;
         a.eventName = eventName;
         a.venueName = venueName;
+        a.areaName = areaName;
         a.performanceStartTime = performanceStartTime;
         a.performanceEndTime = performanceEndTime;
         a.merchStartTime = merchStartTime;
@@ -145,13 +155,17 @@ public class Appearance {
      *
      * @return 1 つでも埋めたか。何も埋まらなければ出典も更新しない
      */
-    boolean fillBlanks(String venueName,
+    boolean fillBlanks(String venueName, String areaName,
             LocalTime performanceStartTime, LocalTime performanceEndTime,
             LocalTime merchStartTime, LocalTime merchEndTime,
             String ticketUrl, String sourceUrl, Long ingestedPostId) {
         boolean filled = false;
         if (this.venueName == null && venueName != null) {
             this.venueName = venueName;
+            filled = true;
+        }
+        if (this.areaName == null && areaName != null) {
+            this.areaName = areaName;
             filled = true;
         }
         if (this.performanceStartTime == null && performanceStartTime != null) {
@@ -191,13 +205,15 @@ public class Appearance {
      * 2 つが別の投稿を指せてしまう。
      */
     void replace(String eventKey, LocalDate appearanceDate, String eventName,
-            String venueName, LocalTime performanceStartTime, LocalTime performanceEndTime,
+            String venueName, String areaName,
+            LocalTime performanceStartTime, LocalTime performanceEndTime,
             LocalTime merchStartTime, LocalTime merchEndTime,
             String ticketUrl, String sourceUrl) {
         this.eventKey = eventKey;
         this.appearanceDate = appearanceDate;
         this.eventName = eventName;
         this.venueName = venueName;
+        this.areaName = areaName;
         this.performanceStartTime = performanceStartTime;
         this.performanceEndTime = performanceEndTime;
         this.merchStartTime = merchStartTime;
@@ -224,6 +240,10 @@ public class Appearance {
 
     public String getVenueName() {
         return venueName;
+    }
+
+    public String getAreaName() {
+        return areaName;
     }
 
     public LocalTime getPerformanceStartTime() {

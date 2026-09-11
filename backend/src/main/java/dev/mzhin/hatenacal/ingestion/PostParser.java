@@ -1,5 +1,6 @@
 package dev.mzhin.hatenacal.ingestion;
 
+import dev.mzhin.hatenacal.venue.RegionResolver;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -191,6 +192,7 @@ public class PostParser {
             TimeRange merch = merchFor(lines, line, nextMic, slot.carried());
 
             results.add(new ParsedAppearance(slot.date(), eventName.value(), venue,
+                    areaFor(venue, headerVenue),
                     slot.start(), slot.end(),
                     merch == null ? null : merch.start(),
                     merch == null ? null : merch.end(),
@@ -249,9 +251,27 @@ public class PostParser {
         if (date == null) {
             return ParseResult.unparsed("告知の曜日と実際の曜日が一致しない");
         }
+        String venue = confirmedVenue(headerVenue);
         return new ParseResult.Extracted(List.of(new ParsedAppearance(
-                date, eventName.value(), confirmedVenue(headerVenue),
+                date, eventName.value(), venue, areaFor(venue, headerVenue),
                 null, null, null, null, ticketUrl)));
+    }
+
+    /**
+     * 会場を確定できなかったときの地名（ADR-0022「会場が未定でも地域は持つ」）。
+     *
+     * <p>空欄にすると地域まで失われ、カレンダーの色が付かなくなる。
+     * ヘッダ会場の {@code ・} より前を残しておけば、会場が未定でも地方は分かる。
+     *
+     * <p><b>会場が確定しているときは入れない。</b> 地域は引き当てた会場から引けるので
+     * 不要であり、2 つ持てば食い違う余地を作るだけである
+     * （docs/x-integration.md「会場を空欄にしたときは地名だけ残す」）。
+     *
+     * <p>切り出しは {@link RegionResolver#placeOf} に任せる。
+     * {@code ・} の扱いと NFKC 正規化を 2 か所に書かないため。
+     */
+    private static String areaFor(String venue, String headerVenue) {
+        return venue != null ? null : RegionResolver.placeOf(headerVenue);
     }
 
     /**

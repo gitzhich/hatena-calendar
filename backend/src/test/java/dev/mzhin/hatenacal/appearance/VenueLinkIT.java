@@ -37,7 +37,12 @@ class VenueLinkIT {
     }
 
     private AppearanceCommand command(String eventName, String venueName, LocalTime start) {
-        return new AppearanceCommand(LocalDate.of(2026, 9, 20), eventName, venueName,
+        return command(eventName, venueName, null, start);
+    }
+
+    private AppearanceCommand command(String eventName, String venueName, String areaName,
+            LocalTime start) {
+        return new AppearanceCommand(LocalDate.of(2026, 9, 20), eventName, venueName, areaName,
                 start, null, null, null, null, "https://x.com/a/status/1", null);
     }
 
@@ -179,6 +184,86 @@ class VenueLinkIT {
         assertThat(venueCount())
                 .as("同じ会場なので 1 行に寄る")
                 .isEqualTo(1);
+    }
+
+    // --------------------------------------------------- 会場未定でも地域は持つ
+
+    @Test
+    @DisplayName("会場が未定でも、地名があれば地域が付く")
+    void areaOnlyVenueCarriesRegion() {
+        AdminAppearanceDto saved = service.create(
+                command("『FES』", null, "東京", null));
+
+        assertThat(saved.venueName()).as("会場は空欄のまま").isNull();
+        assertThat(saved.venueId()).isNotNull();
+        assertThat(saved.venueRegion())
+                .as("東京の公演なのに色が付かない、が起きないようにする")
+                .isEqualTo(Region.KANTO);
+        assertThat(saved.venuePlaceId())
+                .as("地域の行に地図リンクを作らせない（docs/security.md T-08）")
+                .isNull();
+    }
+
+    @Test
+    @DisplayName("地域の行は area_only が立つ。place_id の解決対象から外れる")
+    void areaVenueIsMarked() {
+        AdminAppearanceDto saved = service.create(command("『FES』", null, "東京", null));
+        flush();
+
+        Boolean areaOnly = (Boolean) em
+                .createNativeQuery("SELECT area_only FROM venue WHERE id = ?1")
+                .setParameter(1, saved.venueId())
+                .getSingleResult();
+        assertThat(areaOnly).isTrue();
+    }
+
+    @Test
+    @DisplayName("会場名があれば、そちらが勝つ")
+    void venueNameWinsOverAreaName() {
+        AdminAppearanceDto saved = service.create(
+                command("『FES』", "愛知・大須RADHALL", "東京", null));
+
+        assertThat(saved.venueRegion())
+                .as("会場が確定しているなら、その会場の地域が正しい")
+                .isEqualTo(Region.CHUBU);
+    }
+
+    @Test
+    @DisplayName("地名と判定できない文字列では地域の行を作らない")
+    void unknownAreaCreatesNothing() {
+        AdminAppearanceDto saved = service.create(
+                command("『FES』", null, "恵比寿LIQUIDROOM", null));
+
+        assertThat(saved.venueId())
+                .as("会場名を地域の行にすると、地図リンクを出せる会場を永久に出せなくする")
+                .isNull();
+        assertThat(saved.venueRegion()).isEqualTo(Region.UNKNOWN);
+        assertThat(venueCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("後から会場が埋まると、地域の行から実会場へ張り替わる")
+    void filledVenueReplacesAreaLink() {
+        AdminAppearanceDto area = service.create(command("『FES』", null, "東京", null));
+        Long areaVenueId = area.venueId();
+
+        AdminAppearanceDto moved = service.update(area.id(),
+                command("『FES』", "愛知・大須RADHALL", "東京", null));
+
+        assertThat(moved.venueId()).isNotEqualTo(areaVenueId);
+        assertThat(moved.venueRegion()).isEqualTo(Region.CHUBU);
+    }
+
+    @Test
+    @DisplayName("同じ地名は 1 行に寄る。1 行直せばその地域の全件に効く")
+    void areaVenueIsShared() {
+        AdminAppearanceDto a = service.create(
+                command("『A』", null, "東京", LocalTime.of(18, 0)));
+        AdminAppearanceDto b = service.create(
+                command("『B』", null, "東京", LocalTime.of(19, 0)));
+
+        assertThat(a.venueId()).isEqualTo(b.venueId());
+        assertThat(venueCount()).isEqualTo(1);
     }
 
     @Test

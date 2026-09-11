@@ -17,6 +17,8 @@ public record ParsedAppearance(
         LocalDate appearanceDate,
         String eventName,
         String venueName,
+        /** 会場を確定できなかったときの地名（ADR-0022「会場が未定でも地域は持つ」）。 */
+        String areaName,
         LocalTime performanceStartTime,
         LocalTime performanceEndTime,
         LocalTime merchStartTime,

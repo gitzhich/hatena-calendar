@@ -97,8 +97,23 @@ public final class RegionResolver {
      * @return 判定できた地方。できなければ {@link Region#UNKNOWN}
      */
     public static Region of(String venueName) {
-        String place = placeOf(venueName);
-        if (place == null) {
+        return ofPlace(placeOf(venueName));
+    }
+
+    /**
+     * 地名そのものから地域を判定する。
+     *
+     * <p>{@link #of} が {@code ・} より前を切り出して渡す入口を、外からも使えるようにしたもの。
+     * 会場が未定で地名だけが分かっている場合に使う
+     * （{@code appearance.area_name} / ADR-0022「会場が未定でも地域は持つ」）。
+     *
+     * <p><b>表は 1 つ。</b> 会場名からの判定と同じ表を通す。2 つ持つと、片方だけ直したときに
+     * 「会場ありなら中部、未定なら不明」のような食い違いが生まれる。
+     *
+     * @param place 地名（{@code 東京} / {@code 金沢} / {@code 韓国}）。{@code null} 可
+     */
+    public static Region ofPlace(String place) {
+        if (place == null || place.isBlank()) {
             return Region.UNKNOWN;
         }
         Region overseas = OVERSEAS.get(place);
@@ -125,12 +140,23 @@ public final class RegionResolver {
     }
 
     /**
+     * 地名そのものか。
+     *
+     * <p>会場ではなく地域だけを表す行（{@code 東京}）を作ってよいかの判定に使う。
+     * <b>表に載っている地名と判定できたときだけ true。</b>
+     * {@code 恵比寿LIQUIDROOM} のような会場名を地域と取り違えない。
+     */
+    public static boolean isPlaceName(String value) {
+        return ofPlace(value) != Region.UNKNOWN;
+    }
+
+    /**
      * 会場名の先頭にある地名を取り出す。
      *
      * <p>{@code ・} が無ければ地名は書かれていない。実データでは
      * {@code ドラゴンステージ} のようなステージ名だけの表記がこれに当たる。
      */
-    private static String placeOf(String venueName) {
+    public static String placeOf(String venueName) {
         if (venueName == null) {
             return null;
         }

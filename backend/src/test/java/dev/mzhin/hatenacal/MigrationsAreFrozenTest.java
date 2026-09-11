@@ -59,7 +59,9 @@ class MigrationsAreFrozenTest {
             "V4__ingestion_run_unparsed_count.sql",
             "546961413003001f7014841beb0adecb7e9c3148ed3ea99e00925d5c9e2bb53b",
             "V5__venue.sql",
-            "a49cdea633503497bda822c53da4b232d771fcdad96ef1bb639217b0bf42a37c");
+            "a49cdea633503497bda822c53da4b232d771fcdad96ef1bb639217b0bf42a37c",
+            "V6__area_without_venue.sql",
+            "9d277f4992340093bf0291fff716677a7581cb42690adef65388db731e4fc96f");
 
     private static final String HOW_TO_FIX = """
             適用済みのマイグレーションが変更されている。

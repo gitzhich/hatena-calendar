@@ -33,6 +33,8 @@ export default async function NewAppearancePage({
         <Field label="イベント名" name="eventName" required
                placeholder="『ORANGE CHEER』" />
         <Field label="会場" name="venueName" placeholder="愛知・大須RADHALL" />
+        {/* 会場が未定のときだけ入れる（ADR-0022「会場が未定でも地域は持つ」） */}
+        <Field label="地名（会場未定のとき）" name="areaName" placeholder="東京" />
         <Field label="出演 開始" name="performanceStartTime" type="time" />
         <Field label="出演 終了" name="performanceEndTime" type="time" />
         <Field label="物販 開始" name="merchStartTime" type="time" />
