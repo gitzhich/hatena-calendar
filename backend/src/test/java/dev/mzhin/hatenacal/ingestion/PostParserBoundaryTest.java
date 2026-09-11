@@ -784,6 +784,127 @@ class PostParserBoundaryTest {
     }
 
     /**
+     * ブロックの境界（docs/x-integration.md「1 投稿から複数の出演情報」）。
+     *
+     * <p>1 投稿に 2 公演が入る告知を、独立したブロックに割れるかを固定する。
+     * 割れないと後続ブロックの 📍 を前ブロックの枠の会場と誤認する。
+     */
+    @Nested
+    @DisplayName("ブロックの境界（docs/x-integration.md「1 投稿から複数の出演情報」）")
+    class BlockBoundary {
+
+        /** 2 公演の告知。日付行と 📍 行を分けるかを呼び出し側が決める。 */
+        private String twoShows(String firstHead, String secondHead) {
+            return """
+                    🔸明日のXINXIN公演🔸
+
+                    %s
+                    『イベントA』
+
+                    ⏰OPEN 9:00 / START 9:15
+                    🔗https://example.com/a
+                    ※販売：～9/5(土)8:59まで販売
+
+                    ▪️タイムテーブル
+                    🎤12:35-13:00 XINXIN出演
+
+                    %s
+                    『イベントB』
+
+                    ⏰OPEN 15:00 / START 15:20
+                    🔗https://example.com/b
+
+                    ▪️タイムテーブル
+                    🎤17:05-17:25 XINXIN出演
+                    """.formatted(firstHead, secondHead);
+        }
+
+        private List<ParsedAppearance> extract(String body) {
+            ParseResult r = parser.parse(body, posted(2026, 8, 20));
+            assertThat(r).isInstanceOf(ParseResult.Extracted.class);
+            return ((ParseResult.Extracted) r).appearances();
+        }
+
+        @Test
+        @DisplayName("日付と 📍 が同じ行なら 2 公演に分かれる（実サンプル 26.txt）")
+        void sameLineSplits() {
+            List<ParsedAppearance> list = extract(twoShows(
+                    "9/5(土)📍東京・A HALL", "9/5(土)📍東京・B HALL"));
+
+            assertThat(list).hasSize(2);
+            assertThat(list).extracting(ParsedAppearance::venueName)
+                    .containsExactly("東京・A HALL", "東京・B HALL");
+        }
+
+        @Test
+        @DisplayName("日付行と 📍 行が分かれていても 2 公演に分かれる（実サンプル 27.txt）")
+        void splitLinesAlsoSplit() {
+            List<ParsedAppearance> list = extract(twoShows(
+                    "☀️9/5(土)\n📍東京・A HALL", "🌙9/5(土)\n📍東京・B HALL"));
+
+            assertThat(list)
+                    .as("分かれないと 2 公演目の 📍 を 1 公演目の枠の会場と誤認する")
+                    .hasSize(2);
+            assertThat(list).extracting(ParsedAppearance::venueName)
+                    .containsExactly("東京・A HALL", "東京・B HALL");
+        }
+
+        @Test
+        @DisplayName("▪️ の見出しは境界にしない。1 公演 2 枠が 2 公演に割れる")
+        void sectionHeadingIsNotABoundary() {
+            String body = """
+                    🔸XINXIN公演タイムテーブル解禁🔸
+
+                    9/5(土)
+                    📍愛知・A HALL / B HALL
+                    『イベントA』
+
+                    ⏰OPEN 13:00 / START 13:20
+                    🔗https://example.com/a
+
+                    ▪️9/5(土)タイムテーブル
+                    📍A HALL
+                    🎤16:35-17:05 XINXIN①
+
+                    📍B HALL
+                    🎤19:50-20:15 XINXIN②
+                    """;
+
+            List<ParsedAppearance> list = extract(body);
+
+            assertThat(list)
+                    .as("▪️ はタイムテーブル節の見出しで、新しい公演の始まりではない")
+                    .hasSize(2);
+            assertThat(list).extracting(ParsedAppearance::eventName)
+                    .as("同じイベントの 2 枠。ブロックが割れるとイベント名が取れなくなる")
+                    .containsExactly("『イベントA』", "『イベントA』");
+        }
+
+        @Test
+        @DisplayName("販売期限が公演当日でも、同じ日なら曖昧ではない")
+        void duplicateHeaderDateIsNotAmbiguous() {
+            String body = """
+                    🔸明日のXINXIN公演🔸
+
+                    9/5(土)
+                    📍東京・A HALL
+                    『イベントA』
+
+                    ⏰OPEN 9:00 / START 9:15
+                    🔗https://example.com/a
+                    ※販売：～9/5(土)8:59まで販売
+
+                    ▪️タイムテーブル
+                    🎤12:35-13:00 XINXIN出演
+                    """;
+
+            assertThat(only(body, posted(2026, 8, 20)).appearanceDate())
+                    .as("件数で数えると 2 つに見えるが、指しているのは同じ 1 日")
+                    .isEqualTo(LocalDate.of(2026, 9, 5));
+        }
+    }
+
+    /**
      * 会場の羅列（docs/x-integration.md「会場」）。
      *
      * <p><b>区切りは 3 種類。</b> 実データに半角 {@code /}（1.txt / 6.txt）、
