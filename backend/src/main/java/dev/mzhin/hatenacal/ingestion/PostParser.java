@@ -107,15 +107,28 @@ public class PostParser {
     /**
      * イベントブロックの開始行（docs/x-integration.md「1 投稿から複数の出演情報」パターン C）。
      *
-     * <p><b>日付と 📍 を同じ行に持つ行</b>を境界にする。実サンプル 13 件では
-     * この形の行は多くても 1 行しかなく、複数あるのはまとめ告知だけだった。
-     * タイムテーブル内の 📍 は枠ごとの会場（ステージ名）で日付を伴わないため、
-     * 6.txt のようなサーキット形式を誤って分割しない。
+     * <p><b>日付を持つ行で、その行または次の行に 📍 があるもの</b>を境界にする。
+     * 公演の告知は「日付 → 会場 → イベント名」の順に書かれ、日付と会場が
+     * 同じ行のこともあれば行が分かれていることもある（実サンプル 26.txt と 27.txt）。
+     *
+     * <p><b>▪️ の行は境界にしない。</b> これはタイムテーブル節の見出しであって、
+     * 新しい公演の始まりではない。除かないと 6.txt の
+     * {@code ▪️8/25(土)タイムテーブル} → {@code 📍NAGOYA ReNY limited} が境界になり、
+     * <b>1 公演 2 枠の告知が 2 公演に割れる</b>。
+     *
+     * <p>タイムテーブル内の 📍 は枠ごとの会場（ステージ名）で日付を伴わないため、
+     * サーキット形式を誤って分割しない。
      */
     private static List<Integer> blockStarts(List<String> lines) {
         List<Integer> starts = new ArrayList<>();
         for (int i = 0; i < lines.size(); i++) {
-            if (lines.get(i).contains(PIN) && DATE.matcher(lines.get(i)).find()) {
+            String line = lines.get(i);
+            if (!DATE.matcher(line).find() || line.contains(SECTION)) {
+                continue;
+            }
+            boolean pinFollows = line.contains(PIN)
+                    || (i + 1 < lines.size() && lines.get(i + 1).contains(PIN));
+            if (pinFollows) {
                 starts.add(i);
             }
         }
@@ -417,8 +430,14 @@ public class PostParser {
                     .filter(d -> d.month() == month && d.day() == day)
                     .findFirst().orElse(null);
         }
-        // 見出しで対応付けられない場合、ヘッダの日付が 1 つのときだけそれに紐づける
-        return headerDates.size() == 1 ? headerDates.get(0) : null;
+        // 見出しで対応付けられない場合、ヘッダの日付が 1 日に定まるときだけ紐づける。
+        //
+        // **同じ日が複数回現れるのは曖昧ではない。** 販売期間が公演当日に終わる告知
+        // （実サンプル 27.txt の「※販売：～6/14(日)8:59まで販売」）では、
+        // 公演日と販売期限が同じ日付になる。件数で見ると 2 つあって諦めてしまい、
+        // 2 公演の告知が丸ごと未処理に回っていた
+        List<MonthDay> distinct = headerDates.stream().distinct().toList();
+        return distinct.size() == 1 ? distinct.get(0) : null;
     }
 
     // ------------------------------------------------------------------
