@@ -1,6 +1,7 @@
 import type { Appearance } from "@/lib/api";
 import { todayInJst, isWithinRange } from "@/lib/calendar-range";
-import { DayGrid, DayPanel, RegionMatch } from "@/components/DayGrid";
+import { DayGrid, DayPanel } from "@/components/DayGrid";
+import { RegionFiltered } from "@/components/RegionScope";
 import { AppearanceCard } from "@/components/AppearanceCard";
 
 /** 月グリッド（FR-01）。7 列で当月のすべての日付を含む。 */
@@ -59,11 +60,11 @@ export function Calendar({
           <DayPanel key={iso} iso={iso}>
             <ul className="space-y-3">
               {items.map((a) => (
-                <RegionMatch key={a.id} region={a.venueRegion}>
+                <RegionFiltered key={a.id} regions={[a.venueRegion]}>
                   <li>
                     <AppearanceCard appearance={a} />
                   </li>
-                </RegionMatch>
+                </RegionFiltered>
               ))}
             </ul>
           </DayPanel>

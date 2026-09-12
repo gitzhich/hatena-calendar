@@ -4,6 +4,7 @@ import { monthBounds } from "@/lib/calendar-range";
 import { Calendar } from "@/components/Calendar";
 import { AppearanceList } from "@/components/AppearanceList";
 import { LastUpdated } from "@/components/LastUpdated";
+import { RegionScope } from "@/components/RegionScope";
 import { ScrollToTop } from "@/components/ScrollToTop";
 
 /** 当月ページと指定月ページで共有する本体。 */
@@ -36,10 +37,12 @@ export async function CalendarPage({ year, month }: { year: number; month: numbe
           </p>
         )}
 
-        <Calendar year={year} month={month} appearances={appearances} appearancesOk={result.ok} />
+        <RegionScope>
+          <Calendar year={year} month={month} appearances={appearances} appearancesOk={result.ok} />
 
-        <h2 className="mt-8 mb-3 text-base font-bold">出演一覧</h2>
-        {result.ok && <AppearanceList appearances={appearances} />}
+          <h2 className="mt-8 mb-3 text-base font-bold">出演一覧</h2>
+          {result.ok && <AppearanceList appearances={appearances} />}
+        </RegionScope>
 
         {status.ok && <LastUpdated status={status.status} />}
       </div>

@@ -14,6 +14,7 @@ import {
 } from "@/lib/appearance-display";
 import { countedRegions, matchesRegion, regionClass } from "@/lib/region-color";
 import { RegionBar } from "@/components/RegionBar";
+import { useRegionScope } from "@/components/RegionScope";
 
 const MAX_VISIBLE_CHIPS = 2;
 
@@ -80,30 +81,11 @@ type DayGridProps = {
 };
 
 const SelectedIsoContext = createContext<string | null>(null);
-const SelectedRegionContext = createContext<string | null>(null);
 
 /** 選択中の日の詳細だけを出す。カード本体は Server Component のまま children で渡す。 */
 export function DayPanel({ iso, children }: { iso: string; children: ReactNode }) {
   const selectedIso = useContext(SelectedIsoContext);
   if (iso !== selectedIso) return null;
-  return children;
-}
-
-/**
- * 日別シートの 1 件。地域が絞り込みと一致しないときは出さない。
- *
- * children はサーバで描いたカード。クライアントから中身は読めないので、
- * 包んで null を返す。
- */
-export function RegionMatch({
-  region,
-  children,
-}: {
-  region: string;
-  children: ReactNode;
-}) {
-  const selected = useContext(SelectedRegionContext);
-  if (!matchesRegion(region, selected)) return null;
   return children;
 }
 
@@ -119,7 +101,7 @@ export function DayGrid({
   children,
 }: DayGridProps) {
   const [sheet, setSheet] = useState<Sheet | null>(null);
-  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const { selectedRegion, setSelectedRegion } = useRegionScope();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeCleanupRef = useRef<(() => void) | null>(null);
   const openSeqRef = useRef(0);
@@ -307,7 +289,6 @@ export function DayGrid({
 
   return (
     <SelectedIsoContext.Provider value={selectedIso}>
-      <SelectedRegionContext.Provider value={selectedRegion}>
       <nav className="flex items-center gap-2 mb-4">
         <TodayControl
           isCurrentMonth={isCurrentMonth}
@@ -428,7 +409,6 @@ export function DayGrid({
           {children}
         </div>
       </dialog>
-      </SelectedRegionContext.Provider>
     </SelectedIsoContext.Provider>
   );
 }
