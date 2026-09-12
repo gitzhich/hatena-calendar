@@ -557,6 +557,7 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
 
 ```
 GET  /api/admin/venues?page=0&size=20&unresolved=true
+GET  /api/admin/venues/{id}
 PUT  /api/admin/venues/{id}
 POST /api/admin/venues/{id}/resolve-place-id
 ```
@@ -600,15 +601,27 @@ POST /api/admin/venues/{id}/resolve-place-id
   指している（[ADR-0022](adr/0022-venue-place-id-and-region.md)「会場が未定でも地域は持つ」）。
   `place_id` を解決せず、**`resolve-place-id` は `409`** を返す。
   `appearanceCount` は「会場が未定のままの公演が何件あるか」として読める
-- 並び順は `displayName` の昇順で、**最後に `id` で決着させる**。
-  一意に決めておかないとページの境界で取りこぼしと重複が出る
-  （本書「出演情報の一覧と個別取得（点検用）」と同じ理由）
+- 並び順は **`region`（北海道 → 東北 → 関東 → 中部 → 近畿 → 中国 → 四国 → 九州 →
+  海外 → 不明）→ `displayName` → `id`**。地方でまとまるので、同じ地域の会場を
+  見比べながら直せる。`region` は文字列で保存しているため、素直に並べると
+  アルファベット順（CHUBU, CHUGOKU, HOKKAIDO…）になり、固まりはするが並びが恣意的になる
+- **最後に `id` で決着させる。** 一意に決めておかないとページの境界で
+  取りこぼしと重複が出る（本書「出演情報の一覧と個別取得（点検用）」と同じ理由）
 - `unresolved=true` は **`manuallyEdited` の行も返す**。管理者が誤った `placeId` を
   消した行はまさに未解決の会場であり、消えると直したい行を見失う
+
+**1 件（`GET /{id}`）**
+
+**一覧の 1 要素と同じ形**（`appearanceCount` 込み）を返す。編集画面が現在値を
+読むための口で、画面が一覧と詳細で別の形を扱わずに済む。
+存在しない `id` は `404`。
 
 **編集（`PUT`）**
 
 `displayName` / `region` / `placeId` を更新できる。
+
+**`PUT` は全項目の差し替え。** `placeId` を省いて送ると `null` になり、
+**解決済みの会場が未解決へ戻る**。画面から送るときは、触らない項目も現在値を載せる。
 
 - **更新すると `manuallyEdited` が `true` になる。** 以後、自動判定と自動解決は
   **この行を上書きしない**。人が確認した値のほうが強い

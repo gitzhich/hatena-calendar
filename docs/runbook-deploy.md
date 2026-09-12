@@ -1,6 +1,6 @@
 # 手順書 — 本番デプロイ
 
-最終更新: 2026-09-04
+最終更新: 2026-09-12
 
 関連文書: [architecture.md](architecture.md)「設定と環境変数」・[architecture.md](architecture.md)「デプロイ」・[architecture.md](architecture.md)「運用コストの試算」 /
 [security.md](security.md) / [runbook-x-api-setup.md](runbook-x-api-setup.md) /
@@ -465,7 +465,29 @@ curl -sI https://<domain>/ | grep -iE 'content-security-policy|strict-transport|
 
 ---
 
-## 7. 止める・戻す
+## 7. place_id を手で入れる
+
+会場の `place_id` は 1 日 1 回の定期実行が自動で埋める
+（[ADR-0022](adr/0022-venue-place-id-and-region.md)）。
+**手で入れるのは、自動解決が別の場所を指してしまったときだけ。**
+管理画面の会場編集でいったん空にし、正しい ID が分かっていればそこへ入れる
+（[api.md](api.md)「会場の一覧と編集」）。
+
+**`place_id` は通常の Google マップには出てこない。** 検索結果の URL にも
+共有リンクにも含まれない（`?q=` や `data=` に見える文字列は `place_id` ではない）。
+調べるには **Place ID Finder** を使う。
+
+<https://developers.google.com/maps/documentation/places/web-service/place-id>
+
+地図上で会場を選ぶと `ChIJ…` の形の ID が出る。**同名の施設が複数あるので住所まで見て選ぶ。**
+
+**確信が持てなければ空のままでよい。** 空なら地図リンクが名前検索に落ちるだけで、
+画面は壊れない。**誤った `place_id` はリンクが無いより悪く、ファンが違う場所へ向かう**
+（[security.md](security.md) T-08）。
+
+---
+
+## 8. 止める・戻す
 
 | やりたいこと | 手段 |
 | --- | --- |
@@ -478,7 +500,7 @@ curl -sI https://<domain>/ | grep -iE 'content-security-policy|strict-transport|
 
 ---
 
-## 8. 2 回目以降
+## 9. 2 回目以降
 
 ```bash
 git checkout main && git pull --ff-only
@@ -504,7 +526,7 @@ gh api repos/{owner}/{repo}/deployments?sha=$(git rev-parse main)   # フロン�
 
 ---
 
-## 9. うまくいかないとき
+## 10. うまくいかないとき
 
 | 症状 | 見るところ |
 | --- | --- |
