@@ -68,6 +68,25 @@ agent -p --trust -w <名前> --model cursor-grok-4.6-high --output-format text "
 | `--force` なしなら許可リスト外のシェルは拒否 | しかも**非対話のまま完走する**（exit 0）。承認待ちで止まらない |
 | `Write(**/path)` を allow に入れれば `--force` なしで編集できる | 「シェルは閉じたまま、ファイル編集だけ許す」が成立する |
 | プロジェクトの `cli.json` に `version` キーは置けない | 公式の例は全体側 `cli-config.json` のもの。`permissions.allow` は必須 |
+| **worktree では `npm run build` が通らないことがある** | 借りた `node_modules` 経由で Turbopack が postcss を解決できない（下記） |
+
+#### worktree の `npm run build` を鵜呑みにしない
+
+**CSS を変更した PR で `npm run build` が落ちる。** 2026-09-12 に PR #84 で発生し、
+こちらでも再現した。
+
+```
+Module not found  at [turbopack-node]/transforms/postcss.ts
+```
+
+本書「実装させるときは worktree に入れる」のとおり `frontend/node_modules` を
+本体からシンボリックリンクで借りているため、Turbopack がそこを辿れない。
+**CSS を触らない PR では起きない**（`feat/venue-map-link` は通っていた）。
+
+**コードの問題ではない。** CI は実体の `node_modules` でビルドしており通る。
+ただし [AGENTS.md](../AGENTS.md) が検証として求める `npm run build` を
+**Cursor が worktree の中では満たせない**ということなので、
+「build 緑」の報告だけで判断せず、**CI の結果を見る**。
 
 ### 従うべき結論
 
