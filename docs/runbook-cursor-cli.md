@@ -88,6 +88,19 @@ Module not found  at [turbopack-node]/transforms/postcss.ts
 **Cursor が worktree の中では満たせない**ということなので、
 「build 緑」の報告だけで判断せず、**CI の結果を見る**。
 
+#### 同じ worktree に 2 回目以降入ると setup が落ちる
+
+レビュー指摘を同じ `-w <名前>` へ返すと、毎回これが出る。
+
+```
+ln: failed to create symbolic link 'frontend/node_modules/node_modules': File exists
+[worktree-setup] Script failed with exit code 1
+```
+
+`node_modules` は既にあるので**作業自体は続く**。ただし exit 1 で終わるため
+ログだけ見ると失敗したように読める。**`.cursor/setup-worktree-unix.sh` が
+使い回しを想定していない**ということで、実害は今のところ無い。
+
 ### 従うべき結論
 
 - **`--force` を使わない。** 使うと拒否がシェルで迂回できてしまう
