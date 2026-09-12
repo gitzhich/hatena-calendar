@@ -248,6 +248,15 @@ export const updateVenue = (id: number, body: unknown) =>
 export const resolveVenuePlaceId = (id: number) =>
   mutate(`/api/admin/venues/${id}/resolve-place-id`, "POST");
 
+/**
+ * 会場の削除。
+ *
+ * **出演情報から参照されている会場は 409**（docs/api.md「会場の一覧と編集」）。
+ * 画面はボタンを出さないが、判定の正はサーバ側（NFR-03）。
+ */
+export const deleteVenue = (id: number) =>
+  mutate(`/api/admin/venues/${id}`, "DELETE");
+
 /** ログインのためのパスワード検証（docs/api.md「管理者パスワードの検証」）。 */
 export async function verifyPassword(password: string): Promise<boolean> {
   const res = await fetch(`${BASE_URL}/internal/auth`, {

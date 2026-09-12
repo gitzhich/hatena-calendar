@@ -556,10 +556,11 @@ NFR-04 のコスト追跡と NFR-09 の失敗検知に使う。
 ### 5.8 会場の一覧と編集
 
 ```
-GET  /api/admin/venues?page=0&size=20&unresolved=true
-GET  /api/admin/venues/{id}
-PUT  /api/admin/venues/{id}
-POST /api/admin/venues/{id}/resolve-place-id
+GET    /api/admin/venues?page=0&size=20&unresolved=true
+GET    /api/admin/venues/{id}
+PUT    /api/admin/venues/{id}
+DELETE /api/admin/venues/{id}
+POST   /api/admin/venues/{id}/resolve-place-id
 ```
 
 会場ごとに 1 行を持ち、地域と `place_id` を管理する
@@ -633,6 +634,19 @@ POST /api/admin/venues/{id}/resolve-place-id
 自動解決が外したから人が直したのに、翌日また同じ値で埋め直されては意味がない。
 正しい `placeId` が分かったら `PUT` で直接入れる。分からなければ `null` のままでよく、
 地図リンクは名前検索に落ちる。
+
+**削除（`DELETE /{id}`）**
+
+**`appearanceCount` が 0 の会場だけ消せる。** 1 件でも参照されていれば `409` を返し、
+何件あるかを `detail` に入れる。参照されている会場を消すと、**公開ページから地域も
+地図リンクも一緒に落ちる**。消す対象は、会場名の書き換えで取り残された行に限られる。
+
+- **`areaOnly` でも `manuallyEdited` でも消せる。** 条件は使用件数だけ
+- ただし**人が直した地域も一緒に消える**。同じ表記が再び告知に出れば、自動判定で
+  作り直される。出演 0 件の行に限られるため、公開されている情報は変わらない
+- **数えてから消すまでの間に増えることがある。** 取り込みの定期実行が 30 分ごとに
+  `venue_id` を付けるため。外部キー違反も `409` に落とす（`500` に混ぜない）
+- 成功は `204`
 
 **解決（`POST .../resolve-place-id`）**
 

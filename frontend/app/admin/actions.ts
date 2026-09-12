@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import {
   createAppearance,
   deleteAppearance,
+  deleteVenue,
   excludeUnparsedPost,
   requireAdmin,
   resolveVenuePlaceId,
@@ -222,6 +223,24 @@ export async function resolveVenueAction(
   // place_id は地図リンクに使う。公開ページのキャッシュを更新する
   revalidatePublicPages();
   redirect(`/admin/venues/${id}`);
+}
+
+/**
+ * 会場の削除。
+ *
+ * **`revalidatePublicPages()` を呼ばない。** 消せるのは出演情報から参照されていない
+ * 会場だけなので、**公開ページの表示は 1 か所も変わらない**。呼ぶと ISR のキャッシュが
+ * 全月ぶん捨てられ、閲覧のたびに Neon が起きる。無料枠の制約はコンピュート時間で、
+ * 無駄な再検証がそのまま消費になる（NFR-04 / docs/architecture.md「キャッシュ戦略」）。
+ */
+export async function deleteVenueAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await guard(formData);
+  const result = await deleteVenue(Number(formData.get("id")));
+  if (!result.ok) return { message: result.message };
+  redirect("/admin/venues");
 }
 
 /** 画面から CSRF トークンを取り出すための補助。 */

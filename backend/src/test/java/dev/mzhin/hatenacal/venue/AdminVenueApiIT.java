@@ -347,6 +347,77 @@ class AdminVenueApiIT {
                 editBody("架空", "KANTO", null)).statusCode()).isEqualTo(404);
     }
 
+    // -------------------------------------------------------------- 削除
+
+    @Test
+    @DisplayName("出演情報から参照されていない会場は消せる")
+    void deletesOrphanVenue() throws Exception {
+        Long id = venue("愛知・大須RADHALL");
+
+        HttpResponse<String> res = send("DELETE", PATH + "/" + id, ADMIN_KEY, null);
+
+        assertThat(res.statusCode()).isEqualTo(204);
+        assertThat(get(PATH).path("totalElements").asInt()).isZero();
+    }
+
+    @Test
+    @DisplayName("出演情報から参照されている会場は 409。行は残る")
+    void refusesDeleteWhenUsed() throws Exception {
+        Long id = venue("愛知・大須RADHALL");
+        appearance("a", id, "愛知・大須RADHALL");
+        appearance("b", id, "愛知・大須RADHALL");
+
+        HttpResponse<String> res = send("DELETE", PATH + "/" + id, ADMIN_KEY, null);
+
+        assertThat(res.statusCode()).isEqualTo(409);
+        assertThat(res.body())
+                .as("何件あるから消せないのかを画面に出す")
+                .contains("2");
+        assertThat(get(PATH + "/" + id).path("id").asLong())
+                .as("消せなかったのに消えていては困る")
+                .isEqualTo(id);
+    }
+
+    @Test
+    @DisplayName("地域だけの行も、参照が無ければ消せる")
+    void deletesUnusedAreaOnlyRow() throws Exception {
+        Long id = tx.execute(s -> venues.findOrCreateArea("東京").getId());
+
+        assertThat(send("DELETE", PATH + "/" + id, ADMIN_KEY, null).statusCode())
+                .as("条件は使用件数だけ。areaOnly かどうかは関係しない")
+                .isEqualTo(204);
+    }
+
+    @Test
+    @DisplayName("管理者が編集した会場も、参照が無ければ消せる")
+    void deletesUnusedManuallyEditedVenue() throws Exception {
+        Long id = venue("金沢・REDSUN");
+        send("PUT", PATH + "/" + id, ADMIN_KEY, editBody("金沢・REDSUN", "CHUBU", "ChIJ_redsun"));
+
+        assertThat(send("DELETE", PATH + "/" + id, ADMIN_KEY, null).statusCode())
+                .as("人が直した地域も消えるが、出演 0 件なら公開されている情報は変わらない")
+                .isEqualTo(204);
+    }
+
+    @Test
+    @DisplayName("存在しない会場の削除は 404")
+    void deleteMissingVenue() throws Exception {
+        assertThat(send("DELETE", PATH + "/999999", ADMIN_KEY, null).statusCode())
+                .isEqualTo(404);
+    }
+
+    @Test
+    @DisplayName("削除は公開キーでは通らない")
+    void rejectsPublicKeyOnDelete() throws Exception {
+        Long id = venue("愛知・大須RADHALL");
+
+        assertThat(send("DELETE", PATH + "/" + id, PUBLIC_KEY, null).statusCode())
+                .isEqualTo(403);
+        assertThat(get(PATH).path("totalElements").asInt())
+                .as("拒否したのに消えていては意味がない")
+                .isEqualTo(1);
+    }
+
     // -------------------------------------------------------------- 即時解決
 
     @Test

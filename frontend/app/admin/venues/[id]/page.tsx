@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getVenue, requireAdmin } from "@/lib/admin-api";
-import { currentCsrf, resolveVenueAction, updateVenueAction } from "@/app/admin/actions";
+import {
+  currentCsrf,
+  deleteVenueAction,
+  resolveVenueAction,
+  updateVenueAction,
+} from "@/app/admin/actions";
 import { ActionForm, Field, Select } from "@/components/admin/FormFields";
 import { REGIONS, regionLabel } from "@/lib/region";
 import { formatJst } from "@/lib/last-updated";
@@ -30,6 +35,8 @@ export default async function EditVenuePage({
   const csrf = await currentCsrf();
   // 会場ではない行と、人が確認済みの行は自動解決の対象外（どちらも 409 になる）
   const canResolve = !venue.areaOnly && !venue.manuallyEdited;
+  // 参照されている会場を消すと、公開ページから地域も地図リンクも落ちる
+  const canDelete = venue.appearanceCount === 0;
 
   return (
     <main>
@@ -109,6 +116,33 @@ export default async function EditVenuePage({
             <input type="hidden" name="id" value={venue.id} />
           </ActionForm>
         </>
+      )}
+
+      <hr className="my-8 border-neutral-300 dark:border-neutral-700" />
+
+      <h2 className="text-sm font-bold mb-2">削除</h2>
+      {canDelete ? (
+        <>
+          <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-3">
+            この会場を指す出演情報はありません。会場名の書き換えで取り残された行を
+            消すための操作です。
+            {venue.manuallyEdited && " 手で直した地域も一緒に消えます。"}
+            同じ表記が再び告知に出れば、自動判定で作り直されます。
+          </p>
+          <ActionForm action={deleteVenueAction} csrf={csrf} submitLabel="削除する" danger>
+            <input type="hidden" name="id" value={venue.id} />
+          </ActionForm>
+        </>
+      ) : (
+        /*
+          欄ごと消さずに理由を出す。ボタンが無いだけだと「なぜ消せないか」が
+          分からず、出演情報を先に移せばよいことに気づけない
+        */
+        <p className="text-xs text-neutral-600 dark:text-neutral-400">
+          出演情報が <span className="tabular-nums">{venue.appearanceCount}</span> 件
+          あるため削除できません。消すには、先にその出演情報の会場を別の表記へ直して
+          この会場を参照しない状態にしてください。
+        </p>
       )}
 
       <p className="mt-8 text-xs">
