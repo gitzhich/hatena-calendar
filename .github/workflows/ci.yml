@@ -92,6 +92,10 @@ jobs:
       - uses: actions/checkout@v5
       - name: 設計文書への参照を検査する
         run: scripts/check-doc-refs.py
+      # 配色も変更範囲で絞らない。色を 1 つ足すだけでペアが増え、
+      # 足りない組み合わせを手計算では追えない（NFR-08 / ADR-0022）。
+      - name: 配色のコントラスト比を検査する
+        run: scripts/check-contrast.py
 
   # ブランチ保護の必須チェックはこのジョブだけにする。
   # パス絞り込みでジョブがスキップされると、そのチェックは報告されず
