@@ -18,6 +18,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Link href="/admin/unparsed" className="underline">
             未処理投稿
           </Link>
+          <Link href="/admin/venues" className="underline">
+            会場
+          </Link>
           <Link href="/admin/ingestion" className="underline">
             取り込み状況
           </Link>

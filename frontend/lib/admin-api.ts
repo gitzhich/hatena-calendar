@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { SESSION_COOKIE, openSession, type Session } from "@/lib/session";
 import { backendBaseUrl } from "./backend-url";
 import { DEFAULT_APPEARANCE_SORT, type AppearanceSort } from "./admin-appearance-query";
+import type { Region } from "./region";
 
 /**
  * 管理 API のクライアント。
@@ -59,6 +60,28 @@ export type AdminAppearance = {
   ingestedPostId: number | null;
   createdAt: string;
   updatedAt: string;
+};
+
+/**
+ * 会場 1 行（docs/api.md「会場の一覧と編集」/ ADR-0022）。
+ *
+ * `venue` は 1 会場 1 行なので、**1 行直せば過去の全出演に効く**。
+ * `appearanceCount` はその効き目の大きさ。
+ */
+export type AdminVenue = {
+  id: number;
+  /** 照合キー。表記から機械的に決まるので**編集できない** */
+  venueKey: string;
+  displayName: string;
+  region: Region;
+  /** `null` は「まだ同定できていない」。地図リンクは名前検索に落ちる */
+  placeId: string | null;
+  placeIdCheckedAt: string | null;
+  /** `true` の行は自動判定・自動解決が触らない */
+  manuallyEdited: boolean;
+  /** 会場ではなく地域だけの行（`東京`）。place_id を解決しない */
+  areaOnly: boolean;
+  appearanceCount: number;
 };
 
 export type UnparsedPost = {
@@ -156,6 +179,24 @@ export async function listUnparsedPosts(page = 0): Promise<Paged<UnparsedPost>> 
   return res.json();
 }
 
+export async function listVenues(
+  unresolved: boolean,
+  page = 0,
+): Promise<Paged<AdminVenue>> {
+  const query = new URLSearchParams({ page: String(page), size: "20" });
+  if (unresolved) query.set("unresolved", "true");
+  const res = await adminFetch(`/api/admin/venues?${query}`);
+  if (!res.ok) throw new Error(`会場一覧の取得に失敗しました (${res.status})`);
+  return res.json();
+}
+
+export async function getVenue(id: number): Promise<AdminVenue | null> {
+  const res = await adminFetch(`/api/admin/venues/${id}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`取得に失敗しました (${res.status})`);
+  return res.json();
+}
+
 /** 登録・編集・削除の結果。画面へ返すために失敗理由を保持する。 */
 export type MutationResult = { ok: true; id?: number } | { ok: false; message: string };
 
@@ -193,6 +234,19 @@ export const deleteAppearance = (id: number) =>
 
 export const excludeUnparsedPost = (id: number) =>
   mutate(`/api/admin/unparsed-posts/${id}/exclude`, "POST");
+
+/**
+ * 会場の訂正。
+ *
+ * **全項目の差し替え。** `placeId` を省くと `null` になり、解決済みの会場が
+ * 未解決へ戻る（docs/api.md「会場の一覧と編集」）。呼ぶ側が常に現在値を渡す。
+ */
+export const updateVenue = (id: number, body: unknown) =>
+  mutate(`/api/admin/venues/${id}`, "PUT", body);
+
+/** 再試行の間隔（7 日）を待たずに 1 件だけ解決する。編集済み・地域だけの行は 409。 */
+export const resolveVenuePlaceId = (id: number) =>
+  mutate(`/api/admin/venues/${id}/resolve-place-id`, "POST");
 
 /** ログインのためのパスワード検証（docs/api.md「管理者パスワードの検証」）。 */
 export async function verifyPassword(password: string): Promise<boolean> {

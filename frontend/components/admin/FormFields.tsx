@@ -85,3 +85,44 @@ export function Field({
     </label>
   );
 }
+
+/**
+ * 選択式の入力。
+ *
+ * 自由入力にすると、API が受け付けない識別子を送って 400 になる。
+ * 選べる値はサーバの列挙と同じものに限る（正はサーバ側。NFR-03）。
+ */
+export function Select({
+  label,
+  name,
+  defaultValue,
+  options,
+  required = false,
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  required?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-medium">
+        {label}
+        {required && <span className="text-red-600 ml-1">*</span>}
+      </span>
+      <select
+        name={name}
+        defaultValue={defaultValue}
+        required={required}
+        className="mt-1 w-full min-h-11 rounded border border-neutral-400 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-2"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}

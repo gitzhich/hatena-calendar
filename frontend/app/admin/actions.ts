@@ -8,7 +8,9 @@ import {
   deleteAppearance,
   excludeUnparsedPost,
   requireAdmin,
+  resolveVenuePlaceId,
   updateAppearance,
+  updateVenue,
   verifyPassword,
 } from "@/lib/admin-api";
 import {
@@ -171,6 +173,55 @@ export async function excludePostAction(
   const result = await excludeUnparsedPost(Number(formData.get("id")));
   if (!result.ok) return { message: result.message };
   redirect("/admin/unparsed");
+}
+
+// ------------------------------------------------------------------
+// 会場（FR-10 / ADR-0022）
+// ------------------------------------------------------------------
+
+/**
+ * 会場の訂正。
+ *
+ * **`PUT` は全項目の差し替え。** `placeId` を送り忘れると `null` に戻り、
+ * 解決済みの会場が静かに未解決へ落ちる。フォームは現在値を隠さず常に送る
+ * （docs/api.md「会場の一覧と編集」）。
+ *
+ * **公開ページを再検証する。** `region` はカレンダーの色に直結し、公開ページは
+ * ISR でキャッシュされている。呼ばないと古い色が残る（FR-22）。
+ */
+export async function updateVenueAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await guard(formData);
+  const id = Number(formData.get("id"));
+  const result = await updateVenue(id, {
+    displayName: orNull(formData.get("displayName")),
+    region: orNull(formData.get("region")),
+    placeId: orNull(formData.get("placeId")),
+  });
+  if (!result.ok) return { message: result.message };
+  revalidatePublicPages();
+  redirect("/admin/venues");
+}
+
+/**
+ * 今すぐ 1 件だけ解決する。
+ *
+ * 結果（見つかったか、試行日時だけが進んだか）を見せたいので、
+ * 一覧ではなく同じ会場の画面へ戻す。
+ */
+export async function resolveVenueAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await guard(formData);
+  const id = Number(formData.get("id"));
+  const result = await resolveVenuePlaceId(id);
+  if (!result.ok) return { message: result.message };
+  // place_id は地図リンクに使う。公開ページのキャッシュを更新する
+  revalidatePublicPages();
+  redirect(`/admin/venues/${id}`);
 }
 
 /** 画面から CSRF トークンを取り出すための補助。 */
