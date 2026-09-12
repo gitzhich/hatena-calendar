@@ -1,13 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { regionLabel, type Region } from "@/lib/region";
+import { regionLabel } from "@/lib/region";
 import { regionClass } from "@/lib/region-color";
 
 /**
  * 凡例と絞り込みを兼ねる（FR-10 / ADR-0022）。
  *
  * その月に出演がある地域だけを、REGIONS の順で件数付きに並べる。
+ * 未知の地域はその後ろに辞書順で置く。
  * 選択状態は色ではなく太い枠線と aria-pressed で示す（NFR-08）。
  */
 export function RegionFilter({
@@ -16,10 +17,10 @@ export function RegionFilter({
   selected,
   onSelect,
 }: {
-  counts: { region: Region; count: number }[];
+  counts: { region: string; count: number }[];
   total: number;
-  selected: Region | null;
-  onSelect: (region: Region | null) => void;
+  selected: string | null;
+  onSelect: (region: string | null) => void;
 }) {
   if (counts.length === 0) return null;
 

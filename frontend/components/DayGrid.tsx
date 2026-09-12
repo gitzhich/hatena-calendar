@@ -12,7 +12,6 @@ import {
   firstWeekdayOfMonth,
   formatIsoDateWithWeekday,
 } from "@/lib/appearance-display";
-import type { Region } from "@/lib/region";
 import { countedRegions, matchesRegion, regionClass } from "@/lib/region-color";
 import { RegionFilter } from "@/components/RegionFilter";
 
@@ -81,7 +80,7 @@ type DayGridProps = {
 };
 
 const SelectedIsoContext = createContext<string | null>(null);
-const SelectedRegionContext = createContext<Region | null>(null);
+const SelectedRegionContext = createContext<string | null>(null);
 
 /** 選択中の日の詳細だけを出す。カード本体は Server Component のまま children で渡す。 */
 export function DayPanel({ iso, children }: { iso: string; children: ReactNode }) {
@@ -120,7 +119,7 @@ export function DayGrid({
   children,
 }: DayGridProps) {
   const [sheet, setSheet] = useState<Sheet | null>(null);
-  const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeCleanupRef = useRef<(() => void) | null>(null);
   const openSeqRef = useRef(0);

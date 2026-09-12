@@ -35,18 +35,28 @@ describe("matchesRegion", () => {
     assert.equal(matchesRegion("OKINAWA", null), true);
   });
 
-  it("知らない値は UNKNOWN の選択に一致する", () => {
-    assert.equal(matchesRegion("OKINAWA", "UNKNOWN"), true);
+  it("知らない値は生の値どうしで一致し、UNKNOWN には倒さない", () => {
+    assert.equal(matchesRegion("OKINAWA", "UNKNOWN"), false);
+    assert.equal(matchesRegion("OKINAWA", "OKINAWA"), true);
     assert.equal(matchesRegion("OKINAWA", "KANTO"), false);
   });
 });
 
 describe("countedRegions", () => {
-  it("知らない値は UNKNOWN に数え、REGIONS の順で 0 件を除く", () => {
+  it("知らない値は UNKNOWN に合算せず、REGIONS のあとに辞書順で置く", () => {
     assert.deepEqual(countedRegions(["KINKI", "OKINAWA", "KANTO", "KANTO"]), [
       { region: "KANTO", count: 2 },
       { region: "KINKI", count: 1 },
-      { region: "UNKNOWN", count: 1 },
+      { region: "OKINAWA", count: 1 },
     ]);
+    assert.deepEqual(
+      countedRegions(["TOKAI", "OKINAWA", "UNKNOWN", "KANTO"]),
+      [
+        { region: "KANTO", count: 1 },
+        { region: "UNKNOWN", count: 1 },
+        { region: "OKINAWA", count: 1 },
+        { region: "TOKAI", count: 1 },
+      ],
+    );
   });
 });
