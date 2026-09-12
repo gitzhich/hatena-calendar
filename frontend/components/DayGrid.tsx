@@ -13,7 +13,7 @@ import {
   formatIsoDateWithWeekday,
 } from "@/lib/appearance-display";
 import { countedRegions, matchesRegion, regionClass } from "@/lib/region-color";
-import { RegionFilter } from "@/components/RegionFilter";
+import { RegionBar } from "@/components/RegionBar";
 
 const MAX_VISIBLE_CHIPS = 2;
 
@@ -322,9 +322,8 @@ export function DayGrid({
         </div>
       </nav>
 
-      <RegionFilter
+      <RegionBar
         counts={regionCounts}
-        total={allItems.length}
         selected={selectedRegion}
         onSelect={setSelectedRegion}
       />
