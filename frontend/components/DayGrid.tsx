@@ -353,7 +353,8 @@ export function DayGrid({
             );
           }
           const iso = `${year}-${pad(month)}-${pad(day)}`;
-          const items = (chipsByDate[iso] ?? []).filter((item) =>
+          const unfiltered = chipsByDate[iso] ?? [];
+          const items = unfiltered.filter((item) =>
             matchesRegion(item.venueRegion, selectedRegion),
           );
           return (
@@ -363,6 +364,7 @@ export function DayGrid({
               iso={iso}
               items={items}
               appearancesOk={appearancesOk}
+              hiddenByFilter={unfiltered.length > 0 && items.length === 0}
               isToday={todayDay === day}
               onSelect={openDay}
             />
@@ -490,6 +492,7 @@ function DayCell({
   iso,
   items,
   appearancesOk,
+  hiddenByFilter,
   isToday,
   onSelect,
 }: {
@@ -497,12 +500,13 @@ function DayCell({
   iso: string;
   items: ChipItem[];
   appearancesOk: boolean;
+  hiddenByFilter: boolean;
   isToday: boolean;
   onSelect: (iso: string) => void;
 }) {
   const visible = items.slice(0, MAX_VISIBLE_CHIPS);
   const overflow = items.length - visible.length;
-  const countLabel = dayCellCountLabel(appearancesOk, items.length);
+  const countLabel = dayCellCountLabel(appearancesOk, items.length, hiddenByFilter);
   const ariaLabel = `${day}日${isToday ? " 今日" : ""} ${countLabel}`;
 
   return (

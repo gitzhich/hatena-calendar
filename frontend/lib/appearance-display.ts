@@ -49,15 +49,24 @@ export function chipLabel(performanceStartTime: string | null): string {
 const FETCH_FAILED_CELL = "取得できませんでした";
 const FETCH_FAILED_SHEET = "出演情報を取得できませんでした。";
 const EMPTY_DAY_SHEET = "この日の出演予定はありません。";
+const HIDDEN_BY_FILTER_CELL = "絞り込みで非表示";
 const HIDDEN_BY_FILTER_SHEET = "この日の出演は、地域の絞り込みで非表示になっています。";
 
 /**
  * 日付セルの件数ラベル。失敗時に「出演なし」と出さない
  * （空配列は「予定がない」ではなく「取れなかった」）。
+ * 絞り込みですべて隠れたときは、無いと言わず隠していると出す。
+ * aria-label に載るので短くする。
  */
-export function dayCellCountLabel(fetched: boolean, count: number): string {
+export function dayCellCountLabel(
+  fetched: boolean,
+  count: number,
+  hiddenByFilter = false,
+): string {
   if (!fetched) return FETCH_FAILED_CELL;
-  return count > 0 ? `出演 ${count} 件` : "出演なし";
+  if (count > 0) return `出演 ${count} 件`;
+  if (hiddenByFilter) return HIDDEN_BY_FILTER_CELL;
+  return "出演なし";
 }
 
 /**

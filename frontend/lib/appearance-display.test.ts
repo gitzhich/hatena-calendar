@@ -56,13 +56,21 @@ describe("appearance-display", () => {
     assert.equal(emptyDaySheetCopy(true, true), null);
   });
 
-  it("絞り込みで空になった日は「予定はありません」と出さない", () => {
+  it("絞り込みで空になった日は「予定はありません」「出演なし」と出さない", () => {
     assert.equal(
       emptyDaySheetCopy(true, true, true),
       "この日の出演は、地域の絞り込みで非表示になっています。",
     );
     assert.doesNotMatch(emptyDaySheetCopy(true, true, true) ?? "", /予定はありません/);
+    assert.equal(dayCellCountLabel(true, 0, true), "絞り込みで非表示");
+    assert.doesNotMatch(dayCellCountLabel(true, 0, true), /出演なし/);
+  });
+
+  it("取得失敗は絞り込みより先に出す", () => {
     assert.equal(emptyDaySheetCopy(false, true, true), "出演情報を取得できませんでした。");
+    assert.doesNotMatch(emptyDaySheetCopy(false, true, true) ?? "", /非表示/);
+    assert.equal(dayCellCountLabel(false, 0, true), "取得できませんでした");
+    assert.doesNotMatch(dayCellCountLabel(false, 0, true), /非表示/);
   });
 
   it("開始が無ければ null。終了が無ければ開始だけ", () => {
