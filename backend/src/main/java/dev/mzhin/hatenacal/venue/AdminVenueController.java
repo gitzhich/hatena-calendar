@@ -3,6 +3,8 @@ package dev.mzhin.hatenacal.venue;
 import dev.mzhin.hatenacal.common.PageResponse;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -56,6 +58,18 @@ public class AdminVenueController {
     @PutMapping("/{id}")
     public AdminVenueDto update(@PathVariable Long id, @Valid @RequestBody VenueCommand cmd) {
         return service.update(id, cmd);
+    }
+
+    /**
+     * 削除。<b>出演情報から参照されている会場は 409。</b>
+     *
+     * <p>会場名の書き換えで取り残された行を消すための操作。参照されている会場を
+     * 消せるようにすると、公開ページから地域と地図リンクが落ちる。
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        service.delete(id);
+        return ResponseEntity.noContent().build();
     }
 
     /** 再試行の間隔を待たずに解決する。管理者が編集済みの会場には 409 を返す。 */

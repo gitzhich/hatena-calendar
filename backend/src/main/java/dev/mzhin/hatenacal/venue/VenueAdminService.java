@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -76,6 +77,39 @@ public class VenueAdminService {
         Venue target = load(id);
         target.editByAdmin(cmd.displayName(), cmd.region(), blankToNull(cmd.placeId()));
         return detail(target);
+    }
+
+    /**
+     * 削除（docs/api.md「会場の一覧と編集」）。
+     *
+     * <p><b>出演情報から参照されていない行だけ消せる。</b> 参照されている会場を消すと
+     * 地域も地図リンクも一緒に失われ、公開ページから会場の表示が落ちる。
+     * 消したいのは会場名の書き換えで取り残された行（{@code appearanceCount} が 0）だけ。
+     *
+     * <p><b>数えてから消すまでの間に増える。</b> 取り込みの定期実行が 30 分ごとに
+     * {@code venue_id} を付けるため（ADR-0022「既存データの初期投入」）、件数が 0 でも
+     * 削除の直前に紐づくことがある。**外部キー違反も 409 に落とす。** 500 として
+     * 素通しにすると、防げた衝突が「サーバ内部エラー」に見える。
+     *
+     * <p><b>{@code manually_edited} でも消せる。</b> 条件は使用件数だけ。ただし
+     * 人が直した地域も一緒に消えるので、同じ表記が再び告知に出れば自動判定で
+     * 作り直される。出演 0 件の行に限られるため、公開されている情報は変わらない。
+     */
+    @Transactional
+    public void delete(Long id) {
+        Venue target = load(id);
+        long used = count(countsFor(List.of(target)), target);
+        if (used > 0) {
+            throw new ConflictException("出演情報が " + used + " 件あるため削除できません");
+        }
+        try {
+            repository.delete(target);
+            // ここで流し込まないと DELETE はコミット時まで遅れ、catch の外で落ちる
+            repository.flush();
+        } catch (DataIntegrityViolationException e) {
+            log.warn("削除の直前に出演情報が紐づいた（venue={}）", id);
+            throw new ConflictException("削除の直前に出演情報が紐づいたため削除できません");
+        }
     }
 
     /**
