@@ -13,6 +13,8 @@ export type Appearance = {
   appearanceDate: string;
   eventName: string;
   venueName: string | null;
+  venueRegion: string; // "KANTO" など。UNKNOWN もある。会場が空欄なら UNKNOWN
+  venuePlaceId: string | null; // null は「まだ同定できていない」
   performanceStartTime: string | null;
   performanceEndTime: string | null;
   merchStartTime: string | null;
