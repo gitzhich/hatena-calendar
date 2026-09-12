@@ -5,6 +5,7 @@ import {
   chipLabel,
   dayCellCountLabel,
   daysInMonth,
+  emptyAppearanceListCopy,
   emptyDaySheetCopy,
   firstWeekdayOfMonth,
   formatIsoDate,
@@ -64,6 +65,18 @@ describe("appearance-display", () => {
     assert.doesNotMatch(emptyDaySheetCopy(true, true, true) ?? "", /予定はありません/);
     assert.equal(dayCellCountLabel(true, 0, true), "絞り込みで非表示");
     assert.doesNotMatch(dayCellCountLabel(true, 0, true), /出演なし/);
+  });
+
+  it("一覧が空のときは予定がないと出す。絞り込みで空のときは隠していると出す", () => {
+    assert.equal(emptyAppearanceListCopy(false), "この月の出演予定はまだありません。");
+    assert.equal(emptyAppearanceListCopy(false, true), "この月の出演予定はまだありません。");
+    assert.doesNotMatch(emptyAppearanceListCopy(false, true) ?? "", /非表示/);
+    assert.equal(
+      emptyAppearanceListCopy(true, true),
+      "この月の出演は、地域の絞り込みで非表示になっています。",
+    );
+    assert.doesNotMatch(emptyAppearanceListCopy(true, true) ?? "", /予定はありません/);
+    assert.equal(emptyAppearanceListCopy(true), null);
   });
 
   it("取得失敗は絞り込みより先に出す", () => {
