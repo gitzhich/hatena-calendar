@@ -1,6 +1,6 @@
 import type { Appearance } from "@/lib/api";
 import { todayInJst, isWithinRange } from "@/lib/calendar-range";
-import { DayGrid, DayPanel } from "@/components/DayGrid";
+import { DayGrid, DayPanel, RegionMatch } from "@/components/DayGrid";
 import { AppearanceCard } from "@/components/AppearanceCard";
 
 /** 月グリッド（FR-01）。7 列で当月のすべての日付を含む。 */
@@ -24,13 +24,19 @@ export function Calendar({
 
   const chipsByDate: Record<
     string,
-    { id: number; eventName: string; performanceStartTime: string | null }[]
+    {
+      id: number;
+      eventName: string;
+      performanceStartTime: string | null;
+      venueRegion: string;
+    }[]
   > = {};
   for (const [iso, items] of Object.entries(byDate)) {
     chipsByDate[iso] = items.map((a) => ({
       id: a.id,
       eventName: a.eventName,
       performanceStartTime: a.performanceStartTime,
+      venueRegion: a.venueRegion,
     }));
   }
 
@@ -53,9 +59,11 @@ export function Calendar({
           <DayPanel key={iso} iso={iso}>
             <ul className="space-y-3">
               {items.map((a) => (
-                <li key={a.id}>
-                  <AppearanceCard appearance={a} />
-                </li>
+                <RegionMatch key={a.id} region={a.venueRegion}>
+                  <li>
+                    <AppearanceCard appearance={a} />
+                  </li>
+                </RegionMatch>
               ))}
             </ul>
           </DayPanel>

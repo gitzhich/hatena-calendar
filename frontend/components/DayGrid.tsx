@@ -12,7 +12,9 @@ import {
   firstWeekdayOfMonth,
   formatIsoDateWithWeekday,
 } from "@/lib/appearance-display";
-import { chipClass } from "@/lib/chip-color";
+import type { Region } from "@/lib/region";
+import { countedRegions, matchesRegion, regionClass } from "@/lib/region-color";
+import { RegionFilter } from "@/components/RegionFilter";
 
 const MAX_VISIBLE_CHIPS = 2;
 
@@ -64,6 +66,7 @@ type ChipItem = {
   id: number;
   eventName: string;
   performanceStartTime: string | null;
+  venueRegion: string;
 };
 
 type DayGridProps = {
@@ -78,11 +81,30 @@ type DayGridProps = {
 };
 
 const SelectedIsoContext = createContext<string | null>(null);
+const SelectedRegionContext = createContext<Region | null>(null);
 
 /** 選択中の日の詳細だけを出す。カード本体は Server Component のまま children で渡す。 */
 export function DayPanel({ iso, children }: { iso: string; children: ReactNode }) {
   const selectedIso = useContext(SelectedIsoContext);
   if (iso !== selectedIso) return null;
+  return children;
+}
+
+/**
+ * 日別シートの 1 件。地域が絞り込みと一致しないときは出さない。
+ *
+ * children はサーバで描いたカード。クライアントから中身は読めないので、
+ * 包んで null を返す。
+ */
+export function RegionMatch({
+  region,
+  children,
+}: {
+  region: string;
+  children: ReactNode;
+}) {
+  const selected = useContext(SelectedRegionContext);
+  if (!matchesRegion(region, selected)) return null;
   return children;
 }
 
@@ -98,6 +120,7 @@ export function DayGrid({
   children,
 }: DayGridProps) {
   const [sheet, setSheet] = useState<Sheet | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeCleanupRef = useRef<(() => void) | null>(null);
   const openSeqRef = useRef(0);
@@ -271,13 +294,21 @@ export function DayGrid({
     };
   };
 
+  const allItems = Object.values(chipsByDate).flat();
+  const regionCounts = countedRegions(allItems.map((item) => item.venueRegion));
+  const dayItems = selectedIso === null ? [] : (chipsByDate[selectedIso] ?? []);
+  const visibleDayCount = dayItems.filter((item) =>
+    matchesRegion(item.venueRegion, selectedRegion),
+  ).length;
   const emptyCopy = emptyDaySheetCopy(
     appearancesOk,
-    selectedIso !== null && (chipsByDate[selectedIso] ?? []).length > 0,
+    selectedIso !== null && dayItems.length > 0,
+    selectedIso !== null && dayItems.length > 0 && visibleDayCount === 0,
   );
 
   return (
     <SelectedIsoContext.Provider value={selectedIso}>
+      <SelectedRegionContext.Provider value={selectedRegion}>
       <nav className="flex items-center gap-2 mb-4">
         <TodayControl
           isCurrentMonth={isCurrentMonth}
@@ -291,6 +322,13 @@ export function DayGrid({
           <MonthLink target={next} label="次の月" glyph="→" />
         </div>
       </nav>
+
+      <RegionFilter
+        counts={regionCounts}
+        total={allItems.length}
+        selected={selectedRegion}
+        onSelect={setSelectedRegion}
+      />
 
       <div className="grid grid-cols-7 gap-1">
         {WEEKDAYS.map((w) => (
@@ -315,7 +353,9 @@ export function DayGrid({
             );
           }
           const iso = `${year}-${pad(month)}-${pad(day)}`;
-          const items = chipsByDate[iso] ?? [];
+          const items = (chipsByDate[iso] ?? []).filter((item) =>
+            matchesRegion(item.venueRegion, selectedRegion),
+          );
           return (
             <DayCell
               key={iso}
@@ -388,6 +428,7 @@ export function DayGrid({
           {children}
         </div>
       </dialog>
+      </SelectedRegionContext.Provider>
     </SelectedIsoContext.Provider>
   );
 }
@@ -494,7 +535,7 @@ function DayCell({
           <span
             key={a.id}
             title={a.eventName}
-            className={`block max-w-full truncate rounded-chip px-0.5 text-[9px] leading-3 ${chipClass(a.eventName)}`}
+            className={`block max-w-full truncate rounded-chip px-0.5 text-[9px] leading-3 ${regionClass(a.venueRegion)}`}
           >
             {chipLabel(a.performanceStartTime)}
           </span>

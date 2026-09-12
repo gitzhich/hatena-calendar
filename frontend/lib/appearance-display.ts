@@ -49,6 +49,7 @@ export function chipLabel(performanceStartTime: string | null): string {
 const FETCH_FAILED_CELL = "取得できませんでした";
 const FETCH_FAILED_SHEET = "出演情報を取得できませんでした。";
 const EMPTY_DAY_SHEET = "この日の出演予定はありません。";
+const HIDDEN_BY_FILTER_SHEET = "この日の出演は、地域の絞り込みで非表示になっています。";
 
 /**
  * 日付セルの件数ラベル。失敗時に「出演なし」と出さない
@@ -62,9 +63,15 @@ export function dayCellCountLabel(fetched: boolean, count: number): string {
 /**
  * 日別シートの空表示。失敗時は「予定はありません」を使わない。
  * 予定がある日は null（カード側を出す）。
+ * 絞り込みですべて隠れたときは、無いと言わず隠していると出す。
  */
-export function emptyDaySheetCopy(fetched: boolean, hasItems: boolean): string | null {
+export function emptyDaySheetCopy(
+  fetched: boolean,
+  hasItems: boolean,
+  hiddenByFilter = false,
+): string | null {
   if (!fetched) return FETCH_FAILED_SHEET;
   if (!hasItems) return EMPTY_DAY_SHEET;
+  if (hiddenByFilter) return HIDDEN_BY_FILTER_SHEET;
   return null;
 }

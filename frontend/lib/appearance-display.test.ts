@@ -56,6 +56,15 @@ describe("appearance-display", () => {
     assert.equal(emptyDaySheetCopy(true, true), null);
   });
 
+  it("絞り込みで空になった日は「予定はありません」と出さない", () => {
+    assert.equal(
+      emptyDaySheetCopy(true, true, true),
+      "この日の出演は、地域の絞り込みで非表示になっています。",
+    );
+    assert.doesNotMatch(emptyDaySheetCopy(true, true, true) ?? "", /予定はありません/);
+    assert.equal(emptyDaySheetCopy(false, true, true), "出演情報を取得できませんでした。");
+  });
+
   it("開始が無ければ null。終了が無ければ開始だけ", () => {
     assert.equal(formatTimeRange(null, "21:00:00"), null);
     assert.equal(formatTimeRange("19:30:00", null), "19:30");
