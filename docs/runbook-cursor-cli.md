@@ -158,6 +158,17 @@ git worktree list                       # どこに何があるか
 作業が終わったら worktree とブランチを片付ける。**本体のブランチに
 取り込んでからにすること。**
 
+**消すブランチは 2 つある。** Cursor が PR 用に切る `feat/...` と、
+**`-w <名前>` が作る worktree 名のブランチ**（`map-link` / `region-color` など）。
+後者は worktree を作った時点の `main` を指すだけで固有のコミットは無いが、
+放っておくと溜まる。2026-09-12 に 3 つ溜まっているのを見つけた。
+
+```bash
+git worktree remove <path> --force && git worktree prune
+git branch -d feat/xxx <worktree 名>
+git branch -a          # main と origin/main だけになることを確認する
+```
+
 ## 6. モデル
 
 **`--model` を省くと `auto`。** 明示する。

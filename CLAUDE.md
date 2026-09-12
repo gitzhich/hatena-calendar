@@ -341,6 +341,14 @@ Cursor は**作業ブランチを切って PR を出すところまで**を行�
   `--squash` と `--rebase` は使わない。
   どの作業がひとまとまりで入ったかを後から追えなくなるため
 - **マージ済みの作業ブランチは削除する**（`git branch -d <branch>`）。手元に残さない
+- **`git pull` には `--ff-only --prune` を付ける。**
+  `--ff-only` は、`main` が意図せず分岐したときに**黙ってマージコミットを作らせない**
+  （直接コミットしない規約と対になる）。`--prune` は、削除済みのリモートブランチの
+  追跡（`origin/feat/...`）を消す。付けないと**手元だけに残り続け、`git branch -a` が
+  実態と食い違う**
+- **Cursor を `-w <名前>` で動かすと、`feat/...` とは別に worktree 名のブランチが残る。**
+  当時の `main` を指すだけで固有のコミットは無いので、片付けのときに一緒に消す
+  （[docs/runbook-cursor-cli.md](docs/runbook-cursor-cli.md)「実装させるときは worktree に入れる」）
 
 **取り込みは PR 経由で行う。** GitHub 側のブランチ保護（classic / ruleset）は
 **private リポジトリだと GitHub Pro が必要**で、無料プランでは使えない。
@@ -357,13 +365,18 @@ git config core.hooksPath .githooks   # clone 後に 1 回だけ実行する
 規約そのものは人が守る。有料プランへ移るなら GitHub 側の保護に置き換える。
 
 ```bash
-git checkout main && git pull     # 先に main を最新にする（切る元を間違えない）
+git checkout main && git pull --ff-only --prune   # 先に main を最新にする（切る元を間違えない）
 git checkout -b feat/xxx          # 作業ブランチを切る
 git push -u origin feat/xxx       # push
 gh pr create --title … --body …   # PR を作る（本文の型は後述。--fill で済ませない）
                                   # 集約ジョブ ci の成功を確認してからマージする
 gh pr merge --merge --delete-branch   # マージコミットを残して取り込む
-git checkout main && git pull     # ローカルを追従させる
+
+# --- 片付け ---
+git checkout main && git pull --ff-only --prune   # 追従し、消えたリモートの追跡も落とす
+git worktree remove <path> --force && git worktree prune   # Cursor を使ったときだけ
+git branch -d feat/xxx <worktree 名>              # 手元のブランチを消す
+git branch -a                     # main と origin/main だけになったことを確認する
 ```
 
 - **PR のマージは `--merge`**（マージコミットを残す）。`--squash` と `--rebase` は使わない。
