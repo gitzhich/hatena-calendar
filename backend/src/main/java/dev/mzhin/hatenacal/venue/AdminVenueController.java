@@ -3,7 +3,6 @@ package dev.mzhin.hatenacal.venue;
 import dev.mzhin.hatenacal.common.PageResponse;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,29 +24,32 @@ public class AdminVenueController {
 
     private static final int MAX_PAGE_SIZE = 100;
 
-    /**
-     * 既定の並び順。
-     *
-     * <p><b>最後に id で決着させる。</b> 同じ表記の行は作れないが、並び順を
-     * 一意に決めておかないとページの境界で取りこぼしと重複が出る
-     * （docs/api.md「出演情報の一覧と個別取得（点検用）」と同じ理由）。
-     */
-    private static final Sort ORDER = Sort.by(Sort.Order.asc("displayName"), Sort.Order.asc("id"));
-
     private final VenueAdminService service;
 
     public AdminVenueController(VenueAdminService service) {
         this.service = service;
     }
 
-    /** 一覧。{@code page} / {@code size} は点検一覧と同じ丸め規則で、400 にしない。 */
+    /**
+     * 一覧。{@code page} / {@code size} は点検一覧と同じ丸め規則で、400 にしない。
+     *
+     * <p><b>{@link PageRequest} に {@code Sort} を載せない。</b> 並び順はクエリが
+     * {@code ORDER BY} で決めており（{@link VenueRepository#REGION_ORDER}）、
+     * ここで渡すとその後ろに追記されて意図がぶれる。
+     */
     @GetMapping
     public PageResponse<AdminVenueDto> list(
             @RequestParam(defaultValue = "false") boolean unresolved,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         int capped = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
-        return service.list(unresolved, PageRequest.of(Math.max(page, 0), capped, ORDER));
+        return service.list(unresolved, PageRequest.of(Math.max(page, 0), capped));
+    }
+
+    /** 1 件。編集画面が現在値を読む口。存在しなければ 404。 */
+    @GetMapping("/{id}")
+    public AdminVenueDto get(@PathVariable Long id) {
+        return service.find(id);
     }
 
     /** 訂正。<b>更新すると自動処理がこの行を上書きしなくなる。</b> */

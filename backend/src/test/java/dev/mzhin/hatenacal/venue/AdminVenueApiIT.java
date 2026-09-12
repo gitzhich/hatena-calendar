@@ -10,6 +10,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -118,6 +121,30 @@ class AdminVenueApiIT {
                 .executeUpdate());
     }
 
+    /**
+     * 地域を指定して会場を 1 行作る。
+     *
+     * <p>並び順の検証に使う。{@link VenueService#findOrCreate} は表記から地域を引くため、
+     * 全 10 区分を揃えられない。
+     */
+    private void venue(String displayName, Region region) {
+        tx.executeWithoutResult(s -> em.createNativeQuery("""
+                INSERT INTO venue (venue_key, display_name, region) VALUES (?1, ?2, ?3)
+                """)
+                .setParameter(1, displayName)
+                .setParameter(2, displayName)
+                .setParameter(3, region.name())
+                .executeUpdate());
+    }
+
+    private static List<String> fields(JsonNode items, String name) {
+        List<String> values = new ArrayList<>();
+        for (int i = 0; i < items.size(); i++) {
+            values.add(items.get(i).path(name).asString());
+        }
+        return values;
+    }
+
     private String editBody(String displayName, String region, String placeId) {
         return """
                 {"displayName": "%s", "region": "%s", "placeId": %s}
@@ -185,6 +212,87 @@ class AdminVenueApiIT {
     @DisplayName("公開キーでは通らない")
     void rejectsPublicKey() throws Exception {
         assertThat(send("GET", PATH, PUBLIC_KEY, null).statusCode()).isEqualTo(403);
+    }
+
+    // -------------------------------------------------------------- 並び順
+
+    @Test
+    @DisplayName("地方でまとまり、Region の宣言順に並ぶ")
+    void ordersByRegionDeclaration() throws Exception {
+        Region[] regions = Region.values();
+        for (int i = 0; i < regions.length; i++) {
+            // 表記は宣言順と逆に振る。displayName だけで並べた結果と区別がつく
+            venue("会場" + (char) ('A' + regions.length - 1 - i), regions[i]);
+        }
+
+        JsonNode items = get(PATH + "?size=100").path("items");
+
+        assertThat(fields(items, "region"))
+                .as("Region に地方を足して ORDER BY の CASE を直し忘れると、ここだけが崩れる")
+                .containsExactlyElementsOf(
+                        Arrays.stream(regions).map(Enum::name).toList());
+    }
+
+    @Test
+    @DisplayName("同じ地方の中は表記の昇順")
+    void ordersByDisplayNameWithinRegion() throws Exception {
+        venue("東京・Z会場", Region.KANTO);
+        venue("東京・A会場", Region.KANTO);
+        venue("北海道・M会場", Region.HOKKAIDO);
+
+        JsonNode items = get(PATH).path("items");
+
+        assertThat(fields(items, "displayName"))
+                .containsExactly("北海道・M会場", "東京・A会場", "東京・Z会場");
+    }
+
+    @Test
+    @DisplayName("unresolved=true でも地方の順は同じ")
+    void ordersUnresolvedByRegion() throws Exception {
+        venue("九州・K会場", Region.KYUSHU);
+        venue("関東・T会場", Region.KANTO);
+
+        JsonNode items = get(PATH + "?unresolved=true").path("items");
+
+        assertThat(fields(items, "region"))
+                .as("絞り込みで別のクエリに切り替わる。並び順はそちらにも要る")
+                .containsExactly("KANTO", "KYUSHU");
+    }
+
+    // -------------------------------------------------------------- 1 件取得
+
+    @Test
+    @DisplayName("1 件取得は一覧の 1 要素と同じ形を返す")
+    void getsOneVenue() throws Exception {
+        Long id = venue("愛知・大須RADHALL");
+        appearance("a", id, "愛知・大須RADHALL");
+
+        JsonNode body = get(PATH + "/" + id);
+
+        assertThat(body.path("id").asLong()).isEqualTo(id);
+        assertThat(body.path("venueKey").asString()).isEqualTo("愛知大須radhall");
+        assertThat(body.path("displayName").asString()).isEqualTo("愛知・大須RADHALL");
+        assertThat(body.path("region").asString()).isEqualTo("CHUBU");
+        assertThat(body.path("placeId").isNull()).isTrue();
+        assertThat(body.path("manuallyEdited").asBoolean()).isFalse();
+        assertThat(body.path("areaOnly").asBoolean()).isFalse();
+        assertThat(body.path("appearanceCount").asLong())
+                .as("編集画面が一覧と同じ形を扱えるようにする")
+                .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("存在しない会場の取得は 404")
+    void getMissingVenue() throws Exception {
+        assertThat(send("GET", PATH + "/999999", ADMIN_KEY, null).statusCode()).isEqualTo(404);
+    }
+
+    @Test
+    @DisplayName("1 件取得も公開キーでは通らない")
+    void rejectsPublicKeyOnGetOne() throws Exception {
+        Long id = venue("愛知・大須RADHALL");
+
+        assertThat(send("GET", PATH + "/" + id, PUBLIC_KEY, null).statusCode()).isEqualTo(403);
     }
 
     // -------------------------------------------------------------- 編集

@@ -39,16 +39,29 @@ public class VenueAdminService {
     /**
      * 一覧。
      *
+     * <p><b>並び順はクエリ側で決める</b>（{@link VenueRepository#REGION_ORDER}）。
+     * 地方でまとまるので、同じ地域の会場を見比べながら直せる。
+     *
      * @param unresolved {@code true} なら place_id が未解決の会場だけ。
      *                   初期投入の進み具合と、解決できない会場の確認に使う
      */
     @Transactional(readOnly = true)
     public PageResponse<AdminVenueDto> list(boolean unresolved, Pageable pageable) {
         Page<Venue> page = unresolved
-                ? repository.findByPlaceIdIsNull(pageable)
-                : repository.findAll(pageable);
+                ? repository.findUnresolvedOrdered(pageable)
+                : repository.findAllOrdered(pageable);
         Map<Long, Long> counts = countsFor(page.getContent());
         return PageResponse.of(page, v -> AdminVenueDto.from(v, count(counts, v)));
+    }
+
+    /**
+     * 1 件（docs/api.md「会場の一覧と編集」）。編集画面が現在値を読むために使う。
+     *
+     * <p><b>一覧の 1 要素と同じ形を返す。</b> 画面が一覧と詳細で別の形を扱わずに済む。
+     */
+    @Transactional(readOnly = true)
+    public AdminVenueDto find(Long id) {
+        return detail(load(id));
     }
 
     /**
