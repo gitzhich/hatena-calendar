@@ -7,6 +7,10 @@ import { regionClass } from "@/lib/region-color";
  * 凡例のピルをそのまま絞り込みのトグルにする（FR-10 / NFR-06）。
  *
  * 塗りは 20px のまま、button の透明な余白で 44×44 を確保する。
+ * 外側は `-mt-3 mb-1`。透明な余白 12px が前後の margin と足し算されると見た目が
+ * 28px になるので、余白を margin に食い込ませて他の行と同じ 16px に揃える。
+ * 上は nav（今日 / ← / →）との間に 4px 残るのでタップ領域は重ならない。
+ * 下の曜日見出しは押せないので重なっても影響が無い。
  * 選択中は塗りに outline を出し、色や opacity では状態を伝えない（NFR-08）。
  * 「すべて」は足さない。幅 360px で 6 個目が折り返すため、選択中をもう一度押して解除する。
  * 0 件の月は行ごと出さない。横スクロールにはしない。
@@ -26,7 +30,7 @@ export function RegionBar({
     <div
       role="group"
       aria-label="地域で絞り込み"
-      className="mb-4 flex w-full min-w-0 flex-wrap items-center gap-2"
+      className="-mt-3 mb-1 flex w-full min-w-0 flex-wrap items-center gap-2"
     >
       {counts.map(({ region, count }) => {
         const pressed = selected === region;
