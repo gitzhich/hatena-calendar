@@ -459,8 +459,10 @@ curl -sI https://<domain>/ | grep -iE 'content-security-policy|strict-transport|
       請求期間（9/3 開始）の 12.4 日で **70.34 / 100 CU-hours**。日あたり 5.70 で、
       **月換算 約 171**。[architecture.md](architecture.md)「運用コストの試算」の試算 約 31 に対して
       **5.4 倍**、無料枠 100 に対して **1.7 倍**である。
-      0.25 CU を常時起動した場合が 6.00 CU-hours/日なので、**稼働率は約 95%** ——
-      **コンピュートがほぼ suspend していない**。原因は未特定。
+      0.25 CU を常時起動した場合が 6.00 CU-hours/日なので、**稼働率はほぼ 100%** ——
+      **コンピュートが一度も suspend していなかった**。
+      **原因は Fly が 30 秒ごとに叩く `/actuator/health` の `db` インジケータ**で、
+      2026-09-15 に外した（[ADR-0023](adr/0023-health-check-without-db.md)）。
       **このままだと 2026-09-20 ごろに枠を使い切り、請求期間が変わる 10/3 まで
       サイトが閲覧不能になる**（NFR-02。Free は超過課金ではなくコンピュート停止）
 - [x] **本番が HTTPS のみで動作する** — 2026-09-03 に確認（[security.md](security.md)「実装チェックリスト」）
