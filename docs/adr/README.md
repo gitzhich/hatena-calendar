@@ -40,3 +40,4 @@
 | [0020](0020-drop-posts-beyond-page-limit.md) | 1 回の取り込みを 1,000 件で頭打ちにし、超過分は取得を諦める | 承認済み |
 | [0021](0021-register-appearances-without-timetable.md) | タイムテーブル未確定の告知を、出演時刻なしで登録する | 承認済み |
 | [0022](0022-venue-place-id-and-region.md) | 会場を正規化し、地域と Google の place_id を持たせる | 承認済み |
+| [0023](0023-health-check-without-db.md) | ヘルスチェックから DB を外す | 承認済み |

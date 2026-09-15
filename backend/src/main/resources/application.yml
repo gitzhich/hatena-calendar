@@ -42,6 +42,22 @@ management:
   endpoint:
     health:
       show-details: never
+  health:
+    # **ヘルスチェックから DB を外す**（ADR-0023）。
+    #
+    # Fly が /actuator/health を 30 秒ごとに叩く（backend/fly.toml）。
+    # db インジケータは Connection.isValid() で DB に触るため、含めると
+    # 30 秒ごとに Neon の scale-to-zero タイマーがリセットされ、5 分の無活動に
+    # 一度も到達しない。実際 2026-09-03 から 11.78 日間 suspend せず、
+    # 無料枠 100 CU-hours の 70% を 12 日で消費した
+    # （docs/architecture.md「運用コストの試算」）。
+    #
+    # **外しても検知は失われない。** DB に繋がらなければ Flyway と
+    # ddl-auto: validate が起動を止める。稼働中の障害は取り込みの連続失敗が
+    # 管理画面に出す（NFR-09）。一方 Fly のチェックが落ちても
+    # プロキシがルーティングを止めるだけで、通知も再起動も復旧も起きない。
+    db:
+      enabled: false
 
 # X API 連携（docs/x-integration.md「API 呼び出し仕様」 / docs/architecture.md「設定と環境変数」）
 x:
