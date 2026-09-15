@@ -29,6 +29,19 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+logging:
+  level:
+    # **起動ログに DB のパスワードを出さない**（NFR-03 / docs/security.md「実装チェックリスト」）。
+    #
+    # Hibernate はこのカテゴリの INFO で「Database info:」を出し、そこに
+    # **JDBC URL をマスクせずそのまま載せる**。認証情報は URL に含めて渡すため
+    # （docs/architecture.md「接続情報は `DATABASE_URL` 1 本で渡す」）、
+    # パスワードが平文で記録される。同じ URL を Flyway は password=******** に
+    # マスクしており、**ここだけ抜けていた**。本番の Fly のログに実際に残っていた。
+    #
+    # **WARN にする（off にしない）。** 接続プールの異常は拾い続ける。
+    org.hibernate.orm.connections.pooling: warn
+
 # docs/data-model.md「タイムゾーンの扱い」：システムの時刻は UTC で保存し、表示時に JST へ変換する。
 # イベントの開催日・出演時刻は DATE / TIME の JST ローカル値で、UTC 変換しない。
 server:
